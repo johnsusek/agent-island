@@ -31,9 +31,27 @@
 
 import { spawn, execFile } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { api, baseUrl } from "./world.mjs";
+
+// Runtime home, mirrored from src/paths.ts (this script runs under plain node,
+// not tsx, so it cannot import the TS helper). Character/director workdirs and
+// crew pidfiles live here, out of the repo. Override with AGENT_ISLAND_HOME.
+function agentIslandHome() {
+  let raw = process.env.AGENT_ISLAND_HOME?.trim();
+  if (raw) {
+    if (raw === "~") return os.homedir();
+    if (raw.startsWith("~/")) return path.join(os.homedir(), raw.slice(2));
+    return path.resolve(raw);
+  }
+  return path.join(os.homedir(), ".agent-island");
+}
+
+function homePath(...segments) {
+  return path.join(agentIslandHome(), ...segments);
+}
 
 const execFileP = promisify(execFile);
 
@@ -48,10 +66,10 @@ function numEnv(name, fallback) {
 
 const CONFIG = {
   charactersDir: path.resolve(
-    process.env.AGENT_ISLAND_CHARACTERS_DIR ?? "data/characters",
+    process.env.AGENT_ISLAND_CHARACTERS_DIR ?? homePath("characters"),
   ),
   directorsDir: path.resolve(
-    process.env.AGENT_ISLAND_DIRECTORS_DIR ?? "data/directors",
+    process.env.AGENT_ISLAND_DIRECTORS_DIR ?? homePath("directors"),
   ),
   characterPromptsDir: path.resolve(
     process.env.AGENT_ISLAND_CHARACTER_PROMPTS_DIR ?? "agents/characters",
@@ -73,8 +91,8 @@ const CONFIG = {
     process.env.AGENT_ISLAND_OCEAN_FILE ?? "agents/characters/OCEAN.md",
   ),
   pidFiles: {
-    director: path.resolve("data/.crew-director.pid"),
-    characters: path.resolve("data/.crew-characters.pid"),
+    director: homePath(".crew-director.pid"),
+    characters: homePath(".crew-characters.pid"),
   },
   relaunchDelayMs: numEnv("AGENT_ISLAND_CREW_RELAUNCH_MS", 3000),
   launchStaggerMs: numEnv("AGENT_ISLAND_CREW_STAGGER_MS", 3000),

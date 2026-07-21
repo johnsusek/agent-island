@@ -18,6 +18,7 @@ import {
 
 export interface ScenarioBootOptions {
   scenariosDir?: string | null;
+  scenariosSaveDir?: string | null;
   activeScenariosPath?: string | null;
   scenarios?: string[];
 }
@@ -124,7 +125,9 @@ export function createScenarioBoot(options: ScenarioBootOptions): ScenarioBoot {
     options.scenariosDir === undefined
       ? resolve("config/scenarios")
       : options.scenariosDir;
-  let scenarioStore = scenariosDir ? createScenarioStore(scenariosDir) : null;
+  let scenarioStore = scenariosDir
+    ? createScenarioStore(scenariosDir, options.scenariosSaveDir ?? scenariosDir)
+    : null;
   let activeScenariosPath = options.activeScenariosPath ?? null;
   let activeScenarios = new Set(
     (options.scenarios ?? []).map(normalizeScenarioName),

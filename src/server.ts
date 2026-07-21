@@ -9,6 +9,7 @@ import {
   type Colony,
 } from "./coordinator.js";
 import { createMcpHandler } from "./mcp-handler.js";
+import { homePath } from "./paths.js";
 
 let host = process.env.AGENT_ISLAND_HOST ?? "127.0.0.1";
 let port = process.env.AGENT_ISLAND_PORT
@@ -57,10 +58,10 @@ export function configuredScenarios(value: string | undefined): string[] {
 export function characterDirs() {
   return {
     charactersDir: path.resolve(
-      process.env.AGENT_ISLAND_CHARACTERS_DIR ?? "data/characters",
+      process.env.AGENT_ISLAND_CHARACTERS_DIR ?? homePath("characters"),
     ),
     directorsDir: path.resolve(
-      process.env.AGENT_ISLAND_DIRECTORS_DIR ?? "data/directors",
+      process.env.AGENT_ISLAND_DIRECTORS_DIR ?? homePath("directors"),
     ),
   };
 }
@@ -128,28 +129,30 @@ export function createAgentIslandServer(options: ServerOptions = {}) {
   let coordinator =
     options.coordinator ??
     createColony({
-      // Default the state file to the directory the server was launched from
-      // (the repo root under `npm run dev`), not the source location, so it
-      // lands where you'd expect regardless of where src/ sits.
-      statePath:
-        process.env.AGENT_ISLAND_STATE ?? path.resolve("data/state.json"),
+      // Runtime state lives under AGENT_ISLAND_HOME (default ~/.agent-island),
+      // never in the repo, so a clean checkout carries no world. Each slot below
+      // keeps its own AGENT_ISLAND_* override for one-off relocation.
+      statePath: process.env.AGENT_ISLAND_STATE ?? homePath("state.json"),
       // GM rule edits persist to their own file so they can be reused across
       // world resets, separate from the disposable world snapshot.
-      rulesPath:
-        process.env.AGENT_ISLAND_RULES ?? path.resolve("data/rules.json"),
+      rulesPath: process.env.AGENT_ISLAND_RULES ?? homePath("rules.json"),
+      // The bundled starter scenarios (blank/genesis/survival) are tracked repo
+      // content, so they are READ from config/scenarios; GM-saved scenarios are
+      // runtime data and land in scenariosSaveDir below, out of the repo.
       scenariosDir:
         process.env.AGENT_ISLAND_SCENARIOS_DIR ??
         path.resolve("config/scenarios"),
+      scenariosSaveDir:
+        process.env.AGENT_ISLAND_SCENARIOS_SAVE_DIR ?? homePath("scenarios"),
       activeScenariosPath:
         process.env.AGENT_ISLAND_ACTIVE_SCENARIOS ??
-        path.resolve("data/active-scenarios.json"),
+        homePath("active-scenarios.json"),
       // Durable event history for cursor/range diffs, apart from state.json's
       // bounded in-memory ring.
-      journalDir:
-        process.env.AGENT_ISLAND_JOURNAL_DIR ?? path.resolve("data/journal"),
+      journalDir: process.env.AGENT_ISLAND_JOURNAL_DIR ?? homePath("journal"),
       // A reset banks the outgoing world's files here instead of only
       // deleting them.
-      runsDir: process.env.AGENT_ISLAND_RUNS_DIR ?? path.resolve("data/runs"),
+      runsDir: process.env.AGENT_ISLAND_RUNS_DIR ?? homePath("runs"),
       wipeCharacterMemory: () => wipeCharacterMemories(),
       // Bank every mind's memory.md (characters and directors) into the run
       // archive before the wipe above deletes them - the retro reads these.

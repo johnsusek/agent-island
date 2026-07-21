@@ -107,8 +107,13 @@ interface ColonyOptions {
   // wiped, and rules meant to outlive a reset belong in a saved scenario.
   rulesPath?: string | null;
   // Directory of file-backed custom scenarios. These load between the scenario
-  // baseline and the GM scratch overlay.
+  // baseline and the GM scratch overlay. This is the READ source for the bundled
+  // starter scenarios shipped in the repo.
   scenariosDir?: string | null;
+  // Where GM save_scenario writes, kept out of the repo. Also read from (in
+  // addition to scenariosDir), so a saved scenario shadows a bundled one of the
+  // same name. Defaults to scenariosDir when unset (single-dir behavior).
+  scenariosSaveDir?: string | null;
   // Optional file that remembers which custom scenarios are active.
   activeScenariosPath?: string | null;
   // Initial custom scenarios when no active-scenario state file exists.

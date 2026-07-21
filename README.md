@@ -22,7 +22,7 @@ Everything meets over MCP; the server never launches an LLM.
 - **`scripts/crew.mjs`** - the crew supervisor: launches one `codex exec` /
   `claude -p` per seat with the right MCP config, seeds `memory.md` (plus an
   optional OCEAN temperament), tees transcripts to
-  `data/characters/<name>/logs/`, relaunches on exit (death-aware, with a
+  `~/.agent-island/characters/<name>/logs/`, relaunches on exit (death-aware, with a
   restart-storm guard), and reports token usage on drain.
 - **`scripts/world.mjs`** - world ops CLI: status, reset, pause, clock.
 - **`web/`** - the observatory: a read-mostly spectator UI. Map center (PixiJS),
@@ -42,6 +42,14 @@ npm run dev          # server on :3000 + observatory with HMR on :5173
 
 `npm run dev:server` runs the server alone; `npm run serve` builds the
 observatory once and serves it from :3000.
+
+All runtime data - the world snapshot, GM rule overlay, event journal, run
+archives, per-seat workdirs, and GM-saved scenarios - lives under
+`~/.agent-island/`, never in the repo. Point `AGENT_ISLAND_HOME` elsewhere to
+relocate the whole root (e.g. `AGENT_ISLAND_HOME=/tmp/island npm run dev` for a
+throwaway world). The bundled starter scenarios stay tracked in
+`config/scenarios/`; `save_scenario` writes new ones into
+`~/.agent-island/scenarios/`, and both are read at load time.
 
 Run a full genesis experiment (other terminals - each crew stays in the
 foreground supervising its children). World setup first, then the Oracle and
@@ -73,9 +81,9 @@ Watch it:
 ./scripts/world.mjs status                         # world tick/clock/actives
 curl -s localhost:3000/api/state | jq '{tick: .state.tick, oracle: .liveness.gmConnected,
   laws: [.rules[] | select(.kind == "action") | .id], speculations: [.speculative[].verb]}'
-tail -q -n +1 -F data/characters/*/logs/claude/play-*.jsonl \
+tail -q -n +1 -F ~/.agent-island/characters/*/logs/claude/play-*.jsonl \
   | jq --unbuffered -rf scripts/watch-log-claude.jq         # a seat's mind, live
-tail -q -n +1 -F data/characters/*/logs/codex/play-*.jsonl \
+tail -q -n +1 -F ~/.agent-island/characters/*/logs/codex/play-*.jsonl \
   | jq --unbuffered -rf scripts/watch-log-codex.jq          # same, for codex seats
 ```
 

@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -291,16 +292,35 @@ export function resolveIncludes(
     .overlay;
 }
 
+// A scenario store reads from up to two directories and writes to one. The read
+// source is the repo's bundled starters (`directory`); `saveDir` is where the GM
+// save_scenario tool writes, kept out of the repo. Both are read on load/list,
+// with saveDir winning on a name clash so a saved scenario shadows a bundled one.
+// When saveDir === directory (the default, and every test) it collapses back to
+// single-dir behavior. Rulesets always resolve against `directory`'s sibling
+// config/rulesets - a saved scenario is stored pre-composed with no `include`.
 export function createScenarioStore(
   directory: string,
+  saveDir: string = directory,
   rulesetsDir: string = rulesetsDirFor(directory),
 ): ScenarioStore {
-  function filePath(name: string) {
-    return path.join(directory, `${normalizeScenarioName(name)}.json`);
+  // saveDir first so a home-saved scenario shadows a bundled one of the same name.
+  let readDirs = saveDir === directory ? [directory] : [saveDir, directory];
+
+  // Resolve a name to the file that should back it. Falls through to the repo
+  // path when nothing exists, so a genuine miss reports ENOENT against the
+  // canonical location rather than the home overlay.
+  function resolveReadPath(name: string): string {
+    let fileName = `${normalizeScenarioName(name)}.json`;
+    for (let dir of readDirs) {
+      let candidate = path.join(dir, fileName);
+      if (existsSync(candidate)) return candidate;
+    }
+    return path.join(directory, fileName);
   }
 
-  function readScenario(name: string): ScenarioFile {
-    let raw = readFileSync(filePath(name), "utf8");
+  function readScenarioAt(file: string, name: string): ScenarioFile {
+    let raw = readFileSync(file, "utf8");
     let parsed = JSON.parse(raw) as ScenarioFile;
     let own = compactOverlay(parsed.overlay ?? emptyOverlay());
     validateOwnOverlay(own, `scenario "${name}"`);
@@ -318,13 +338,36 @@ export function createScenarioStore(
     };
   }
 
+  function readScenario(name: string): ScenarioFile {
+    return readScenarioAt(resolveReadPath(name), name);
+  }
+
   return {
     list(activeNames) {
-      mkdirSync(directory, { recursive: true });
       let active = new Set([...activeNames].map(normalizeScenarioName));
-      return readdirSync(directory)
-        .filter((fileName) => fileName.endsWith(".json"))
-        .map((fileName) => readScenario(fileName.slice(0, -5)))
+      // Merge both dirs into one map keyed by scenario name. Iterate repo first,
+      // saveDir last, so a home-saved scenario overrides a bundled one of the
+      // same name in the picker - matching resolveReadPath's precedence.
+      let byName = new Map<string, ScenarioFile>();
+      let mergeOrder = saveDir === directory ? [directory] : [directory, saveDir];
+      for (let dir of mergeOrder) {
+        let entries: string[];
+        try {
+          mkdirSync(dir, { recursive: true });
+          entries = readdirSync(dir);
+        } catch {
+          continue;
+        }
+        for (let fileName of entries) {
+          if (!fileName.endsWith(".json")) continue;
+          let scenario = readScenarioAt(
+            path.join(dir, fileName),
+            fileName.slice(0, -5),
+          );
+          byName.set(scenario.name, scenario);
+        }
+      }
+      return [...byName.values()]
         .map((scenario) => ({
           name: scenario.name,
           description: scenario.description,
@@ -342,13 +385,13 @@ export function createScenarioStore(
     },
 
     save(name, overlay) {
-      mkdirSync(directory, { recursive: true });
+      mkdirSync(saveDir, { recursive: true });
       let scenario = {
         name: normalizeScenarioName(name),
         overlay: compactOverlay(overlay),
       };
       let payload = JSON.stringify(scenario, null, 2);
-      let destination = filePath(scenario.name);
+      let destination = path.join(saveDir, `${scenario.name}.json`);
       let tmp = `${destination}.tmp`;
       writeFileSync(tmp, payload);
       renameSync(tmp, destination);
