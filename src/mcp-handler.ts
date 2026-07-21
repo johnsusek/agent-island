@@ -1060,6 +1060,16 @@ const ORDER_INPUT = schema
   );
 
 function parseOrder(order: unknown) {
+  // Some models send the order as a JSON-encoded string; accept that too.
+  if (typeof order === "string") {
+    try {
+      order = JSON.parse(order);
+    } catch {
+      throw new Error(
+        "That order is malformed: it arrived as a string that is not valid JSON. Pass the order as a JSON object.",
+      );
+    }
+  }
   let parsed = orderInputSchema.safeParse(order);
   if (parsed.success) return parsed.data;
   let issues = parsed.error.issues

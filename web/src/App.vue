@@ -65,13 +65,13 @@ function selectByName(name: string) {
           :chat="world.chat.value"
           :feed="world.feed.value"
           :laws="world.laws.value"
-          :wishes="world.wishes.value"
+          :speculations="world.speculations.value"
           @close="selectedAgentId = null"
         />
         <LedgerRail
           v-else
           :laws="world.laws.value"
-          :wishes="world.wishes.value"
+          :speculations="world.speculations.value"
           :metrics="world.ledgerMetrics.value"
           @select-name="selectByName"
         />

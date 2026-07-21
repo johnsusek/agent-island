@@ -34,10 +34,10 @@ export interface ChatMessage {
 
 export type ChatItem = { kind: "chat" } & ChatMessage;
 
-// One row of the observatory feed. `wish` is a speculative attempt, `law` a
-// realized wish or a GM mint, `chat` speech, `event` everything else.
+// One row of the observatory feed. `speculation` is a speculative attempt, `law` a
+// realized speculation or a GM mint, `chat` speech, `event` everything else.
 export interface FeedItem {
-  kind: "event" | "wish" | "law";
+  kind: "event" | "speculation" | "law";
   key: string;
   tick: number;
   text: string;
@@ -49,25 +49,25 @@ export interface FeedItem {
 }
 
 // One law of the physics ledger: a runtime-minted action rule with its
-// provenance - who wished for it, when, and how fast the Oracle answered.
+// provenance - who speculated for it, when, and how fast the Oracle answered.
 export interface LawCard {
   id: string;
   aliases: string[];
   description: string | null;
-  // A rule with a `requires` gate can refuse; one without is a free wish.
+  // A rule with a `requires` gate can refuse; one without is a free speculation.
   gated: boolean;
   mintTick: number | null;
-  firstWishTick: number | null;
+  firstSpeculationTick: number | null;
   latency: number | null;
-  wishers: string[];
+  speculators: string[];
   attempts: number;
 }
 
-// A wish still standing: a verb cluster no live action rule answers to.
-export interface WishCard {
+// A speculation still standing: a verb cluster no live action rule answers to.
+export interface SpeculationCard {
   verb: string;
   count: number;
-  wishers: string[];
+  speculators: string[];
   firstTick: number;
   lastTick: number;
   expectation: string | null;
@@ -298,11 +298,11 @@ function createWorldState() {
     return mintedActions.value
       .map((rule) => {
         let matched = clusters.filter((cluster) => answers(rule, cluster.verb));
-        let firstWishTick = matched.length
+        let firstSpeculationTick = matched.length
           ? Math.min(...matched.map((cluster) => cluster.firstTick))
           : null;
         let mintTick = mintTicks.get(rule.id) ?? null;
-        let wishers = [
+        let speculators = [
           ...new Set(
             matched.flatMap((cluster) =>
               cluster.distinctActors.map((id) => nameOf(id)),
@@ -315,20 +315,20 @@ function createWorldState() {
           description: rule.description?.trim() || null,
           gated: rule.requires != null,
           mintTick,
-          firstWishTick,
+          firstSpeculationTick,
           latency:
-            mintTick != null && firstWishTick != null
-              ? Math.max(0, mintTick - firstWishTick)
+            mintTick != null && firstSpeculationTick != null
+              ? Math.max(0, mintTick - firstSpeculationTick)
               : null,
-          wishers,
+          speculators,
           attempts: matched.reduce((sum, cluster) => sum + cluster.count, 0),
         };
       })
       .sort((a, b) => (b.mintTick ?? 0) - (a.mintTick ?? 0));
   });
 
-  // Wishes still standing: clusters no live action answers to.
-  let wishes = computed<WishCard[]>(() => {
+  // Speculations still standing: clusters no live action answers to.
+  let speculations = computed<SpeculationCard[]>(() => {
     let p = payload.value;
     if (!p) return [];
     let rules = actionRules.value;
@@ -340,7 +340,7 @@ function createWorldState() {
       .map((cluster) => ({
         verb: cluster.verb,
         count: cluster.count,
-        wishers: cluster.distinctActors.map((id) => nameOf(id)),
+        speculators: cluster.distinctActors.map((id) => nameOf(id)),
         firstTick: cluster.firstTick,
         lastTick: cluster.lastTick,
         expectation: cluster.expectations[0] ?? null,
@@ -360,7 +360,7 @@ function createWorldState() {
     let total = actionRules.value.length;
     return {
       laws: lawList.length,
-      wishesOpen: wishes.value.length,
+      speculationsOpen: speculations.value.length,
       medianLatency,
       // The headline: what share of the live verbs the characters authored.
       agentOriginatedPct: total
@@ -389,7 +389,7 @@ function createWorldState() {
       })),
   );
 
-  // Everything else, with wishes and realizations pulled out as first-class
+  // Everything else, with speculations and realizations pulled out as first-class
   // row kinds - they are the whole show.
   let feed = computed<FeedItem[]>(() =>
     eventHistory.value
@@ -403,7 +403,7 @@ function createWorldState() {
       .map((e) => {
         let kind: FeedItem["kind"] =
           e.type === "speculative_attempt"
-            ? "wish"
+            ? "speculation"
             : e.type === "speculation_realized"
               ? "law"
               : "event";
@@ -440,7 +440,7 @@ function createWorldState() {
     sharedFog,
     liveness,
     laws,
-    wishes,
+    speculations,
     ledgerMetrics,
     chat,
     feed,

@@ -1,6 +1,6 @@
 # Agent Island
 
-A spatial world whose physics its inhabitants wish into being.
+A spatial world whose physics its inhabitants speculate into being.
 
 LLM characters play a game that mostly doesn't exist: they attempt verbs they
 expect a world like this to support (`drink_water`, `build_shelter`), the world
@@ -26,7 +26,7 @@ Everything meets over MCP; the server never launches an LLM.
   restart-storm guard), and reports token usage on drain.
 - **`scripts/world.mjs`** - world ops CLI: status, reset, pause, clock.
 - **`web/`** - the observatory: a read-mostly spectator UI. Map center (PixiJS),
-  the Ledger right (laws minted, standing wishes, mint latency), the feed below.
+  the Ledger right (laws minted, open speculations, mint latency), the feed below.
   Click a character for their dossier; click a token to pin its card.
 - **`.claude/skills/genesis-run`** - the experiment protocol, end to end.
 
@@ -47,41 +47,41 @@ foreground supervising its children). World setup first, then the Oracle and
 the characters as separate crews so seat options never bleed across roles:
 
 ```sh
-node scripts/world.mjs scenario genesis
-node scripts/world.mjs reset
-node scripts/world.mjs clock --ms 2000
-node scripts/crew.mjs director                 # Oracle first, own terminal
-node scripts/crew.mjs characters --count 4     # characters, own terminal
-node scripts/world.mjs resume
+./scripts/world.mjs scenario genesis
+./scripts/world.mjs reset
+./scripts/world.mjs clock --ms 2000
+./scripts/crew.mjs director                 # Oracle first, own terminal
+./scripts/crew.mjs characters --count 4     # characters, own terminal
+./scripts/world.mjs resume
 ```
 
 Each crew supervises until tick 2000, then drains and prints per-seat token
 usage. Common variants:
 
 ```sh
-node scripts/crew.mjs characters --count 4 --max-ticks off        # unbounded
-node scripts/crew.mjs characters --count 2                        # no Oracle: measure refusal
-node scripts/crew.mjs characters --count 2 --persona character-minimal  # prompt variant
-node scripts/crew.mjs stop director                               # drain one crew
+./scripts/crew.mjs characters --count 4 --max-ticks off        # unbounded
+./scripts/crew.mjs characters --count 2                        # no Oracle: measure refusal
+./scripts/crew.mjs characters --count 2 --persona character-minimal  # prompt variant
+./scripts/crew.mjs stop director                               # drain one crew
 ```
 
 Watch it:
 
 ```sh
-node scripts/crew.mjs status                          # crew pids
-node scripts/world.mjs status                         # world tick/clock/actives
+./scripts/crew.mjs status                          # crew pids
+./scripts/world.mjs status                         # world tick/clock/actives
 curl -s localhost:3000/api/state | jq '{tick: .state.tick, oracle: .liveness.gmConnected,
-  laws: [.rules[] | select(.kind == "action") | .id], wishes: [.speculative[].verb]}'
+  laws: [.rules[] | select(.kind == "action") | .id], speculations: [.speculative[].verb]}'
 jq -rf scripts/watch-log.jq data/characters/*/logs/codex/play-*.jsonl   # a seat's mind, readable
 ```
 
 Stop and steer:
 
 ```sh
-node scripts/crew.mjs stop        # SIGTERM the crew; seats leave_game and usage prints
-node scripts/world.mjs pause      # freeze the clock (resume to unfreeze)
-node scripts/world.mjs clock --ms 2000
-node scripts/world.mjs reset      # archive + wipe the world (crew stop first)
+./scripts/crew.mjs stop        # SIGTERM the crew; seats leave_game and usage prints
+./scripts/world.mjs pause      # freeze the clock (resume to unfreeze)
+./scripts/world.mjs clock --ms 2000
+./scripts/world.mjs reset      # archive + wipe the world (crew stop first)
 ```
 
 The `.mcp.json` in this repo seats a Claude Code operator session on the GM
@@ -97,4 +97,4 @@ npm run typecheck && npm run typecheck:web
 
 The `survival` scenario is an engine test fixture, not a played world; played
 worlds run `genesis` - a near-empty map with two clocks (hunger, thirst) and no
-remedies. Every remedy is for the characters to wish for.
+remedies. Every remedy is for the characters to speculate into being.

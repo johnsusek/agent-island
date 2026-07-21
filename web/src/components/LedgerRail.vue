@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { LawCard, WishCard } from "../useWorldState";
+import type { LawCard, SpeculationCard } from "../useWorldState";
 
 defineProps<{
   laws: LawCard[];
-  wishes: WishCard[];
+  speculations: SpeculationCard[];
   metrics: {
     laws: number;
-    wishesOpen: number;
+    speculationsOpen: number;
     medianLatency: number | null;
     agentOriginatedPct: number | null;
     gated: number;
@@ -24,19 +24,19 @@ defineEmits<{ (e: "selectName", name: string): void }>();
         <span class="metric" title="Laws minted this run">
           <b>{{ metrics.laws }}</b> laws
         </span>
-        <span class="metric" title="Verbs wished for that no law answers yet">
-          <b>{{ metrics.wishesOpen }}</b> open
+        <span class="metric" title="Verbs speculated that no law answers yet">
+          <b>{{ metrics.speculationsOpen }}</b> open
         </span>
         <span
           class="metric"
-          title="Median ticks from first wish to minted law - latency is the enemy"
+          title="Median ticks from first speculation to minted law - latency is the enemy"
         >
           <b>{{ metrics.medianLatency ?? "-" }}</b
           >t mint
         </span>
         <span
           class="metric"
-          title="Share of live verbs that characters wished into existence"
+          title="Share of live verbs that characters speculated into existence"
         >
           <b>{{ metrics.agentOriginatedPct ?? "-" }}%</b> theirs
         </span>
@@ -44,19 +44,19 @@ defineEmits<{ (e: "selectName", name: string): void }>();
     </header>
 
     <div class="ledger__scroll">
-      <section v-if="wishes.length" class="ledger__section">
-        <h3 class="ledger__heading">standing wishes</h3>
-        <article v-for="wish in wishes" :key="wish.verb" class="wish">
-          <div class="wish__line">
-            <span class="wish__verb">{{ wish.verb }}</span>
-            <span class="wish__count">x{{ wish.count }}</span>
-            <span class="wish__ticks"
-              >t{{ wish.firstTick }}-{{ wish.lastTick }}</span
+      <section v-if="speculations.length" class="ledger__section">
+        <h3 class="ledger__heading">open speculations</h3>
+        <article v-for="spec in speculations" :key="spec.verb" class="spec">
+          <div class="spec__line">
+            <span class="spec__verb">{{ spec.verb }}</span>
+            <span class="spec__count">x{{ spec.count }}</span>
+            <span class="spec__ticks"
+              >t{{ spec.firstTick }}-{{ spec.lastTick }}</span
             >
           </div>
-          <div class="wish__who">
+          <div class="spec__who">
             <button
-              v-for="name in wish.wishers"
+              v-for="name in spec.speculators"
               :key="name"
               class="namelink"
               @click="$emit('selectName', name)"
@@ -64,8 +64,8 @@ defineEmits<{ (e: "selectName", name: string): void }>();
               {{ name }}
             </button>
           </div>
-          <blockquote v-if="wish.expectation" class="wish__hope">
-            "{{ wish.expectation }}"
+          <blockquote v-if="spec.expectation" class="spec__hope">
+            "{{ spec.expectation }}"
           </blockquote>
         </article>
       </section>
@@ -73,9 +73,9 @@ defineEmits<{ (e: "selectName", name: string): void }>();
       <section class="ledger__section">
         <h3 class="ledger__heading">laws</h3>
         <p v-if="!laws.length" class="ledger__empty">
-          No physics has been wished into being yet. When a character tries a
-          verb the world doesn't know and the Oracle ratifies it, the law lands
-          here.
+          No physics has been speculated into being yet. When a character tries
+          a verb the world doesn't know and the Oracle ratifies it, the law
+          lands here.
         </p>
         <article v-for="law in laws" :key="law.id" class="law">
           <div class="law__line">
@@ -89,14 +89,14 @@ defineEmits<{ (e: "selectName", name: string): void }>();
             <span
               v-else
               class="law__badge law__badge--free"
-              title="No requires gate - a free wish"
+              title="No requires gate - a free grant"
               >free</span
             >
             <span
               v-if="law.latency != null"
               class="law__latency"
               :class="{ 'law__latency--slow': law.latency > 100 }"
-              :title="`wished t${law.firstWishTick}, minted t${law.mintTick}`"
+              :title="`speculated t${law.firstSpeculationTick}, minted t${law.mintTick}`"
             >
               {{ law.latency }}t
             </span>
@@ -105,10 +105,10 @@ defineEmits<{ (e: "selectName", name: string): void }>();
             also answers: {{ law.aliases.join(", ") }}
           </div>
           <p v-if="law.description" class="law__desc">{{ law.description }}</p>
-          <div v-if="law.wishers.length" class="law__who">
-            wished by
+          <div v-if="law.speculators.length" class="law__who">
+            speculated by
             <button
-              v-for="name in law.wishers"
+              v-for="name in law.speculators"
               :key="name"
               class="namelink"
               @click="$emit('selectName', name)"

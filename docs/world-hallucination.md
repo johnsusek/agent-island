@@ -39,7 +39,7 @@ right.
 
 ## Risks
 
-- **Wish-fulfilment frontier.** Dreams skew to what the dreamer wants (food past the
+- **Speculation-fulfilment frontier.** Dreams skew to what the dreamer wants (food past the
   ridge, shelter over the hill). The pricing doctrine applies unchanged: a dreamt paradise
   gets a dreamt cost in the same pass, and some frontiers must be worse than home.
 - **Dreams as spec-gaming.** Once characters learn dreams shape the world, dreaming

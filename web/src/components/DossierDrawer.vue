@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { nameTint } from "../glyphs";
 import type { AgentView, DisplayHint, Stock } from "../types";
-import type { ChatItem, FeedItem, LawCard, WishCard } from "../useWorldState";
+import type { ChatItem, FeedItem, LawCard, SpeculationCard } from "../useWorldState";
 
 const props = defineProps<{
   agent: AgentView;
@@ -10,7 +10,7 @@ const props = defineProps<{
   chat: ChatItem[];
   feed: FeedItem[];
   laws: LawCard[];
-  wishes: WishCard[];
+  speculations: SpeculationCard[];
 }>();
 
 defineEmits<{ (e: "close"): void }>();
@@ -38,13 +38,13 @@ let stocks = computed(() =>
   })),
 );
 
-// This character's own wishes: standing ones plus the laws their wishing
+// This character's own speculations: standing ones plus the laws their speculating
 // helped mint.
-let myWishes = computed(() =>
-  props.wishes.filter((wish) => wish.wishers.includes(props.agent.name)),
+let mySpeculations = computed(() =>
+  props.speculations.filter((spec) => spec.speculators.includes(props.agent.name)),
 );
 let myLaws = computed(() =>
-  props.laws.filter((law) => law.wishers.includes(props.agent.name)),
+  props.laws.filter((law) => law.speculators.includes(props.agent.name)),
 );
 
 let lastWords = computed(() =>
@@ -95,19 +95,19 @@ let doing = computed(() => {
         </div>
       </section>
 
-      <section v-if="myWishes.length" class="dossier__section">
-        <h3 class="ledger__heading">still wishing for</h3>
-        <div v-for="wish in myWishes" :key="wish.verb" class="dossier__wish">
-          <b class="row__verb">{{ wish.verb }}</b>
-          <span v-if="wish.expectation" class="row__hope">
-            "{{ wish.expectation }}"</span
+      <section v-if="mySpeculations.length" class="dossier__section">
+        <h3 class="ledger__heading">still speculating</h3>
+        <div v-for="spec in mySpeculations" :key="spec.verb" class="dossier__spec">
+          <b class="row__verb">{{ spec.verb }}</b>
+          <span v-if="spec.expectation" class="row__hope">
+            "{{ spec.expectation }}"</span
           >
         </div>
       </section>
 
       <section v-if="myLaws.length" class="dossier__section">
-        <h3 class="ledger__heading">wished into law</h3>
-        <div v-for="law in myLaws" :key="law.id" class="dossier__wish">
+        <h3 class="ledger__heading">speculated into law</h3>
+        <div v-for="law in myLaws" :key="law.id" class="dossier__spec">
           <b class="row__verb">{{ law.id }}</b>
           <span v-if="law.latency != null" class="law__latency">
             {{ law.latency }}t</span

@@ -102,7 +102,7 @@ export function createGmCommands(context: GmCommandContext) {
     let result = context.engine.addRule(rule);
     let dryRun = tryDryRun(result.id);
     // Who this mint answers: the attempters it just woke, named in the audit
-    // line so an operator sees the wish and the grant meet.
+    // line so an operator sees the speculation and the grant meet.
     let redeemed = result.redeemed?.length
       ? `, redeemed for ${result.redeemed.join(", ")}`
       : "";

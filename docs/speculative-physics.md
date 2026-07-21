@@ -38,16 +38,16 @@ speculation materializes _capabilities_, votes create _social rules_. Parked, no
    reads `list_speculative_attempts`, merges semantically-equivalent verbs into one rule
    with many `aliases`, and mints it — first showing, one attempter, no threshold. The
    **expectations are the spec**. Same validate + dry-run gate as every `add_rule`.
-4. **Redemption.** An attempt is a standing wish, not a one-off. `addRule` (and an alias
+4. **Redemption.** An attempt is a standing speculation, not a one-off. `addRule` (and an alias
    added by `tweak_rule`) scans the log for attempts at any word the new rule answers to,
    and tells every living attempter: _"the world has learned build_tower — what you tried
-   before will take now."_ Without this the grant never reaches the wisher — run 2 minted
+   before will take now."_ Without this the grant never reaches the speculator — run 2 minted
    `build_tower` and it was used zero times in the 1,200 ticks that followed.
 
    **News, not an alarm.** The event carries a `decision` wake, which is all a parked
    character needs to hear it; their in-flight action and running order are left running.
    Nor is the action replayed for them. Both restraints are the same judgement: a granted
-   wish is something to weigh against what you are already doing, not an emergency the
+   speculation is something to weigh against what you are already doing, not an emergency the
    world drags you to.
 
 5. **Silent to everyone else.** No announcement, no patch notes. Only the people who
@@ -120,6 +120,6 @@ is the sequel — characters dreaming the map beyond what they have walked.
 - \# speculated actions that reached physics; **time-to-materialization** (attempt → mint).
   Target: tens of ticks. Run 2 averaged hundreds, and that was the whole problem.
 - **% of live physics that is agent-originated** (the headline; endgame ≈ 100%).
-- **Redemption uptake**: of the verbs minted for a named wisher, how many that wisher
+- **Redemption uptake**: of the verbs minted for a named speculator, how many that speculator
   actually used afterwards. Run 2's `build_tower` scored 0.
 - Comfort-ratchet tracking: ratio of materialized affordances to materialized stakes.

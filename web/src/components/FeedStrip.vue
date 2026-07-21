@@ -11,7 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ (e: "select", id: string): void }>();
 
-type Filter = "all" | "wishes" | "talk" | "world";
+type Filter = "all" | "speculations" | "talk" | "world";
 let filter = ref<Filter>("all");
 
 type Row = ({ rowKind: "feed" } & FeedItem) | ({ rowKind: "chat" } & ChatItem);
@@ -22,7 +22,7 @@ let rows = computed<Row[]>(() => {
   let out: Row[] = [];
   if (filter.value !== "talk") {
     for (let item of props.feed) {
-      if (filter.value === "wishes" && item.kind === "event") continue;
+      if (filter.value === "speculations" && item.kind === "event") continue;
       if (filter.value === "world" && item.kind !== "event") continue;
       out.push({ rowKind: "feed", ...item });
     }
@@ -37,7 +37,7 @@ let { scrollHost } = useStickToBottom(() => rows.value.length);
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "all" },
-  { key: "wishes", label: "wishes" },
+  { key: "speculations", label: "speculations" },
   { key: "talk", label: "talk" },
   { key: "world", label: "world" },
 ];
@@ -75,7 +75,7 @@ const FILTERS: { key: Filter; label: string }[] = [
           >
           <span class="row__text">{{ row.message }}</span>
         </div>
-        <div v-else-if="row.kind === 'wish'" class="row row--wish">
+        <div v-else-if="row.kind === 'speculation'" class="row row--spec">
           <span class="row__tick">t{{ row.tick }}</span>
           <button
             v-if="row.name"
@@ -86,7 +86,7 @@ const FILTERS: { key: Filter; label: string }[] = [
             {{ row.name }}
           </button>
           <span class="row__text">
-            wishes for <b class="row__verb">{{ row.verb ?? row.text }}</b>
+            speculates <b class="row__verb">{{ row.verb ?? row.text }}</b>
             <span v-if="row.expectation" class="row__hope">
               - "{{ row.expectation }}"</span
             >
@@ -104,7 +104,7 @@ const FILTERS: { key: Filter; label: string }[] = [
                 @click="row.agentId && emit('select', row.agentId)"
               >
                 {{ row.name }}</button
-              >'s wish granted</template
+              >'s speculation granted</template
             >
           </span>
         </div>

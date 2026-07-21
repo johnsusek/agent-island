@@ -11,7 +11,7 @@
   --dim: #8b93a7;
   --faint: #5b6273;
   --law: #9ece6a;
-  --wish: #7aa2f7;
+  --spec: #7aa2f7;
   --oracle: #e8b34a;
   --danger: #f7768e;
   --warn: #e0af68;
@@ -201,8 +201,8 @@ button {
 /* ---- map ---- */
 
 .map-canvas {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  height: 100%;
   overflow: hidden;
   background: #05070b;
 }
@@ -421,7 +421,7 @@ button {
   line-height: 1.5;
 }
 
-/* A law: a wish that became physics. */
+/* A law: a speculation that became physics. */
 .law {
   border: 1px solid color-mix(in srgb, var(--law) 25%, var(--edge));
   border-left: 3px solid var(--law);
@@ -438,7 +438,7 @@ button {
 }
 
 .law__verb,
-.wish__verb,
+.spec__verb,
 .row__verb {
   font-family: var(--mono);
   font-weight: 700;
@@ -508,46 +508,46 @@ button {
   color: var(--faint);
 }
 
-/* A standing wish: tried, not yet real. */
-.wish {
-  border: 1px dashed color-mix(in srgb, var(--wish) 35%, var(--edge));
+/* A standing speculation: tried, not yet real. */
+.spec {
+  border: 1px dashed color-mix(in srgb, var(--spec) 35%, var(--edge));
   border-radius: 6px;
   padding: 6px 9px;
   margin-bottom: 6px;
   opacity: 0.9;
 }
 
-.wish__line {
+.spec__line {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
 
-.wish__verb {
-  color: var(--wish);
+.spec__verb {
+  color: var(--spec);
 }
 
-.wish__count {
+.spec__count {
   font-family: var(--mono);
   font-size: 10px;
   color: var(--dim);
 }
 
-.wish__ticks {
+.spec__ticks {
   margin-left: auto;
   font-family: var(--mono);
   font-size: 10px;
   color: var(--faint);
 }
 
-.wish__who {
+.spec__who {
   margin-top: 2px;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.wish__hope,
+.spec__hope,
 .row__hope {
   margin: 3px 0 0;
   color: var(--dim);
@@ -610,7 +610,7 @@ button {
   font-size: 12px;
 }
 
-.dossier__wish {
+.dossier__spec {
   font-size: 12px;
   margin-bottom: 3px;
 }
@@ -739,8 +739,8 @@ button {
   min-width: 0;
 }
 
-.row--wish .row__verb {
-  color: var(--wish);
+.row--spec .row__verb {
+  color: var(--spec);
 }
 
 .row--law {

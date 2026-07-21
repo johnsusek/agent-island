@@ -12,8 +12,8 @@ where only one half moved is a failed run, not a result.
 
 ## Defaults (notes in $ARGUMENTS override)
 
-- 4 characters, prompt `agents/characters/character-minimal.md`, gpt-5.4-mini / low.
-- Oracle seated (codex / gpt-5.6-luna / medium).
+- 4 characters, prompt `agents/characters/character-minimal.md`, claude / haiku / low.
+- Oracle seated (claude / haiku / medium).
 - Scenario `genesis`, real-time clock 2000ms/tick, tick cap 2000.
 
 ## Launch
@@ -41,14 +41,14 @@ where only one half moved is a failed run, not a result.
 
 Check at widening intervals (~15m, 30m, then hourly), from /api/state - the
 observatory at http://localhost:3000 shows the same live (Ledger = laws +
-standing wishes):
+open speculations):
 
 - **Mint rate** - are `kind:"action"` rules growing? `.speculative` clusters
   with no ratification for thousands of ticks means the Oracle is stuck or
   asleep.
 - **Attempt character** - are new verbs still appearing, or synonym thrash on
   one concept? Thrash on a ratified concept means aliases were missed.
-- **Pricing** - a minted action with no `requires` is a free wish; free
+- **Pricing** - a minted action with no `requires` is a free grant; free
   outrunning priced is the comfort ratchet. Note it.
 - **Deaths** - any death is over-tuned risk. Say so in the retro.
 

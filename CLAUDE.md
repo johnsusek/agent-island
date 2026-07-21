@@ -9,8 +9,8 @@ skill is the experiment protocol.
 - Start the server with `npm run dev:server` or `npm run dev` - never
   `tsx watch` (a reload orphans the crew). Restart the server after code
   changes before starting a run; a run against a live server runs OLD code.
-- Characters default to codex/gpt-5.4-mini/low; the Oracle to
-  codex/gpt-5.6-luna/medium. Launch up to 10 characters without asking.
+- Characters default to claude/haiku/low; the Oracle to
+  claude/haiku/medium. Launch up to 10 characters without asking.
 - In genesis the GM supplies matter only (stocks, entities, terrain) - never
   action rules unprompted. Characters invent verbs; the Oracle ratifies.
 - Run write-ups go to `results/<UTC stamp>-<worldId8>.md`, from

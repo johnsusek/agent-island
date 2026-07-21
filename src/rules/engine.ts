@@ -969,19 +969,19 @@ export function createWorld(scenario: Scenario) {
   }
 
   // The other half of speculative physics: minting a verb has to reach the
-  // people who wished for it. An attempt is a standing intent, not a one-off -
+  // people who speculated it. An attempt is a standing intent, not a one-off -
   // so when a rule arrives answering to a word someone tried, every living
   // attempter is told, in fiction, that the world learned it.
   //
   // News, not an alarm. The event carries a `decision` wake, which is enough to
   // pull a parked character out of wait_for_change on its own; their in-flight
   // action and running order are left alone. Stopping their hands for this
-  // would be the world insisting they care right now, when a granted wish is
+  // would be the world insisting they care right now, when a granted speculation is
   // something to weigh against whatever they are already doing. For the same
   // reason we do not replay the action for them: the attempt was made in a
   // world that refused it, and re-forming the intent under the physics that now
   // exists is the character's call. The telling is the whole fix - without it a
-  // granted wish sits undiscovered (genesis run 5d121c3a: build_tower ratified
+  // granted speculation sits undiscovered (genesis run 5d121c3a: build_tower ratified
   // at tick 2253 after three petitions, then used zero times in the 1,200 ticks
   // that followed, because nobody told Haven).
   //
@@ -1711,7 +1711,7 @@ export function createWorld(scenario: Scenario) {
       type: "speculative_attempt",
       agentId: id,
       text,
-      // The wish is the whole point of the paradigm, so the wisher must SEE
+      // The speculation is the whole point of the paradigm, so the speculator must SEE
       // that it went unanswered - an order step that folds into "(+2 routine)"
       // reads as success, and the agent re-orders a verb that does not exist.
       // Decision-grade regardless of how the attempt was made.

@@ -16,8 +16,8 @@
 // (scenario, reset, clock, pause/resume) lives in scripts/world.mjs.
 //
 // Seat options:
-//   --engine codex|claude      (default codex)
-//   --model NAME               (characters default gpt-5.4-mini; director gpt-5.6-luna)
+//   --engine codex|claude      (default claude)
+//   --model NAME               (default haiku for characters and director)
 //   --effort low|medium|high|xhigh|max   (characters low; director medium)
 //   --persona NAME             agents/characters|directors/<NAME>.md
 //   --name NAME                Explicit seat name (single character)
@@ -85,12 +85,14 @@ const CONFIG = {
     windowMs: numEnv("AGENT_ISLAND_CREW_STORM_WINDOW_MS", 20000),
   },
   defaults: {
-    character: { engine: "codex", model: "gpt-5.4-mini", effort: "low" },
-    director: { engine: "codex", model: "gpt-5.6-luna", effort: "medium" },
+    character: { engine: "claude", model: "haiku", effort: "low" },
+    director: { engine: "claude", model: "haiku", effort: "medium" },
     claude: {
       model: process.env.CLAUDE_PLAY_MODEL ?? "haiku",
       permissionMode: process.env.CLAUDE_PLAY_PERMISSION_MODE ?? "acceptEdits",
     },
+    // Model fallbacks when --engine codex is requested without --model.
+    codex: { character: "gpt-5.4-mini", director: "gpt-5.6-luna" },
   },
 };
 
@@ -414,10 +416,16 @@ class Crew {
   async launch(request) {
     let role = request.role === "director" ? "director" : "character";
     let roleDefaults = CONFIG.defaults[role];
-    let engine = request.engine === "claude" ? "claude" : roleDefaults.engine;
+    let engine = ["claude", "codex"].includes(request.engine ?? "")
+      ? request.engine
+      : roleDefaults.engine;
     let model =
       request.model?.trim() ||
-      (engine === "claude" ? CONFIG.defaults.claude.model : roleDefaults.model);
+      (engine === roleDefaults.engine
+        ? roleDefaults.model
+        : engine === "claude"
+          ? CONFIG.defaults.claude.model
+          : CONFIG.defaults.codex[role]);
     let effort = ["low", "medium", "high", "xhigh", "max"].includes(
       request.effort ?? "",
     )
