@@ -14,20 +14,26 @@ where only one half moved is a failed run, not a result.
 
 - 4 characters, prompt `agents/characters/character-minimal.md`, gpt-5.4-mini / low.
 - Oracle seated (codex / gpt-5.6-luna / medium).
-- Scenario `genesis`, real-time clock 2000ms/tick, tick cap 10000.
+- Scenario `genesis`, real-time clock 2000ms/tick, tick cap 2000.
 
 ## Launch
 
 1. **Restart the server first** if any code changed - the crew hits a live
    server and never reloads code. Start it with `npm run dev:server` (or
    `npm run dev` for the observatory with HMR). Never `tsx watch`.
-2. Run `node scripts/crew.mjs run --count N --scenario genesis --director` as a
-   BACKGROUND task - it resets the world, seats the Oracle, launches the
-   characters, sets the 2000ms clock, resumes, then supervises until the tick
-   cap and drains with a per-seat token report. The director is opt-in: drop
-   `--director` only to deliberately measure refusal. `--persona X` tests a
-   prompt variant; `--max-ticks off` runs unbounded.
-3. Confirm the seats: `node scripts/crew.mjs status` shows the crew pid, and
+2. Set up the world with world.mjs: `node scripts/world.mjs scenario genesis`,
+   then `node scripts/world.mjs reset`, then `node scripts/world.mjs clock
+--ms 2000`.
+3. Launch the two crews SEPARATELY, each as a BACKGROUND task, Oracle first so
+   the first petitions land on a listening director:
+   - `node scripts/crew.mjs director` (seat options here affect only the
+     Oracle). Skip this only to deliberately measure refusal.
+   - `node scripts/crew.mjs characters --count N` (seat options here affect
+     only the characters; `--persona X` tests a prompt variant).
+     Each crew supervises until the tick cap (`--max-ticks off` = unbounded) and
+     drains with a per-seat token report.
+4. Resume the clock: `node scripts/world.mjs resume`.
+5. Confirm the seats: `node scripts/crew.mjs status` shows both crew pids, and
    `curl -s localhost:3000/api/state | jq .liveness` should show activeCount N
    plus `gmConnected: true`. No Oracle = stop and fix before burning hours.
 
@@ -51,8 +57,8 @@ Interrupt John for: a restart storm, an Oracle that has ratified nothing after
 
 ## Stop and retro
 
-`node scripts/crew.mjs stop` drains the crew early (the tick cap otherwise does
-it). Then write `results/<UTC stamp>-<worldId8>.md` from
+`node scripts/crew.mjs stop` drains both crews early (the tick cap otherwise
+does it; `stop director` or `stop characters` drains one). Then write `results/<UTC stamp>-<worldId8>.md` from
 `data/journal/journal.jsonl`: attempt count, distinct verbs, laws minted (and
 from which clusters), the free/priced ratio, mint latency, redemption uptake,
 behavior shifts over time, and what to change next. Quote the characters -

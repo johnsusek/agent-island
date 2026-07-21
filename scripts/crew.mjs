@@ -6,12 +6,14 @@
 // restart-storm guard, and the token report on drain.
 //
 // Usage:
-//   node scripts/crew.mjs launch [--count N] [--director] [seat options]
-//   node scripts/crew.mjs run    [--count N] [--scenario genesis] [--director]
-//                                [--max-ticks N] [--clock-ms N] [--lockstep]
-//                                [--no-reset] [seat options]
-//   node scripts/crew.mjs stop            SIGTERM the running crew (pidfile)
-//   node scripts/crew.mjs status          Show the running crew, if any
+//   node scripts/crew.mjs director   [--max-ticks N] [seat options]
+//   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
+//   node scripts/crew.mjs stop [director|characters]   SIGTERM crew(s)
+//   node scripts/crew.mjs status                       Show running crews
+//
+// The director and characters are always launched as SEPARATE crews with
+// separate pidfiles, so seat options never bleed across roles. World setup
+// (scenario, reset, clock, pause/resume) lives in scripts/world.mjs.
 //
 // Seat options:
 //   --engine codex|claude      (default codex)
@@ -59,7 +61,7 @@ const CONFIG = {
   ),
   defaultCharacterPrompt: path.resolve(
     process.env.AGENT_ISLAND_CHARACTER_PROMPT ??
-      "agents/characters/character-minimal.md",
+    "agents/characters/character-minimal.md",
   ),
   defaultDirectorPersona: path.resolve(
     process.env.AGENT_ISLAND_DIRECTOR_PROMPT ?? "agents/directors/oracle.md",
@@ -70,7 +72,10 @@ const CONFIG = {
   oceanFile: path.resolve(
     process.env.AGENT_ISLAND_OCEAN_FILE ?? "agents/characters/OCEAN.md",
   ),
-  pidFile: path.resolve("data/.crew.pid"),
+  pidFiles: {
+    director: path.resolve("data/.crew-director.pid"),
+    characters: path.resolve("data/.crew-characters.pid"),
+  },
   relaunchDelayMs: numEnv("AGENT_ISLAND_CREW_RELAUNCH_MS", 3000),
   launchStaggerMs: numEnv("AGENT_ISLAND_CREW_STAGGER_MS", 3000),
   stopGraceMs: numEnv("AGENT_ISLAND_CREW_STOP_GRACE_MS", 10000),
@@ -598,8 +603,8 @@ class Crew {
         eventsPath.replace(/\.jsonl$/, ".stderr.log"),
         { flags: "w" },
       );
-      out.on("error", () => {});
-      err.on("error", () => {});
+      out.on("error", () => { });
+      err.on("error", () => { });
 
       let child = spawn(plan.command, plan.args, {
         cwd: seatDir,
@@ -779,20 +784,20 @@ function pidAlive(pid) {
   }
 }
 
-function readPidFile() {
-  let raw = safeReadFile(CONFIG.pidFile).trim();
+function readPidFile(role) {
+  let raw = safeReadFile(CONFIG.pidFiles[role]).trim();
   let pid = Number(raw);
   return Number.isFinite(pid) && pid > 0 ? pid : null;
 }
 
-function writePidFile() {
-  fs.mkdirSync(path.dirname(CONFIG.pidFile), { recursive: true });
-  fs.writeFileSync(CONFIG.pidFile, String(process.pid));
+function writePidFile(role) {
+  fs.mkdirSync(path.dirname(CONFIG.pidFiles[role]), { recursive: true });
+  fs.writeFileSync(CONFIG.pidFiles[role], String(process.pid));
 }
 
-function clearPidFile() {
+function clearPidFile(role) {
   try {
-    fs.rmSync(CONFIG.pidFile, { force: true });
+    fs.rmSync(CONFIG.pidFiles[role], { force: true });
   } catch {
     // ignore
   }
@@ -807,7 +812,7 @@ function parseArgs(argv) {
     let arg = argv[i];
     if (!arg.startsWith("--")) continue;
     let key = arg.slice(2);
-    let booleans = ["director", "no-ocean", "no-reset", "lockstep"];
+    let booleans = ["no-ocean"];
     if (booleans.includes(key)) opts[key] = true;
     else opts[key] = argv[++i];
   }
@@ -828,119 +833,41 @@ function seatRequest(opts, role) {
   };
 }
 
-function guardSingleCrew() {
-  let pid = readPidFile();
+function guardSingleCrew(role) {
+  let pid = readPidFile(role);
   if (pid && pidAlive(pid) && pid !== process.pid) {
     console.error(
-      `error: a crew is already running (pid ${pid}). Stop it first: node scripts/crew.mjs stop`,
+      `error: a ${role} crew is already running (pid ${pid}). Stop it first: node scripts/crew.mjs stop ${role}`,
     );
     process.exit(1);
   }
 }
 
-async function superviseUntilStopped(crew) {
-  writePidFile();
+// Supervise this crew until every seat retires, a signal arrives, or the tick
+// cap is reached (max-ticks > 0). Reaching the cap pauses the world before
+// draining; a plain stop leaves the clock alone.
+async function supervise(crew, opts, role, maxTicks) {
+  writePidFile(role);
   let drained = false;
-  let drainAndExit = async (code) => {
+  let finish = async (code, pause) => {
     if (drained) return;
     drained = true;
-    console.log("[crew] draining...");
+    if (pause)
+      await api("POST", "/api/pause", opts, { paused: true }).catch(() => { });
+    console.log(`[crew] draining ${role}...`);
     await crew.drain();
-    clearPidFile();
+    clearPidFile(role);
     process.exit(code);
   };
-  process.once("SIGINT", () => void drainAndExit(0));
-  process.once("SIGTERM", () => void drainAndExit(0));
-  // Keep the process alive while seats remain; exit when all have retired
-  // (every character died or errored out).
-  await new Promise((resolve) => {
-    let check = setInterval(() => {
-      if (!crew.seats.size) {
-        clearInterval(check);
-        resolve();
-      }
-    }, 2000);
-  });
-  if (!drained) {
-    console.log("[crew] all seats retired.");
-    clearPidFile();
-  }
-}
-
-async function cmdLaunch(opts) {
-  guardSingleCrew();
-  let crew = new Crew(opts);
-  if (opts.director)
-    await crew.launch(
-      seatRequest({ ...opts, count: 1, name: undefined }, "director"),
-    );
-  // --count 0 with --director seats only the director.
-  let launched =
-    Number(opts.count) === 0
-      ? []
-      : await crew.launch(seatRequest(opts, "character"));
-  if (!launched.length && !opts.director) {
-    console.error(
-      "error: no seats launched (name pool exhausted or name taken)",
-    );
-    process.exit(1);
-  }
-  await superviseUntilStopped(crew);
-}
-
-async function cmdRun(opts) {
-  guardSingleCrew();
-  if (opts.scenario)
-    await api(
-      "POST",
-      `/api/scenarios/${encodeURIComponent(opts.scenario)}/active`,
-      opts,
-      { active: true },
-    );
-  if (!opts["no-reset"]) {
-    let payload = await api("POST", "/api/reset", opts, {});
-    console.log(`[crew] reset ok - new world ${payload.worldId}`);
-  }
-  let crew = new Crew(opts);
-  // The director is seated BEFORE the characters so the first petitions land
-  // on a listening Oracle.
-  if (opts.director) {
-    await crew.launch(
-      seatRequest({ ...opts, count: 1, name: undefined }, "director"),
-    );
-  }
-  if (Number(opts.count) !== 0)
-    await crew.launch(seatRequest(opts, "character"));
-  let clockMs = opts.lockstep ? 0 : Number(opts["clock-ms"] ?? 2000);
-  await api("POST", "/api/clock", opts, { realTimeMs: clockMs });
-  await api("POST", "/api/pause", opts, { paused: false });
-  let maxTicks =
-    opts["max-ticks"] === "off" ? 0 : Number(opts["max-ticks"] ?? 10000);
-  console.log(
-    maxTicks > 0
-      ? `[crew] run started - watching for tick ${maxTicks}.`
-      : "[crew] run started - unbounded.",
-  );
-
-  writePidFile();
-  let drained = false;
-  let finish = async (code) => {
-    if (drained) return;
-    drained = true;
-    await api("POST", "/api/pause", opts, { paused: true }).catch(() => {});
-    await crew.drain();
-    clearPidFile();
-    process.exit(code);
-  };
-  process.once("SIGINT", () => void finish(0));
-  process.once("SIGTERM", () => void finish(0));
+  process.once("SIGINT", () => void finish(0, false));
+  process.once("SIGTERM", () => void finish(0, false));
 
   let pollMs = opts["poll-ms"] ? Number(opts["poll-ms"]) : 5000;
-  for (;;) {
+  for (; ;) {
     await new Promise((resolve) => setTimeout(resolve, pollMs));
     if (!crew.seats.size) {
-      console.log("[crew] every seat has retired - ending the run.");
-      await finish(0);
+      console.log(`[crew] every ${role} seat has retired.`);
+      await finish(0, false);
     }
     if (maxTicks > 0) {
       try {
@@ -948,7 +875,7 @@ async function cmdRun(opts) {
         let tick = state.state?.tick ?? 0;
         if (state.liveness?.ended || tick >= maxTicks) {
           console.log(`[crew] reached tick ${tick} - pausing and draining.`);
-          await finish(0);
+          await finish(0, true);
         }
       } catch {
         // transient; keep watching
@@ -957,32 +884,84 @@ async function cmdRun(opts) {
   }
 }
 
-async function cmdStop() {
-  let pid = readPidFile();
-  if (!pid || !pidAlive(pid)) {
-    console.log("no crew is running");
-    clearPidFile();
-    return;
+function parseMaxTicks(opts) {
+  return opts["max-ticks"] === "off" ? 0 : Number(opts["max-ticks"] ?? 2000);
+}
+
+async function cmdDirector(opts) {
+  guardSingleCrew("director");
+  let crew = new Crew(opts);
+  await crew.launch(seatRequest({ ...opts, count: 1 }, "director"));
+  let maxTicks = parseMaxTicks(opts);
+  console.log(
+    maxTicks > 0
+      ? `[crew] director seated - watching for tick ${maxTicks}.`
+      : "[crew] director seated - unbounded.",
+  );
+  await supervise(crew, opts, "director", maxTicks);
+}
+
+async function cmdCharacters(opts) {
+  guardSingleCrew("characters");
+  let crew = new Crew(opts);
+  let launched = await crew.launch(seatRequest(opts, "character"));
+  if (!launched.length) {
+    console.error(
+      "error: no seats launched (name pool exhausted or name taken)",
+    );
+    process.exit(1);
   }
-  process.kill(pid, "SIGTERM");
-  console.log(`sent SIGTERM to crew pid ${pid}; it drains and reports usage.`);
+  let maxTicks = parseMaxTicks(opts);
+  console.log(
+    maxTicks > 0
+      ? `[crew] ${launched.length} character(s) seated - watching for tick ${maxTicks}.`
+      : `[crew] ${launched.length} character(s) seated - unbounded.`,
+  );
+  await supervise(crew, opts, "characters", maxTicks);
+}
+
+const ROLES = ["director", "characters"];
+
+async function cmdStop(target) {
+  let roles = target ? [target] : ROLES;
+  if (target && !ROLES.includes(target)) {
+    console.error(`unknown crew: ${target} (director|characters)`);
+    process.exit(1);
+  }
+  for (let role of roles) {
+    let pid = readPidFile(role);
+    if (!pid || !pidAlive(pid)) {
+      console.log(`no ${role} crew is running`);
+      clearPidFile(role);
+      continue;
+    }
+    process.kill(pid, "SIGTERM");
+    console.log(
+      `sent SIGTERM to ${role} crew pid ${pid}; it drains and reports usage.`,
+    );
+  }
 }
 
 async function cmdStatus() {
-  let pid = readPidFile();
-  if (pid && pidAlive(pid)) console.log(`crew running (pid ${pid})`);
-  else console.log("no crew is running");
+  for (let role of ROLES) {
+    let pid = readPidFile(role);
+    if (pid && pidAlive(pid)) console.log(`${role} crew running (pid ${pid})`);
+    else console.log(`no ${role} crew is running`);
+  }
 }
 
 function printHelp() {
   console.log(`Agent Island crew supervisor - launches and babysits the LLM CLIs.
 
+The director and characters are separate crews, launched separately; seat
+options apply only to the crew being launched. World setup (scenario, reset,
+clock, pause/resume) lives in scripts/world.mjs.
+
 USAGE
-  node scripts/crew.mjs launch [--count N] [--director] [seat options]
-  node scripts/crew.mjs run    [--count N] [--scenario NAME] [--director]
-                               [--max-ticks N] [--clock-ms N] [--lockstep]
-                               [--no-reset] [seat options]
-  node scripts/crew.mjs stop | status
+  node scripts/crew.mjs director   [--max-ticks N] [seat options]
+  node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
+  node scripts/crew.mjs stop [director|characters]
+  node scripts/crew.mjs status
 
 SEAT OPTIONS
   --engine codex|claude   --model NAME   --effort low|medium|high|xhigh|max
@@ -992,18 +971,18 @@ SEAT OPTIONS
 DEFAULTS
   characters: codex / gpt-5.4-mini / low, OCEAN on
   director:   codex / gpt-5.6-luna / medium, persona oracle
-  run: resets first, 2000ms/tick clock, drains at tick 10000 (--max-ticks off = unbounded)`);
+  both drain at tick 2000 (--max-ticks off = unbounded)`);
 }
 
 async function main() {
   let { command, opts } = parseArgs(process.argv.slice(2));
   switch (command) {
-    case "launch":
-      return cmdLaunch(opts);
-    case "run":
-      return cmdRun(opts);
+    case "director":
+      return cmdDirector(opts);
+    case "characters":
+      return cmdCharacters(opts);
     case "stop":
-      return cmdStop();
+      return cmdStop(process.argv[3]);
     case "status":
       return cmdStatus();
     case "help":

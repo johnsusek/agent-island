@@ -107,7 +107,8 @@ One. A director is a persona file plus the GM tool surface.
 - **Oracle** — the resident seat. Reads the attempt feed, mints physics, prices every
   yes, paces the growth curve, and draws new content's art itself (inline sprite DSL
   on `register_kind_visual` / `register_terrain` — new visible content gets art before
-  anything else touches it). Seated by default on every `crew.mjs run --director`.
+  anything else touches it). Seated with `crew.mjs director`, its own crew
+  separate from the characters.
 
 ## The next frontier
 

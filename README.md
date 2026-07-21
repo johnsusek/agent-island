@@ -30,22 +30,63 @@ Everything meets over MCP; the server never launches an LLM.
   Click a character for their dossier; click a token to pin its card.
 - **`.claude/skills/genesis-run`** - the experiment protocol, end to end.
 
-## Quickstart
+## Running
+
+Start the server (one terminal):
 
 ```sh
 npm install
 npm run dev          # server on :3000 + observatory with HMR on :5173
 ```
 
-Then, in a Claude Code session (or by hand):
+`npm run dev:server` runs the server alone; `npm run serve` builds the
+observatory once and serves it from :3000.
+
+Run a full genesis experiment (other terminals - each crew stays in the
+foreground supervising its children). World setup first, then the Oracle and
+the characters as separate crews so seat options never bleed across roles:
 
 ```sh
-node scripts/crew.mjs run --count 4 --scenario genesis --director
+node scripts/world.mjs scenario genesis
+node scripts/world.mjs reset
+node scripts/world.mjs clock --ms 2000
+node scripts/crew.mjs director                 # Oracle first, own terminal
+node scripts/crew.mjs characters --count 4     # characters, own terminal
+node scripts/world.mjs resume
 ```
 
-resets the world, seats the Oracle, launches four characters, and supervises
-until tick 10,000. `node scripts/crew.mjs stop` drains early. The `.mcp.json`
-in this repo connects an operator session to the GM surface directly.
+Each crew supervises until tick 2000, then drains and prints per-seat token
+usage. Common variants:
+
+```sh
+node scripts/crew.mjs characters --count 4 --max-ticks off        # unbounded
+node scripts/crew.mjs characters --count 2                        # no Oracle: measure refusal
+node scripts/crew.mjs characters --count 2 --persona character-minimal  # prompt variant
+node scripts/crew.mjs stop director                               # drain one crew
+```
+
+Watch it:
+
+```sh
+node scripts/crew.mjs status                          # crew pids
+node scripts/world.mjs status                         # world tick/clock/actives
+curl -s localhost:3000/api/state | jq '{tick: .state.tick, oracle: .liveness.gmConnected,
+  laws: [.rules[] | select(.kind == "action") | .id], wishes: [.speculative[].verb]}'
+jq -rf scripts/watch-log.jq data/characters/*/logs/codex/play-*.jsonl   # a seat's mind, readable
+```
+
+Stop and steer:
+
+```sh
+node scripts/crew.mjs stop        # SIGTERM the crew; seats leave_game and usage prints
+node scripts/world.mjs pause      # freeze the clock (resume to unfreeze)
+node scripts/world.mjs clock --ms 2000
+node scripts/world.mjs reset      # archive + wipe the world (crew stop first)
+```
+
+The `.mcp.json` in this repo seats a Claude Code operator session on the GM
+surface directly; the `genesis-run` skill codifies the whole loop, retro
+included.
 
 ## Tests
 
