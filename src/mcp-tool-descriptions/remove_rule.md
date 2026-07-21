@@ -1,0 +1,1 @@
+GM: drop a GM-added rule from the live set by its id — how you retire a challenge once it has served its turn. Takes effect next tick. Baseline rules (the scenario's core loop — death, the metabolism drains, the base action rules) are protected and will be refused; tweak_rule them or layer a modifier instead of deleting the core loop.

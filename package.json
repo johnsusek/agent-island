@@ -1,0 +1,36 @@
+{
+  "name": "agent-island",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "AGENT_ISLAND_RULESET=config/config.json node scripts/dev.mjs",
+    "dev:server": "AGENT_ISLAND_RULESET=config/config.json AGENT_ISLAND_LOG=1 AGENT_ISLAND_SESSION_TTL_MS=600000 AGENT_ISLAND_IDLE_MS=900000 tsx src/server.ts",
+    "dev:web": "vite",
+    "serve": "npm run build:web && AGENT_ISLAND_RULESET=config/config.json AGENT_ISLAND_LOG=1 tsx src/server.ts",
+    "build:web": "vite build",
+    "world": "node scripts/world.mjs",
+    "crew": "node scripts/crew.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
+    "format": "prettier --write . --ignore-path .gitignore",
+    "test": "AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "express": "^5.1.0",
+    "pixi.js": "^8.19.0",
+    "vue": "^3.5.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "prettier": "^3.8.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vue-tsc": "^2.2.0"
+  }
+}

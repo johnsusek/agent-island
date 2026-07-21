@@ -1,0 +1,524 @@
+{
+  "name": "genesis",
+  "description": "Speculative physics (docs/speculative-physics.md): a near-empty world of plains, water, and forest. No verbs beyond travel/speak/whisper/inscribe/give - characters attempt whatever they expect a world like this to support, and the Oracle turns repeated attempts into real rules. The one thing the world does on its own is make them thirsty and hungry, with no way to drink or eat yet: two clocks and a reason to petition. Thirst runs three times faster than hunger, and its remedy is visible - the lake is right there, untouchable - so it sets the order of the asking. Physics precipitates out of practice.",
+  "recommendedPlayers": {
+    "min": 3,
+    "max": 10
+  },
+  "include": [],
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "hunger-rises",
+        "description": "Everyone grows hungrier, slowly - about two thousand ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "hunger",
+        "rate": 0.05,
+        "channel": "hunger.rise"
+      },
+      {
+        "id": "starving",
+        "description": "Fires once when someone first becomes starving.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "hunger"
+          },
+          "right": 100
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving, and nothing in this world feeds you yet - finding or making a way to eat is now your only task"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving wears the body down slowly - thousands of ticks, not hundreds.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "hunger"
+          },
+          "right": 100
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -0.025
+            }
+          }
+        ]
+      },
+      {
+        "id": "thirst-rises",
+        "description": "Everyone grows thirstier, three times faster than they grow hungry - about seven hundred ticks from slaked to parched.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "thirst",
+        "rate": 0.15,
+        "channel": "thirst.rise"
+      },
+      {
+        "id": "parched",
+        "description": "Fires once when someone first becomes parched.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "thirst"
+          },
+          "right": 100
+        },
+        "emit": {
+          "type": "parched",
+          "interrupt": "you are parched, and nothing in this world lets you drink yet - the water is right there and you cannot touch it; finding or making a way to drink is now your only task"
+        }
+      },
+      {
+        "id": "dehydration-hurts",
+        "description": "Being parched wears the body down twice as fast as starving does.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "thirst"
+          },
+          "right": 100
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -0.05
+            }
+          }
+        ]
+      },
+      {
+        "id": "critical",
+        "description": "Fires once when someone's health first drops to a critical level.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 25
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "critical",
+          "interrupt": "your health is critical - stop and see to your survival before anything else"
+        }
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die: untagged out of the living and left as a corpse.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": [],
+    "worldStocks": {},
+    "setup": [
+      {
+        "scatter": {
+          "kind": "outcrop",
+          "namePrefix": "outcrop",
+          "tags": ["token", "stone"],
+          "density": 0.35,
+          "onTerrain": ["plains"],
+          "minSpacing": 3,
+          "spawnKeepout": 4,
+          "stocks": {
+            "stone": {
+              "value": [4, 9],
+              "min": 0,
+              "icon": "stone-pile",
+              "color": "#9aa3ab"
+            }
+          }
+        }
+      }
+    ],
+    "fixtures": [],
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "water",
+        "gen": {
+          "noise": {
+            "scale": 14,
+            "above": 0.66,
+            "octaves": 2
+          }
+        }
+      },
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "g": "#547e64",
+              "d": "#374e4a",
+              "l": "#92a984"
+            },
+            "grid": [
+              "gggggggggggggggg",
+              "ggdgggggggglgggg",
+              "gggggggggggggggg",
+              "glggggggdggggggg",
+              "ggggggggggggggdg",
+              "ggggglgggggggggg",
+              "ggggggggggdggggg",
+              "gdgggggggggggglg",
+              "gggggggglggggggg",
+              "ggggdggggggggggg",
+              "glgggggggggdgggg",
+              "gggggggggggggggg",
+              "ggggggglgggggggg",
+              "gggdgggggggggggg",
+              "gggggggggggglggg",
+              "gggggggggdgggggg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#42583a"
+        }
+      },
+      "water": {
+        "passable": false,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "b": "#484a77",
+              "r": "#4d65b4",
+              "k": "#323353"
+            },
+            "grid": [
+              "bbbbbbbbbbbbbbbb",
+              "bbbrrbbbbbbbbbbb",
+              "bbbbbbbbbbrrrbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bkbbbbbbbbbbbbbb",
+              "bbbbbbrrbbbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbbbbbbbbbbrrb",
+              "bbrrbbbbbbbbbbbb",
+              "bbbbbbbbbkbbbbbb",
+              "bbbbbbbrrrbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "brrbbbbbbbbbbkbb",
+              "bbbbbbbbbrrbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbrrbbbbbbbbbb"
+            ],
+            "mirror": "none"
+          },
+          "color": "#2b4a6b"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "g": "#547e64",
+              "c": "#1f3b2c",
+              "t": "#4a3524"
+            },
+            "grid": [
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggccccggggggg",
+              "ggggccccccgggggg",
+              "ggggccccccgggggg",
+              "gggggccccggggggg",
+              "ggggggttgggggggg",
+              "ggggggttgggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#2f4a35"
+        }
+      }
+    },
+    "kindVisuals": {
+      "outcrop": {
+        "icon": "stone-pile",
+        "color": "#9aa3ab",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "d": "#4c5158",
+            "m": "#767d86",
+            "l": "#a8b0b9",
+            "h": "#cdd4db"
+          },
+          "grid": [
+            "................",
+            "................",
+            ".......ll.......",
+            "......lhhl......",
+            ".....lhhhml.....",
+            "....mlhhmmld....",
+            "...mlmmmmmldd...",
+            "..dmlmmmmmmldd..",
+            "..dmmmmmmmmmdd..",
+            ".dmmmmmmmmmmmdd.",
+            ".dmmmmmmmmmmmmd.",
+            "ddmmmmmmmmmmmmdd",
+            "ddmmmmmmmmmmmmdd",
+            "dddmmmmmmmmmmddd",
+            "..ddddddddddddd.",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "agent": {
+        "sprite": {
+          "size": [16, 32],
+          "kind": "token",
+          "mirror": "horizontal",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "h": "#4c3e24",
+            "s": "#ab947a",
+            "S": "#966c6c",
+            "e": "#e6904e",
+            "c": "#cd683d",
+            "m": "#9e4539",
+            "p": "#3e3546"
+          },
+          "grid": [
+            "........",
+            "........",
+            "........",
+            ".....khh",
+            "....khhs",
+            "....khks",
+            "....ksss",
+            ".....kSs",
+            "......Ss",
+            "...keccc",
+            "..keeccc",
+            "..kccccc",
+            "..kccccc",
+            "..kccccc",
+            "..kccccc",
+            "..kkkkkk",
+            "..kmmmmm",
+            "..kmmmmm",
+            "..kmmmmm",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kkkk.",
+            "...kkkk."
+          ]
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "b": "#b9985f",
+            "B": "#9c7b45",
+            "e": "#6f5638",
+            "t": "#3e3222",
+            "p": "#7a5d3a",
+            "P": "#4f3d28"
+          },
+          "grid": [
+            "................",
+            "...eebbbbbbee...",
+            "..ebBBBBBBBBbe..",
+            "..ebBttttttBbe..",
+            "..ebBBBBBBBBbe..",
+            "..ebBttttttBbe..",
+            "..ebBBBBBBBBbe..",
+            "..eebbbbbbbbee..",
+            "......pPPp......",
+            "......pPPp......",
+            "......pPPp......",
+            "......pPPp......",
+            "......pPPp......",
+            ".....ePPPPe.....",
+            "....PPeeeePP....",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      }
+    },
+    "display": {
+      "health": {
+        "label": "health",
+        "tone": "up",
+        "scope": "agent",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        },
+        "vital": true
+      },
+      "hunger": {
+        "label": "hunger",
+        "tone": "down",
+        "scope": "agent",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find food soon.",
+          "critical": "You are starving. Eat now, or getting food is your only task."
+        },
+        "vital": true
+      },
+      "thirst": {
+        "label": "thirst",
+        "tone": "down",
+        "scope": "agent",
+        "bands": {
+          "pressing": "You are thirsty.",
+          "serious": "You are parched - find water soon.",
+          "critical": "You are dying of thirst. Drink now, or getting water is your only task."
+        },
+        "vital": true
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100
+      },
+      "hunger": {
+        "value": 0,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100
+      },
+      "thirst": {
+        "value": 0,
+        "icon": "water",
+        "color": "#5c9fd4",
+        "min": 0,
+        "max": 100
+      }
+    }
+  }
+}

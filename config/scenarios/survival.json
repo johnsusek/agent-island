@@ -1,0 +1,2925 @@
+{
+  "name": "survival",
+  "description": "ENGINE TEST FIXTURE, not a played scenario: a full character survival game (gather food, water, and wood, build and warm a shelter, endure hunger, thirst, and cold) kept because most of the engine suite exercises the DSL through it. Played worlds run genesis.",
+  "recommendedPlayers": {
+    "min": 1,
+    "max": 8
+  },
+  "include": ["metabolism"],
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "build_shelter",
+        "kind": "action",
+        "duration": 8,
+        "description": "Build a finished shelter where you stand for 4 carried wood, on dry ground with no shelter already here.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "wood"
+              },
+              "right": 4
+            },
+            {
+              "not": {
+                "nearTerrain": {
+                  "type": "water",
+                  "range": 0
+                }
+              }
+            },
+            {
+              "not": {
+                "colocated": {
+                  "tag": "shelter"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "need 4 carried wood and dry ground with no shelter underfoot",
+        "do": [
+          {
+            "adjust": {
+              "target": "wood",
+              "by": -4
+            }
+          },
+          {
+            "spawn": {
+              "kind": "shelter",
+              "idPrefix": "shelter",
+              "tags": ["token", "solid"],
+              "stocks": {
+                "shelter": {
+                  "value": 30,
+                  "min": 0,
+                  "max": 30
+                }
+              }
+            }
+          },
+          {
+            "adjust": {
+              "target": "morale",
+              "by": 3
+            }
+          },
+          {
+            "forEach": {
+              "colocated": {
+                "tag": "agent",
+                "range": 1
+              },
+              "do": [
+                {
+                  "adjust": {
+                    "target": "morale",
+                    "by": 3
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "emit": {
+          "type": "shelter_complete"
+        }
+      },
+      {
+        "id": "shelter-warms",
+        "description": "A finished shelter blunts the cold for anyone beside it - the payoff for raising it before winter.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "colocated": {
+            "tag": "shelter",
+            "range": 1,
+            "where": {
+              "cmp": "gte",
+              "left": {
+                "stock": "shelter"
+              },
+              "right": 30
+            }
+          }
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "warmth",
+              "by": 0.5
+            }
+          }
+        ]
+      },
+      {
+        "id": "cold-stalls-recovery",
+        "description": "A fed and watered but freezing character can't heal, sharing recover-when-comfortable's fed/watered gate and cancelling its +1 while warmth has run down so the two rules compose additively.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "hunger"
+              },
+              "right": 70
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "thirst"
+              },
+              "right": 80
+            },
+            {
+              "cmp": "lte",
+              "left": {
+                "stock": "warmth"
+              },
+              "right": 25
+            }
+          ]
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -1
+            }
+          }
+        ]
+      },
+      {
+        "id": "cold-bites",
+        "description": "The cold steadily saps every character's warmth, doubled in winter (see winter-deepens-cold), held back by the camp hearth.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "warmth",
+        "rate": -0.25,
+        "channel": "warmth.drain"
+      },
+      {
+        "id": "freezing-hurts",
+        "description": "A character who runs out of warmth starts taking cold damage.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "warmth"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -1
+            }
+          }
+        ]
+      },
+      {
+        "id": "freezing",
+        "description": "Fires once when a character first grows dangerously cold.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "warmth"
+          },
+          "right": 12
+        },
+        "emit": {
+          "type": "freezing"
+        }
+      },
+      {
+        "id": "winter-deepens-cold",
+        "description": "In winter the cold drains warmth faster - and each successive winter is colder than the last: 2x the first year, +0.5x per year after.",
+        "kind": "modifier",
+        "channel": "warmth.drain",
+        "op": "scale",
+        "value": {
+          "add": [
+            2,
+            {
+              "mul": [
+                {
+                  "floor": {
+                    "div": [
+                      {
+                        "tick": true
+                      },
+                      100
+                    ]
+                  }
+                },
+                0.5
+              ]
+            }
+          ]
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "season",
+            "of": "world"
+          },
+          "right": 1
+        }
+      },
+      {
+        "id": "movement-costs-energy",
+        "description": "Walking costs energy per tile entered.",
+        "phase": "event",
+        "on": "moved",
+        "do": [
+          {
+            "adjust": {
+              "target": "energy",
+              "by": -0.5
+            }
+          }
+        ]
+      },
+      {
+        "id": "thirst-rises",
+        "description": "Every character grows thirstier each tick; drinking holds it back.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "thirst",
+        "rate": 0.075
+      },
+      {
+        "id": "dehydration-hurts",
+        "description": "A character whose thirst maxes out starts losing health.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "thirst"
+          },
+          "right": 100
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -1
+            }
+          }
+        ]
+      },
+      {
+        "id": "recover-when-comfortable",
+        "description": "A fed and watered character slowly regains health, with survival-cold layering a matching penalty (cold-stalls-recovery) that cancels this gain while freezing.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "hunger"
+              },
+              "right": 70
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "thirst"
+              },
+              "right": 80
+            }
+          ]
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "parched",
+        "description": "Fires once when a character first becomes dangerously thirsty.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "thirst"
+          },
+          "right": 90
+        },
+        "emit": {
+          "type": "parched",
+          "interrupt": "you are dangerously thirsty - drink now"
+        }
+      },
+      {
+        "id": "drink",
+        "kind": "action",
+        "duration": 2,
+        "description": "Drink from open water to slake thirst by standing on a tile next to water, since water itself is impassable.",
+        "params": [],
+        "requires": {
+          "nearTerrain": {
+            "type": "water",
+            "range": 1
+          }
+        },
+        "requireReason": "must stand on a land tile directly touching a water tile",
+        "do": [
+          {
+            "adjust": {
+              "target": "thirst",
+              "by": -45
+            }
+          }
+        ],
+        "emit": {
+          "type": "drank"
+        }
+      },
+      {
+        "id": "gather",
+        "kind": "action",
+        "duration": 2,
+        "description": "Gather food from a source you're next to into your pack, as much as will fit, from a finite reserve, then eat it or haul it to a stockpile.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "food",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "food",
+                "of": {
+                  "colocated": {
+                    "tag": "food",
+                    "range": 1
+                  }
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": "food"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must be next to a food source that still has food, with room in your pack",
+        "fizzleWhen": {
+          "cmp": "lte",
+          "left": {
+            "stock": "food",
+            "of": {
+              "colocated": {
+                "tag": "food",
+                "range": 1
+              }
+            }
+          },
+          "right": 0
+        },
+        "fizzleReason": "the food source is exhausted",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "food",
+                "of": {
+                  "colocated": {
+                    "tag": "food",
+                    "range": 1
+                  }
+                }
+              },
+              "to": {
+                "stock": "food"
+              },
+              "amount": {
+                "min": [
+                  {
+                    "stock": "food",
+                    "of": {
+                      "colocated": {
+                        "tag": "food",
+                        "range": 1
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "food"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "gathered"
+        }
+      },
+      {
+        "id": "food-regrows",
+        "description": "Wild food patches regrow on their own, but only slowly - enough to keep a small band fed off the land, never enough to sustain a growing colony.",
+        "phase": "flow",
+        "each": {
+          "tag": "food"
+        },
+        "target": "food",
+        "rate": 0.03,
+        "channel": "crops.grow"
+      },
+      {
+        "id": "rest",
+        "kind": "action",
+        "duration": 6,
+        "description": "Rest to recover energy, anywhere.",
+        "params": [],
+        "do": [
+          {
+            "adjust": {
+              "target": "energy",
+              "by": 30
+            }
+          }
+        ],
+        "emit": {
+          "type": "rested"
+        }
+      },
+      {
+        "id": "farm-grows",
+        "description": "A sown farm plot grows faster than the wild land but tending it is what really brings the crop in, sleeping through winter like all growth (see winter-stills-crops).",
+        "phase": "flow",
+        "each": {
+          "tag": "farm"
+        },
+        "target": "food",
+        "rate": 0.05,
+        "channel": "crops.grow"
+      },
+      {
+        "id": "sow",
+        "kind": "action",
+        "duration": 4,
+        "description": "Break open a patch of open plains to sow a new farm plot where you stand, tiring work needing dry, open ground with no token already on the tile.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "energy"
+              },
+              "right": 8
+            },
+            {
+              "nearTerrain": {
+                "type": "plains",
+                "range": 0
+              }
+            },
+            {
+              "not": {
+                "colocated": {
+                  "tag": "token"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "need open, dry plains ground, no token already here, and the energy to break the soil",
+        "do": [
+          {
+            "adjust": {
+              "target": "energy",
+              "by": -8
+            }
+          },
+          {
+            "spawn": {
+              "kind": "farm",
+              "idPrefix": "plot",
+              "tags": ["token", "food"],
+              "stocks": {
+                "food": {
+                  "value": 2,
+                  "min": 0,
+                  "max": 40
+                }
+              }
+            }
+          },
+          {
+            "adjust": {
+              "target": "morale",
+              "by": 1
+            }
+          }
+        ],
+        "emit": {
+          "type": "sowed"
+        }
+      },
+      {
+        "id": "tend",
+        "kind": "action",
+        "duration": 5,
+        "description": "Tend a farm plot to coax up its crop by standing on it, tiring work that only works while the growing season lasts.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "farm"
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "season",
+                "of": "world"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must stand on a farm plot during the growing season (crops won't take in winter)",
+        "do": [
+          {
+            "adjust": {
+              "target": "food",
+              "of": {
+                "colocated": "farm"
+              },
+              "by": 4
+            }
+          },
+          {
+            "adjust": {
+              "target": "energy",
+              "by": -6
+            }
+          }
+        ],
+        "emit": {
+          "type": "tended"
+        }
+      },
+      {
+        "id": "hearth-burns",
+        "description": "A lit hearth burns its fuel down a little every tick, tended or not - the colony's shared drain.",
+        "phase": "flow",
+        "each": {
+          "tag": "hearth"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "stock": "fuel"
+          },
+          "right": 0
+        },
+        "target": "fuel",
+        "rate": -0.125
+      },
+      {
+        "id": "hearth-warms",
+        "description": "A character beside a lit hearth soaks up its warmth and a little cheer.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "colocated": {
+            "tag": "hearth",
+            "range": 1,
+            "where": {
+              "cmp": "gte",
+              "left": {
+                "stock": "fuel"
+              },
+              "right": 1
+            }
+          }
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "warmth",
+              "by": 1.5
+            }
+          },
+          {
+            "adjust": {
+              "target": "morale",
+              "by": 0.25
+            }
+          }
+        ]
+      },
+      {
+        "id": "hearth-low",
+        "description": "Fires once when a hearth's fuel first burns low - the call for someone to fetch wood.",
+        "phase": "watch",
+        "each": {
+          "tag": "hearth"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "fuel"
+          },
+          "right": 6
+        },
+        "emit": {
+          "type": "hearth_low"
+        }
+      },
+      {
+        "id": "hearth-out",
+        "description": "Fires once when a hearth goes cold.",
+        "phase": "watch",
+        "each": {
+          "tag": "hearth"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "fuel"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "hearth_out"
+        }
+      },
+      {
+        "id": "stoke",
+        "kind": "action",
+        "duration": 2,
+        "description": "Feed your carried wood into a hearth to keep it burning, from a tile beside it.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "hearth",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "wood"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must be beside a hearth and carry wood",
+        "do": [
+          {
+            "adjust": {
+              "target": "wood",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "fuel",
+              "of": {
+                "colocated": {
+                  "tag": "hearth",
+                  "range": 1
+                }
+              },
+              "by": 3
+            }
+          }
+        ],
+        "emit": {
+          "type": "stoked"
+        }
+      },
+      {
+        "id": "build_campfire",
+        "kind": "action",
+        "duration": 4,
+        "description": "Build a campfire where you stand for 2 carried wood on dry ground with no other token already on the tile, so the colony has a hearth to gather round.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "wood"
+              },
+              "right": 2
+            },
+            {
+              "not": {
+                "nearTerrain": {
+                  "type": "water",
+                  "range": 0
+                }
+              }
+            },
+            {
+              "not": {
+                "colocated": {
+                  "tag": "token"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "need 2 carried wood and dry ground with no other token already on this tile",
+        "do": [
+          {
+            "adjust": {
+              "target": "wood",
+              "by": -2
+            }
+          },
+          {
+            "spawn": {
+              "kind": "hearth",
+              "idPrefix": "campfire",
+              "tags": ["token", "solid"],
+              "stocks": {
+                "fuel": {
+                  "value": 10,
+                  "min": 0,
+                  "max": 30
+                }
+              }
+            }
+          },
+          {
+            "adjust": {
+              "target": "morale",
+              "by": 3
+            }
+          }
+        ],
+        "emit": {
+          "type": "built"
+        }
+      },
+      {
+        "id": "morale-from-hunger",
+        "description": "Gnawing hunger erodes a character's morale.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "hunger"
+          },
+          "right": 80
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "morale",
+              "by": -1
+            }
+          }
+        ]
+      },
+      {
+        "id": "morale-from-cold",
+        "description": "Bitter cold erodes a character's morale.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "warmth"
+          },
+          "right": 20
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "morale",
+              "by": -1
+            }
+          }
+        ]
+      },
+      {
+        "id": "morale-recovers",
+        "description": "A well-fed character regains heart.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lt",
+          "left": {
+            "stock": "hunger"
+          },
+          "right": 50
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "morale",
+              "by": 0.5
+            }
+          }
+        ]
+      },
+      {
+        "id": "company-cheers",
+        "description": "Working within sight of another character keeps spirits up - solitude wears them down.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "colocated": {
+            "tag": "agent",
+            "range": 2
+          }
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "morale",
+              "by": 0.25
+            }
+          }
+        ]
+      },
+      {
+        "id": "despairing",
+        "description": "Fires once when a character's morale first collapses.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "morale"
+          },
+          "right": 15
+        },
+        "emit": {
+          "type": "despairing"
+        }
+      },
+      {
+        "id": "predator-roam",
+        "description": "Predators roam: every 3 ticks each drifts one tile in a seeded random direction (no pathfinding).",
+        "phase": "transition",
+        "each": {
+          "tag": "predator"
+        },
+        "when": {
+          "cmp": "eq",
+          "left": {
+            "mod": [
+              {
+                "tick": true
+              },
+              3
+            ]
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "move": {
+              "dx": {
+                "round": {
+                  "rand": [-1, 1, "wx"]
+                }
+              },
+              "dy": {
+                "round": {
+                  "rand": [-1, 1, "wy"]
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "predator-maul",
+        "description": "A beast sharing a character's tile mauls them, costing health and nerve.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "colocated": {
+            "tag": "predator"
+          }
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -3
+            }
+          },
+          {
+            "adjust": {
+              "target": "morale",
+              "by": -3
+            }
+          }
+        ]
+      },
+      {
+        "id": "wolf-near-camp",
+        "description": "Fires once when a beast first prowls within sight of the camp hearth - the call to drive it off together.",
+        "phase": "watch",
+        "each": {
+          "tag": "predator"
+        },
+        "when": {
+          "colocated": {
+            "tag": "hearth",
+            "range": 8
+          }
+        },
+        "emit": {
+          "type": "wolf_at_camp"
+        }
+      },
+      {
+        "id": "fight",
+        "kind": "action",
+        "duration": 3,
+        "description": "Fight a beast on your tile - your blow lands on the most wounded one so fighters finishing a beast together converge - bloody and tiring work best shared.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "predator"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "health",
+                "of": {
+                  "colocated": "predator"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must share a tile with a living beast",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "tag": "predator",
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "health"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the beast is already down",
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "of": {
+                "colocated": {
+                  "tag": "predator",
+                  "pick": {
+                    "lowest": "health"
+                  }
+                }
+              },
+              "by": -8,
+              "as": "beastId"
+            }
+          },
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          },
+          {
+            "adjust": {
+              "target": "energy",
+              "by": -10
+            }
+          }
+        ],
+        "emit": {
+          "type": "fought"
+        }
+      },
+      {
+        "id": "predator-dies",
+        "description": "When a beast's health hits zero it is slain, leaving a carcass laden with meat for the colony to butcher.",
+        "phase": "transition",
+        "each": {
+          "tag": "predator"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "set": {
+              "target": "food",
+              "to": 10
+            }
+          },
+          {
+            "kind": {
+              "set": "carcass"
+            }
+          }
+        ],
+        "emit": {
+          "type": "beast_slain"
+        }
+      },
+      {
+        "id": "butcher",
+        "kind": "action",
+        "duration": 3,
+        "description": "Butcher a slain beast where it fell, cutting as much meat as will fit into your pack, since a big carcass feeds several.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "carcass"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "food",
+                "of": {
+                  "colocated": "carcass"
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": "food"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must stand over a carcass that still has meat, with room in your pack",
+        "fizzleWhen": {
+          "cmp": "lte",
+          "left": {
+            "stock": "food",
+            "of": {
+              "colocated": "carcass"
+            }
+          },
+          "right": 0
+        },
+        "fizzleReason": "the carcass was stripped bare before you got your share",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "food",
+                "of": {
+                  "colocated": "carcass"
+                }
+              },
+              "to": {
+                "stock": "food"
+              },
+              "amount": {
+                "min": [
+                  {
+                    "stock": "food",
+                    "of": {
+                      "colocated": "carcass"
+                    }
+                  },
+                  {
+                    "headroom": "food"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "adjust": {
+              "target": "morale",
+              "by": 2
+            }
+          }
+        ],
+        "emit": {
+          "type": "butchered"
+        }
+      },
+      {
+        "id": "carcass-stripped",
+        "description": "A carcass stripped of all its meat is cleared away - nothing left to butcher.",
+        "phase": "transition",
+        "each": {
+          "tag": "carcass"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "food"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "destroy": {
+              "of": "self"
+            }
+          }
+        ]
+      },
+      {
+        "id": "chop",
+        "kind": "action",
+        "duration": 4,
+        "description": "Fell a tree for wood by standing next to it and chopping; felling it clears the tree away, leaving open plains.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "wood",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "wood",
+                "of": {
+                  "colocated": {
+                    "tag": "wood",
+                    "range": 1
+                  }
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must be next to a tree that still has timber",
+        "fizzleWhen": {
+          "cmp": "lte",
+          "left": {
+            "stock": "wood",
+            "of": {
+              "colocated": {
+                "tag": "wood",
+                "range": 1
+              }
+            }
+          },
+          "right": 0
+        },
+        "fizzleReason": "the trees here are logged out",
+        "do": [
+          {
+            "adjust": {
+              "target": "wood",
+              "of": {
+                "colocated": {
+                  "tag": "wood",
+                  "range": 1
+                }
+              },
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "wood",
+              "by": 3
+            }
+          }
+        ],
+        "emit": {
+          "type": "chopped"
+        }
+      },
+      {
+        "id": "tree-felled",
+        "description": "A tree chopped bare of all its timber is cleared away, leaving open plains.",
+        "phase": "transition",
+        "each": {
+          "tag": "wood"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "wood"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "destroy": {
+              "of": "self"
+            }
+          }
+        ]
+      },
+      {
+        "id": "season-clock",
+        "description": "The world's season, derived from the clock (year = 100 ticks, four 25-tick seasons): 0 is growing season (ticks 0-74), 0.5 is winter approaching (ticks 67-74), and 1 is winter (ticks 75-99), computed as a derived stock so season watches see a fresh crossing.",
+        "phase": "derived",
+        "target": "season",
+        "value": {
+          "if": [
+            {
+              "cmp": "gte",
+              "left": {
+                "mod": [
+                  {
+                    "tick": true
+                  },
+                  100
+                ]
+              },
+              "right": 75
+            },
+            1,
+            {
+              "if": [
+                {
+                  "cmp": "gte",
+                  "left": {
+                    "mod": [
+                      {
+                        "tick": true
+                      },
+                      100
+                    ]
+                  },
+                  "right": 67
+                },
+                0.5,
+                0
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "winter-stills-crops",
+        "description": "In winter nothing grows - neither wild food patches nor sown farm plots regrow until the thaw - a world-level effect that holds for whichever growth rules are active.",
+        "kind": "modifier",
+        "channel": "crops.grow",
+        "op": "scale",
+        "value": 0,
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "season",
+            "of": "world"
+          },
+          "right": 1
+        }
+      },
+      {
+        "id": "winter-forecast",
+        "description": "Fires once each year, a stretch before winter lands - the colony's warning to stockpile wood and food.",
+        "phase": "watch",
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "season"
+              },
+              "right": 0.5
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "season"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "emit": {
+          "type": "winter_soon",
+          "global": true
+        }
+      },
+      {
+        "id": "winter-arrives",
+        "description": "Fires once when winter lands.",
+        "phase": "watch",
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "season"
+          },
+          "right": 1
+        },
+        "emit": {
+          "type": "winter_arrived",
+          "global": true
+        }
+      },
+      {
+        "id": "spring-thaw",
+        "description": "Fires once when winter breaks.",
+        "phase": "watch",
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "season"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "spring_thaw",
+          "global": true
+        }
+      },
+      {
+        "id": "found_stockpile",
+        "kind": "action",
+        "duration": 3,
+        "description": "Clear a patch of ground and declare it a stockpile pile by standing where you want it, then announce the spot so others can travel here. Each pile holds one resource type, so found a separate pile for food, wood, stone, and so on.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "not": {
+                "colocated": {
+                  "tag": "stockpile"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "there is already a stockpile on this tile",
+        "do": [
+          {
+            "spawn": {
+              "kind": "stockpile",
+              "idPrefix": "stockpile",
+              "tags": ["token", "exclusive"]
+            }
+          }
+        ],
+        "emit": {
+          "type": "stockpile_founded"
+        }
+      },
+      {
+        "id": "deposit",
+        "kind": "action",
+        "duration": 2,
+        "description": "Store one carried resource in this pile. Each pile is dedicated to the first resource type deposited (20 max), so take a different resource to a different pile.",
+        "params": [
+          {
+            "name": "item",
+            "type": "enum",
+            "from": "stockpilable",
+            "required": true,
+            "description": "which carried resource to unload onto the pile"
+          }
+        ],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "stockpile"
+              }
+            },
+            {
+              "stockpilable": {
+                "arg": "item"
+              }
+            },
+            {
+              "stockpileAccepts": {
+                "arg": "item"
+              },
+              "of": {
+                "colocated": "stockpile"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                },
+                "maxIfMissing": 20
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": {
+                  "arg": "item"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must carry the resource and stand on a compatible stockpile with space",
+        "fizzleWhen": {
+          "any": [
+            {
+              "not": {
+                "stockpileAccepts": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                }
+              }
+            },
+            {
+              "cmp": "lte",
+              "left": {
+                "headroom": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                },
+                "maxIfMissing": 20
+              },
+              "right": 0
+            }
+          ]
+        },
+        "fizzleReason": "the stockpile filled or was claimed for another resource",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": {
+                  "arg": "item"
+                }
+              },
+              "to": {
+                "stock": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                },
+                "maxIfMissing": 20
+              },
+              "amount": {
+                "min": [
+                  {
+                    "stock": {
+                      "arg": "item"
+                    }
+                  },
+                  {
+                    "headroom": {
+                      "arg": "item"
+                    },
+                    "of": {
+                      "colocated": "stockpile"
+                    },
+                    "maxIfMissing": 20
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "deposited"
+        }
+      },
+      {
+        "id": "withdraw",
+        "kind": "action",
+        "duration": 2,
+        "description": "Take a chosen resource from the stockpile you stand on into your own pack, taking as much as will fit.",
+        "params": [
+          {
+            "name": "item",
+            "type": "enum",
+            "from": "stockpilable",
+            "required": true,
+            "description": "which stored resource to take into your pack"
+          }
+        ],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "stockpile"
+              }
+            },
+            {
+              "stockpilable": {
+                "arg": "item"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": {
+                  "arg": "item"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must stand on the stockpile, it must hold the resource you name, and your pack must have room for it",
+        "fizzleWhen": {
+          "cmp": "lte",
+          "left": {
+            "stock": {
+              "arg": "item"
+            },
+            "of": {
+              "colocated": "stockpile"
+            }
+          },
+          "right": 0
+        },
+        "fizzleReason": "the pile was emptied before you could take any",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                }
+              },
+              "to": {
+                "stock": {
+                  "arg": "item"
+                }
+              },
+              "amount": {
+                "min": [
+                  {
+                    "stock": {
+                      "arg": "item"
+                    },
+                    "of": {
+                      "colocated": "stockpile"
+                    }
+                  },
+                  {
+                    "headroom": {
+                      "arg": "item"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "withdrew"
+        }
+      },
+      {
+        "id": "survival-victory",
+        "description": "Keep at least one character alive through the first 100-tick year to survive winter and win.",
+        "phase": "watch",
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 100
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "Spring returns with the colony alive - the first winter is won!",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": [],
+    "stockDefaults": {
+      "thirst": {
+        "value": 20,
+        "icon": "water",
+        "color": "#5c9fd4"
+      },
+      "energy": {
+        "value": 100,
+        "icon": "energy",
+        "color": "#d8c95a"
+      },
+      "warmth": {
+        "value": 100,
+        "icon": "warmth",
+        "color": "#e8843a"
+      },
+      "morale": {
+        "value": 70,
+        "icon": "morale",
+        "color": "#d2b45c"
+      },
+      "wood": {
+        "value": 0,
+        "max": 25,
+        "icon": "wood",
+        "color": "#86b35a",
+        "stockpilable": true
+      }
+    },
+    "worldStocks": {
+      "season": {
+        "value": 0,
+        "min": 0,
+        "max": 3,
+        "icon": "winter",
+        "color": "#9fc7e6"
+      }
+    },
+    "setup": [
+      {
+        "scatter": {
+          "kind": "tree",
+          "namePrefix": "tree",
+          "tags": ["token", "wood"],
+          "density": 1,
+          "onTerrain": ["plains"],
+          "minSpacing": 2,
+          "spawnKeepout": 5,
+          "stocks": {
+            "wood": {
+              "value": [3, 5],
+              "min": 0
+            }
+          }
+        }
+      },
+      {
+        "scatter": {
+          "kind": "food",
+          "namePrefix": "berry-thicket",
+          "tags": ["token"],
+          "density": 0.35,
+          "onTerrain": ["plains"],
+          "minSpacing": 2,
+          "spawnKeepout": 5,
+          "stocks": {
+            "food": {
+              "value": [6, 12],
+              "min": 0,
+              "max": [13, 19]
+            }
+          }
+        }
+      },
+      {
+        "scatter": {
+          "kind": "predator",
+          "namePrefix": "wolf",
+          "tags": ["token"],
+          "edgeDensity": 4,
+          "minSpacing": 15,
+          "spawnKeepout": 20,
+          "stocks": {
+            "health": {
+              "value": 16,
+              "min": 0,
+              "max": 16
+            }
+          }
+        }
+      }
+    ],
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "water",
+        "gen": {
+          "noise": {
+            "scale": 14,
+            "above": 0.66,
+            "octaves": 2
+          }
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "g": "#547e64",
+              "d": "#374e4a",
+              "l": "#92a984"
+            },
+            "grid": [
+              "gggggggggggggggg",
+              "ggdgggggggglgggg",
+              "gggggggggggggggg",
+              "glggggggdggggggg",
+              "ggggggggggggggdg",
+              "ggggglgggggggggg",
+              "ggggggggggdggggg",
+              "gdgggggggggggglg",
+              "gggggggglggggggg",
+              "ggggdggggggggggg",
+              "glgggggggggdgggg",
+              "gggggggggggggggg",
+              "ggggggglgggggggg",
+              "gggdgggggggggggg",
+              "gggggggggggglggg",
+              "gggggggggdgggggg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#42583a"
+        }
+      },
+      "water": {
+        "passable": false,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "b": "#484a77",
+              "r": "#4d65b4",
+              "k": "#323353"
+            },
+            "grid": [
+              "bbbbbbbbbbbbbbbb",
+              "bbbrrbbbbbbbbbbb",
+              "bbbbbbbbbbrrrbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bkbbbbbbbbbbbbbb",
+              "bbbbbbrrbbbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbbbbbbbbbbrrb",
+              "bbrrbbbbbbbbbbbb",
+              "bbbbbbbbbkbbbbbb",
+              "bbbbbbbrrrbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "brrbbbbbbbbbbkbb",
+              "bbbbbbbbbrrbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbrrbbbbbbbbbb"
+            ],
+            "mirror": "none"
+          },
+          "color": "#2b4a6b"
+        }
+      }
+    },
+    "kindVisuals": {
+      "food": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#6e2727",
+            "m": "#b33831",
+            "e": "#f57d4a",
+            "W": "#ffffff",
+            "B": "#ab947a"
+          },
+          "grid": [
+            "................",
+            "......kkkk......",
+            ".....kmemmk.....",
+            "....kmemmmmk....",
+            "...kmemmmmmmk...",
+            "...kmmmmmmmmk...",
+            "...kmmmmmmddk...",
+            "...kmmmmmmdk....",
+            "....kmmmddk.....",
+            ".....kmmdk......",
+            ".....kWWk.......",
+            ".....kWBk.......",
+            ".....kWWk.......",
+            "....kWWWWk......",
+            "...kWWBBWWk.....",
+            "....kkkkkk......"
+          ],
+          "mirror": "none"
+        },
+        "icon": "food",
+        "color": "#e0453f"
+      },
+      "water": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "r": "#9e4539",
+            "c": "#cd683d",
+            "b": "#4d9be6",
+            "w": "#8fd3ff"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "...kkkkkkkkkk...",
+            "..krbbbbbbbbrk..",
+            "..krwwbbbbbbrk..",
+            "..krbwbbbbbbrk..",
+            "..kccccccccccck.",
+            "..kccrccccrcck..",
+            "..kccrccccrcck..",
+            "..krrrrrrrrrrk..",
+            "...kccrccrcck...",
+            "...kcccccccck...",
+            "....kcccccck....",
+            "....kkkkkkkk....",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "water",
+        "color": "#5c9fd4"
+      },
+      "predator": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "m": "#45293f",
+            "s": "#9e4539",
+            "b": "#cd683d",
+            "h": "#e6904e",
+            "w": "#ffffff",
+            "r": "#e83b3b"
+          },
+          "grid": [
+            "................",
+            "................",
+            "...kk...........",
+            "..khhk..........",
+            "..khhk.......k..",
+            ".kmhbk......kbk.",
+            "kbhbrbmmmmmmhbs.",
+            "kbhhbbbbbbbbsk..",
+            "kwwbbbbbbbbsk...",
+            ".kwbbbbbbbbk....",
+            "..kbbbbbbbk.....",
+            "...ksks.ksks....",
+            "...ksks.ksks....",
+            "...ksks.ksks....",
+            "...ksks.ksks....",
+            "...kkkk.kkkk...."
+          ],
+          "mirror": "none"
+        },
+        "icon": "wolf",
+        "color": "#e0563f"
+      },
+      "wolf": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#3e3546",
+            "g": "#625565",
+            "l": "#9babb2",
+            "y": "#f9c22b"
+          },
+          "grid": [
+            "................",
+            "................",
+            "...kk...........",
+            "..dllk..........",
+            "..dllk.......k..",
+            ".kdggk......kdk.",
+            "kdgygkkkkkkkgdl.",
+            "kdgllllggggggdk.",
+            ".kdggllgggggk...",
+            "..kdgggggggggk..",
+            "..kdgggggggggk..",
+            "..kg.kg..kg.kg..",
+            "..kg.kg..kg.kg..",
+            "..kg.kg..kg.kg..",
+            "..kg.kg..kg.kg..",
+            "..kk.kk..kk.kk.."
+          ],
+          "mirror": "none"
+        },
+        "icon": "wolf",
+        "color": "#e0563f"
+      },
+      "carcass": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "f": "#966c6c",
+            "d": "#694f62",
+            "r": "#c7dcd0",
+            "x": "#6e2727"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            ".....k...k......",
+            "....kdk.kdk.....",
+            "....kfk.kfk.....",
+            "....kfk.kfk.....",
+            "..kfffffffffffk.",
+            "..kffffrxrxrffk.",
+            "..kdfffrxrxrffk.",
+            ".kdffffffffffxk.",
+            "kfdk......kxxxk.",
+            ".kk.......kxxk.."
+          ],
+          "mirror": "none"
+        },
+        "icon": "carcass",
+        "color": "#9a8f7a"
+      },
+      "forage": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#165a4c",
+            "g": "#239063",
+            "h": "#91db69",
+            "b": "#905ea9",
+            "p": "#6b3e75",
+            "l": "#a884f3"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            ".....khhhk......",
+            "...khhhhhhhk....",
+            "..khhhggglbhk...",
+            ".khhgggggbpghk..",
+            ".khglbgggggghk..",
+            ".khgbpggggggdk..",
+            ".kggggggggggdk..",
+            ".kdgggglbggddk..",
+            "..kdgggbpggdk...",
+            "..kdggdggddk....",
+            "...kddddddk.....",
+            ".....kkkk......."
+          ],
+          "mirror": "none"
+        },
+        "icon": "forage",
+        "color": "#8a6fd0"
+      },
+      "fire": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "o": "#fb6b1d",
+            "r": "#f79617",
+            "y": "#f9c22b",
+            "b": "#7a3045",
+            "d": "#45293f"
+          },
+          "grid": [
+            "................",
+            ".......kk.......",
+            "......kook......",
+            ".....koorok.....",
+            "....koorrook....",
+            "...korryyrrok...",
+            "...koryyyyrok...",
+            "..korryyyyrrok..",
+            "..kooryyyyrrok..",
+            ".koorryyyyrrook.",
+            ".koorrryyrrrook.",
+            ".kooorrrrrroook.",
+            ".kbbborrrobbbbk.",
+            ".kbdbbdbbdbbdbk.",
+            "..kdbbdbbdbbdk..",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "fire",
+        "color": "#e8843a"
+      },
+      "item": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "L": "#e6904e",
+            "m": "#cd683d",
+            "s": "#9e4539",
+            "c": "#ab947a"
+          },
+          "grid": [
+            "................",
+            "......kkkk......",
+            ".....kLLLLk.....",
+            ".....kcccck.....",
+            ".....kLLmsk.....",
+            "....kLLLmmsk....",
+            "...kLLLLmmssk...",
+            "..kLLLLLmmsssk..",
+            "..kLLLLmmmsssk..",
+            "..kLLLmmmssssk..",
+            "..kLLmmmsssssk..",
+            "...kLLmmssssk...",
+            "...kLmmmmsssk...",
+            "....kmmmsssk....",
+            ".....kmmssk.....",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "item",
+        "color": "#c8b88a"
+      },
+      "stone": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#3e3546",
+            "m": "#625565",
+            "h": "#9babb2"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "......kkkk......",
+            ".....khhhhk.....",
+            "....khhhmmmk....",
+            "...khhmmmmmdk...",
+            "..khhmmmmmmddk..",
+            "..khmmmmmmmmdk..",
+            ".khhmmdmmmmmmdk.",
+            ".khmmmdmmmmmmdk.",
+            ".khmmmdmmmmmddk.",
+            ".kmmmmdmmmmmddk.",
+            "..kkkkkkkkkkkk..",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "stone",
+        "color": "#9a8f7a"
+      },
+      "iron": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "r": "#3e3546",
+            "R": "#625565",
+            "b": "#9e4539",
+            "s": "#9babb2"
+          },
+          "grid": [
+            "................",
+            "....kkk.........",
+            "...krRrk..kkk...",
+            "..krRRrRkkrRrk..",
+            "..krbRrRrRrRRk..",
+            ".krRrRRrRrsRrRk.",
+            ".krRRrbRrRrRbRk.",
+            ".krRrRrRsRrRRrk.",
+            ".kRrsRrRrRrbRRk.",
+            ".krRrRbRrRrRRrk.",
+            "..krRRrRrsRrRk..",
+            "..kkrRrRbRrRkk..",
+            "....kkrRrRkk....",
+            "......kkkk......",
+            "................",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "metal",
+        "color": "#b9c2cc"
+      },
+      "metal": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#3e3546",
+            "m": "#625565",
+            "L": "#9babb2",
+            "w": "#c7dcd0"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "...kkkkkkk......",
+            "..kwLLLLLwk.....",
+            "..kmLLLLLmk.....",
+            "..kmmmmmmmk.....",
+            "..kmmmddmmk.....",
+            ".kkkkkkkkkkkkkk.",
+            ".kwLLLLLLLLLLwk.",
+            ".kmLLLLLLLLLLmk.",
+            ".kmmmmmmmmmmmmk.",
+            ".kmmmmddddmmmmk.",
+            ".kkkkkkkkkkkkkk.",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "metal",
+        "color": "#b9c2cc"
+      },
+      "fish": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#9babb2",
+            "w": "#ffffff",
+            "d": "#625565",
+            "l": "#8fd3ff"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+            ".......kk.......",
+            "......kllk......",
+            ".....kllk.......",
+            "...kkkkkk.......",
+            "..kwwsssskkllk..",
+            ".kwksssssskllk..",
+            ".kwssssssdkllk..",
+            "..kdsssssdkk....",
+            "...kllk.kk......",
+            "....kk..........",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "fish",
+        "color": "#5c9fd4"
+      },
+      "tree": {
+        "sprite": {
+          "size": [16, 32],
+          "kind": "token",
+          "mirror": "none",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "g": "#1ebc73",
+            "G": "#239063",
+            "L": "#91db69",
+            "u": "#9e4539",
+            "U": "#6e2727"
+          },
+          "grid": [
+            "................",
+            ".....kggggk.....",
+            "...kLLggggggk...",
+            "..kLLgggggggGk..",
+            ".kLLLggggggGGGk.",
+            ".kLLggggggggGGk.",
+            ".kLggggggggggGk.",
+            ".kggggggggggggk.",
+            ".kggggggggggggk.",
+            ".kggggggggggGGk.",
+            ".kgggggggggGGGk.",
+            ".kggggggggGGGGk.",
+            ".kgggggggGGGGGk.",
+            "..kggggGGGGGGk..",
+            "..kgggGGGGGGGk..",
+            "...kggGGGGGGk...",
+            "...kgGGGGGGGk...",
+            "....kGGGGGGk....",
+            "....kGGGGGGk....",
+            ".....kGGGGk.....",
+            ".....kGGGGk.....",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            "......kuUk......",
+            ".....kuuUUk....."
+          ]
+        },
+        "icon": "forest",
+        "color": "#4f8f55"
+      },
+      "quarry": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#3e3546",
+            "m": "#625565",
+            "L": "#9babb2"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            ".kkkkkkkkkk.....",
+            ".kLLLLLLLLk.....",
+            ".kmmmdmmmmkkkkk.",
+            ".kmmmdmmmmkLLLk.",
+            ".kmmmdmmmmmmmmk.",
+            ".kmdddmmmdmmmmk.",
+            ".kmmmmmmmdmmmmk.",
+            ".kmmmmmmmdmmmmk.",
+            ".kmddddmmdmmddk.",
+            ".kmmmmmmmmmmmmk.",
+            ".kkkkkkkkkkkkkk.",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "quarry",
+        "color": "#9a8f7a"
+      },
+      "vein": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#3e3546",
+            "m": "#625565",
+            "o": "#f79617",
+            "g": "#f9c22b"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "......kkkkk.....",
+            ".....kmmmoggk...",
+            "....kmmmoggmmk..",
+            "...kmmmoggmmdk..",
+            "..kmmoggmmmmdk..",
+            "..kmoggmmoggmk..",
+            "..kmggmmoggmmk..",
+            "..kmmmmoggmmdk..",
+            "..kmmmoggmmddk..",
+            "...kmoggmmddk...",
+            "...kmggmdddk....",
+            "....kkkkkkk.....",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "vein",
+        "color": "#b98a4a",
+        "label": "ore vein"
+      },
+      "farm": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#4c3e24",
+            "r": "#ab947a",
+            "g": "#1ebc73",
+            "G": "#91db69"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "....kkkkkkkk....",
+            "...krrrrrrrrk...",
+            "...ksGssssGsk...",
+            "..krrgrrrrgrrk..",
+            "..ksGssssssGsk..",
+            ".krrgrrrrrrgrrk.",
+            ".ksssssGssssssk.",
+            ".krrrrrgrrrrrrk.",
+            ".ksGssssssssGsk.",
+            ".krgrrrrrrrrgrk.",
+            ".kkkkkkkkkkkkkk.",
+            "................"
+          ],
+          "mirror": "none"
+        },
+        "icon": "farm",
+        "color": "#d2b45c"
+      },
+      "hearth": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "mirror": "horizontal",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#625565",
+            "l": "#9babb2",
+            "w": "#7a3045",
+            "W": "#9e4539",
+            "r": "#b33831",
+            "o": "#fb6b1d",
+            "y": "#f9c22b"
+          },
+          "grid": [
+            "........",
+            ".......o",
+            ".......o",
+            "......oy",
+            "......oy",
+            ".....roy",
+            ".....roy",
+            "....rroy",
+            "....rroo",
+            "...wrroo",
+            "..wWwroo",
+            ".swWwroo",
+            ".slwkroo",
+            ".sllkroo",
+            ".sslksrr",
+            ".kssksss"
+          ]
+        },
+        "icon": "campfire",
+        "color": "#e8843a"
+      },
+      "smelter": {
+        "sprite": {
+          "size": [16, 32],
+          "kind": "token",
+          "mirror": "horizontal",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#625565",
+            "d": "#3e3546",
+            "l": "#9babb2",
+            "o": "#f79617",
+            "y": "#f9c22b"
+          },
+          "grid": [
+            "........",
+            ".......s",
+            "......sl",
+            "......sl",
+            ".......s",
+            ".....kdd",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            ".....ksl",
+            "..kkkkkk",
+            "..klssss",
+            "..ksssss",
+            "..ksssss",
+            "..ksssss",
+            "..ksssss",
+            "..ksskkk",
+            "..ksskoy",
+            "..ksskoy",
+            "..ksskoy",
+            "..ksskoy",
+            "..ksskoy",
+            "..kddkoo",
+            "..kkkkkk"
+          ]
+        },
+        "icon": "smelter",
+        "color": "#c8a45a"
+      },
+      "forge": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "mirror": "none",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "L": "#9babb2",
+            "I": "#625565",
+            "D": "#3e3546",
+            "W": "#9e4539",
+            "w": "#7a3045",
+            "y": "#f9c22b"
+          },
+          "grid": [
+            ".y..........W...",
+            "..y........Wk...",
+            "..........Wk....",
+            "..kLLLLLkDIIk...",
+            "..kIIIIIkkDDk...",
+            "..kkkkkkk.......",
+            "....kIIk........",
+            "...kIIIIk.......",
+            "..kIIIIIIk......",
+            "..kkkkkkkk......",
+            "..wWWWWWWw......",
+            "..wWWWWWWw......",
+            "..wWWWWWWw......",
+            "..wWWWWWWw......",
+            "..wWWWWWWw......",
+            "..wwwwwwww......"
+          ]
+        },
+        "icon": "forge",
+        "color": "#d8c39a"
+      },
+      "shelter": {
+        "sprite": {
+          "size": [32, 32],
+          "kind": "token",
+          "mirror": "horizontal",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "L": "#cddf6c",
+            "t": "#a2a947",
+            "T": "#676633",
+            "n": "#e6904e",
+            "m": "#cd683d",
+            "w": "#9e4539"
+          },
+          "grid": [
+            "...............k",
+            "..............kL",
+            ".............kLL",
+            "............kLLL",
+            "...........kLLLL",
+            "..........kttttt",
+            ".........ktttttt",
+            "........kttttttt",
+            ".......ktttttttt",
+            "......kttttttttt",
+            ".....ktttttttttt",
+            "....kTTTTTTTTTTT",
+            "...kTTTTTTTTTTTT",
+            "..kTTTTTTTTTTTTT",
+            ".kkkkkkkkkkkkkkk",
+            ".....kkkkkkkkkkk",
+            ".....knnnnnnnnnn",
+            ".....kmmmmmmmmmm",
+            ".....kwwwwwwwwww",
+            ".....knnnnnnnnnn",
+            ".....kmmmmmmmmmm",
+            ".....kwwwwwwwwww",
+            ".....knnnnnnnwww",
+            ".....kmmmmmmmwkk",
+            ".....kwwwwwwwwkk",
+            ".....knnnnnnnwkk",
+            ".....kmmmmmmmwkk",
+            ".....kwwwwwwwwkk",
+            ".....knnnnnnnwkk",
+            ".....kmmmmmmmwkk",
+            ".....kwwwwwwwwkk",
+            ".....kwwwwwwwwkk"
+          ]
+        },
+        "icon": "hut",
+        "color": "#d8c39a"
+      },
+      "structure": {
+        "sprite": {
+          "size": [32, 32],
+          "kind": "token",
+          "mirror": "horizontal",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "r": "#625565",
+            "R": "#7f708a",
+            "e": "#9babb2",
+            "w": "#694f62",
+            "m": "#ab947a",
+            "n": "#c7dcd0",
+            "g": "#8fd3ff"
+          },
+          "grid": [
+            ".............kee",
+            "............keee",
+            "...........keeee",
+            "..........kRRRRR",
+            ".........kRRRRRR",
+            "........kRRRRRRR",
+            ".......kRRRRRRRR",
+            "......krrrrrrrrr",
+            ".....krrrrrrrrrr",
+            "....krrrrrrrrrrr",
+            "...krrrrrrrrrrrr",
+            "..kkkkkkkkkkkkkk",
+            "....kkkkkkkkkkkk",
+            "....knnnnnnnnnnn",
+            "....kmmmwmmwmmwm",
+            "....kmmmwmmwmmwm",
+            "....kmmkkkkwmmwm",
+            "....kmmkggkwmmwm",
+            "....kmmkggkwmmwm",
+            "....kmmkkkkwmmwm",
+            "....kmmmwmmwmmwm",
+            "....kmmmwmmwmmwm",
+            "....kmmmwmmwmmwm",
+            "....kmmmwmmwmwww",
+            "....kmmmwmmwmwkk",
+            "....kmmmwmmwmwkk",
+            "....kmmmwmmwmwkk",
+            "....kmmmwmmwmwkk",
+            "....kmmmwmmwmwkk",
+            "....kmmmwmmwmwkk",
+            "....kmmmwmmwmwkk",
+            "....kmmmwmmwmwkk"
+          ]
+        },
+        "icon": "structure",
+        "color": "#d8c39a"
+      },
+      "stockpile": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "L": "#e6904e",
+            "m": "#cd683d",
+            "s": "#9e4539",
+            "a": "#ab947a",
+            "n": "#966c6c"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "........kLLLLLk.",
+            "...kk...kmsmsmk.",
+            "..kaak..ksmsmsk.",
+            ".kaaaak.kmsmsmk.",
+            ".kaaaak.ksmsmsk.",
+            ".kaaank.kmmmmmk.",
+            ".kaannk.kLLLLLk.",
+            ".kaannk.kmsmsmk.",
+            ".kannnk.ksmsmsk.",
+            ".kannnk.kmsmsmk.",
+            ".knnnnk.ksmsmsk.",
+            ".knnnnk.kmmmmmk.",
+            ".knnnnk.ksssssk."
+          ],
+          "mirror": "none"
+        },
+        "icon": "stockpile",
+        "color": "#c8b88a"
+      },
+      "storage": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "L": "#e6904e",
+            "m": "#cd683d",
+            "s": "#9e4539",
+            "b": "#625565"
+          },
+          "grid": [
+            "................",
+            "................",
+            "....kkkkkkkk....",
+            "...kLLLLLLLLk...",
+            "..kLLLLLmmmssk..",
+            "..kLLLLmmmsssk..",
+            ".kbbbbbbbbbbbbk.",
+            ".kLLLLLmmmmsssk.",
+            ".kLLLLmmmmssssk.",
+            ".kLLLLmmmmssssk.",
+            ".kLLLmmmmmssssk.",
+            "..kLLLmmmmsssk..",
+            "..kLLmmmmssssk..",
+            "..kbbbbbbbbbbk..",
+            "..kLLmmmsssssk..",
+            "...kLLmmssssk..."
+          ],
+          "mirror": "none"
+        },
+        "icon": "stockpile",
+        "color": "#c8b88a"
+      },
+      "ledger": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "r": "#9e4539",
+            "p": "#fdcbb0",
+            "d": "#fca790"
+          },
+          "grid": [
+            "................",
+            "..kkkkkkkkkkkk..",
+            ".krrrrrrrrrrrrk.",
+            ".krrrrrrrrrrrrk.",
+            "..kpppppppppdk..",
+            "..kpkkkpkkppdk..",
+            "..kpppppppppdk..",
+            "..kpkkppkkppdk..",
+            "..kpppppppppdk..",
+            "..kpkpkpkpkpdk..",
+            "..kpkpkpkpkpdk..",
+            "..kpkpkpkpkpdk..",
+            "..kpppppppppdk..",
+            "..kddddddddddk..",
+            ".krrrrrrrrrrrrk.",
+            "..kkkkkkkkkkkk.."
+          ],
+          "mirror": "none"
+        },
+        "icon": "scroll-unfurled",
+        "color": "#c9a227",
+        "label": "camp ledger"
+      }
+    },
+    "describeEvent": {
+      "shelter_complete": "{{ ctx.name }} builds the camp shelter.",
+      "freezing": "{{ ctx.name }} is freezing.",
+      "gathered": "{{ ctx.name }} gathers food into their pack (carrying {{ ctx.stocks.food.value }}).",
+      "drank": "{{ ctx.name }} drinks deep (thirst {{ ctx.stocks.thirst.value }}).",
+      "rested": "{{ ctx.name }} rests (energy {{ ctx.stocks.energy.value }}).",
+      "parched": "{{ ctx.name }} is dangerously thirsty.",
+      "sowed": "{{ ctx.name }} breaks ground and sows a new farm plot.",
+      "tended": "{{ ctx.name }} tends the crops.",
+      "stoked": "{{ ctx.name }} feeds wood into the hearth.",
+      "hearth_low": "The hearth burns low ({{ ctx.stocks.fuel.value }} fuel left).",
+      "hearth_out": "The hearth has gone out.",
+      "despairing": "{{ ctx.name }} is losing hope.",
+      "fought": "{{ ctx.name }} fights {{ ctx.args.beastName }}!",
+      "butchered": "{{ ctx.name }} butchers the carcass for meat (carrying {{ ctx.stocks.food.value }}).",
+      "beast_slain": "{{ ctx.name }} is slain.",
+      "wolf_at_camp": "{{ ctx.name }} is prowling near the camp!",
+      "chopped": "{{ ctx.name }} fells timber (carrying {{ ctx.stocks.wood.value }} wood).",
+      "built": "{{ ctx.name }} builds something here.",
+      "winter_soon": "The air turns crisp. Winter is coming - stockpile wood and food.",
+      "winter_arrived": "Winter has arrived. The cold deepens and nothing grows.",
+      "spring_thaw": "The thaw has come - winter has passed.",
+      "deposited": "{{ ctx.name }} unloads a haul onto a stockpile.",
+      "withdrew": "{{ ctx.name }} takes a load from a stockpile.",
+      "victory": "Spring returns with the colony alive - the first winter is won!"
+    },
+    "display": {
+      "health": {
+        "label": "Health",
+        "scope": "agent",
+        "tone": "up",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        },
+        "vital": true
+      },
+      "hunger": {
+        "label": "Hunger",
+        "scope": "agent",
+        "tone": "down",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find food soon.",
+          "critical": "You are starving. Eat now, or getting food is your only task."
+        },
+        "vital": true
+      },
+      "thirst": {
+        "label": "Thirst",
+        "scope": "agent",
+        "tone": "down",
+        "bands": {
+          "pressing": "You are thirsty.",
+          "serious": "You are parched - find water soon.",
+          "critical": "You are dying of thirst. Drink now, or getting water is your only task."
+        },
+        "vital": true
+      },
+      "energy": {
+        "label": "Energy",
+        "scope": "agent",
+        "tone": "up",
+        "bands": {
+          "pressing": "You are tired.",
+          "serious": "You are exhausted.",
+          "critical": "You are about to drop where you stand."
+        },
+        "vital": true
+      },
+      "food": {
+        "label": "Food",
+        "scope": "agent",
+        "tone": "up"
+      },
+      "warmth": {
+        "label": "Warmth",
+        "scope": "agent",
+        "tone": "up",
+        "vital": true
+      },
+      "morale": {
+        "label": "Morale",
+        "scope": "agent",
+        "tone": "up"
+      },
+      "wood": {
+        "label": "Wood",
+        "scope": "agent",
+        "tone": "up"
+      },
+      "season": {
+        "label": "Season",
+        "scope": "world"
+      }
+    },
+    "fixtures": [
+      {
+        "kind": "ledger",
+        "id": "camp-ledger",
+        "tags": ["token", "solid"],
+        "atSpawn": true
+      }
+    ]
+  }
+}

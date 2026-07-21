@@ -1,0 +1,1 @@
+GM: discard every current unsaved GM rule edit and restore the active scenario's rule layer. This removes GM-added rules and reverts GM tweaks in one operation without resetting the world. Save anything worth keeping with save_scenario first.

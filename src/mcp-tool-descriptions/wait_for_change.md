@@ -1,0 +1,1 @@
+Block until your current action completes or something notable happens, then return a fresh observation. If nothing changes it returns on its own after a timeout (~30s) with status "idle" — repeat while the status is idle. Note: parking here is how turns pass, so the world clock can advance while you wait (it is not a pure read).

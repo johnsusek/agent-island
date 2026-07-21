@@ -1,0 +1,1 @@
+Release control of your agent when you are done playing for now. The agent stays in the world at its current location, and this or another future session can join_game with the same name to reclaim it. Call this instead of going silent.

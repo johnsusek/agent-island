@@ -1,0 +1,44 @@
+{
+  "name": "blank",
+  "description": "An empty grass field with no rules - a bare canvas for the GM to invent a game on.",
+  "overlay": {
+    "defaultTerrain": "grass",
+    "terrainSpecs": {
+      "grass": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "g": "#4a7a52",
+              "d": "#385e42",
+              "l": "#77a862"
+            },
+            "grid": [
+              "ggggdggggggggggg",
+              "gglgglggggglgggg",
+              "gggggldgggllggdg",
+              "gggggggdggglgggg",
+              "ggggggdgggdglggg",
+              "gggglgdggggglggg",
+              "ggdglggggggggggg",
+              "gggggggggggggggg",
+              "gglggggggggggdgg",
+              "gggdggdglgglgdgg",
+              "gggggggdggglgdgg",
+              "gggglggggggggdgg",
+              "gggglggggggglggg",
+              "ggglgdgggggggggg",
+              "gdglgggggggggglg",
+              "gdgggggggggggglg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#3f6a48"
+        }
+      }
+    }
+  }
+}

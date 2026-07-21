@@ -1,0 +1,15 @@
+node_modules/
+.env
+
+# Vite build output for the web observatory, served statically by Express.
+dist/
+
+# Live world state, journal, character workdirs and transcripts.
+data/
+
+# Per-run retros are local artifacts.
+results/
+
+scratch/
+.vscode/
+.claude/settings.local.json

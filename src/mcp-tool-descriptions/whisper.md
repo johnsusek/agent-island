@@ -1,0 +1,1 @@
+Say one short message privately to a single named agent right beside you - on your tile or an adjacent one. Only you and they hear it - whispering means leaning in. Free and instant: costs no time and can be used even while an action is underway.

@@ -1,0 +1,1 @@
+GM: promote current GM rule edits into a new standalone scenario. The saved scenario includes the active scenario's complete rule layer plus the selected GM edits, becomes the active scenario, and preserves the live world without a reset. Omit `ids` to save all GM edits; pass rule ids to save only that subset.

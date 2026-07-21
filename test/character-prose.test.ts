@@ -1,0 +1,235 @@
+// The character surface is prose-only: content[].text is the whole message and
+// there is no structuredContent twin behind it. So every fact a player needs
+// must survive the renderer, and no result may fall back to serialized data.
+
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createColony } from "../src/coordinator.js";
+import { renderCharacterResult } from "../src/sense-prose.js";
+
+function withColony(fn: (colony: any) => void | Promise<void>) {
+  let colony = createColony({
+    statePath: null,
+    rulesPath: null,
+    waitTimeoutMs: 2000,
+    scenarios: ["survival"],
+  });
+  colony.start();
+  colony.connect("s");
+  colony.connect("t");
+  return Promise.resolve(fn(colony)).finally(() => colony.stop());
+}
+
+// The join briefing used to ride in structuredContent; prose has to carry it
+// now, or a fresh spawn whose client ignores MCP instructions learns nothing.
+test("a fresh join renders its envelope and the briefing", () =>
+  withColony((colony) => {
+    let text = renderCharacterResult(colony.join("s", "Ara"));
+    assert.match(text, /^\[joined\] Tick 0\. You are Ara/);
+    assert.match(text, /# Agent Island - agent briefing/);
+  }));
+
+test("order tools read their order back in words", () =>
+  withColony((colony) => {
+    colony.join("s", "Ara");
+
+    let ordered = renderCharacterResult(
+      colony.setOrder("s", {
+        kind: "repeat",
+        action: { type: "explore", direction: "north" },
+        maxRepeats: 3,
+      }),
+    );
+    assert.match(ordered, /^\[ordered\] repeat explore\(direction:north\)/);
+    assert.match(ordered, /running/);
+
+    assert.match(
+      renderCharacterResult(colony.getOrder("s")),
+      /^Standing order: repeat explore/,
+    );
+
+    // The wake envelope already carries the order line - the receipt must not
+    // say it a second time.
+    let cancelled = renderCharacterResult(colony.cancelOrder("s"));
+    assert.equal(cancelled.match(/repeat explore/g)?.length, 1);
+    assert.match(cancelled, /cancelled/);
+  }));
+
+test("an idle character is told it has no order, not given an empty field", () =>
+  withColony((colony) => {
+    colony.join("s", "Ara");
+    assert.equal(
+      renderCharacterResult(colony.getOrder("s")),
+      "You have no standing order.",
+    );
+  }));
+
+// heardBy/to/sign live only in the result - the observation can't say them.
+test("speech results say who received them", () =>
+  withColony((colony) => {
+    colony.join("s", "Ara");
+    assert.match(
+      renderCharacterResult(colony.speak("s", "anyone there?")),
+      /No one was in earshot/,
+    );
+
+    colony.join("t", "Bren");
+    assert.match(
+      renderCharacterResult(colony.speak("s", "hello Bren")),
+      /Heard by Bren\./,
+    );
+    assert.match(
+      renderCharacterResult(colony.whisper("s", "bren", "psst")),
+      /Whispered to bren\./,
+    );
+    assert.match(
+      renderCharacterResult(colony.inscribe("s", "here lies stone")),
+      /You write on sign-1\./,
+    );
+  }));
+
+test("leaving names the body it released", () =>
+  withColony((colony) => {
+    colony.join("s", "Ara");
+    assert.match(renderCharacterResult(colony.leave("s")), /^\[left\] ara/);
+  }));
+
+test("errors come back as sentences", () => {
+  assert.equal(
+    renderCharacterResult({ error: "No agent named nobody." }),
+    "error: No agent named nobody.",
+  );
+});
+
+// The regression that matters: no character result may render as data. Braces
+// and bracket-quote pairs are the tell - the briefing (which documents order
+// JSON on purpose) is the one sanctioned exception, so it is excluded here.
+test("no character result renders as serialized data", () =>
+  withColony(async (colony) => {
+    let joined = colony.join("s", "Ara");
+    colony.join("t", "Bren");
+    let results = [
+      { ...joined, briefing: undefined },
+      colony.setOrder("s", {
+        kind: "sequence",
+        steps: [{ type: "explore", direction: "north" }],
+      }),
+      colony.getOrder("s"),
+      colony.cancelOrder("s"),
+      colony.speak("s", "hello"),
+      colony.whisper("s", "bren", "psst"),
+      colony.inscribe("s", "a warning"),
+      colony.sense("s", "situation"),
+      colony.sense("s", "surroundings"),
+      colony.sense("s", "atlas"),
+      colony.sense("s", "frontier"),
+      colony.sense("s", "find", "wood"),
+      colony.sense("s", "changes"),
+      // Bren speaking leaves something unseen, so the park returns at once
+      // instead of hanging on the turn barrier.
+      colony.speak("t", "over here"),
+      await colony.waitForChange("s"),
+      colony.leave("s"),
+    ];
+    for (let result of results) {
+      let text = renderCharacterResult(result);
+      assert.doesNotMatch(text, /[{}]/, `braces in: ${text.slice(0, 120)}`);
+      assert.doesNotMatch(
+        text,
+        /"\w+":/,
+        `JSON keys in: ${text.slice(0, 120)}`,
+      );
+    }
+  }));
+
+// Which gauge is in trouble comes from the scenario's own display tone, never
+// from a stock's name: a rising hunger is dire near its max, a falling health
+// near its min, and the renderer must not need to know either word to say so.
+// A world whose vitality is called `integrity` reads exactly the same.
+test("the vitals alarm follows the scenario's tone, not a stock name", () => {
+  let render = (stocks: any, display: any) =>
+    renderCharacterResult({
+      sense: "situation",
+      tick: 3,
+      you: { name: "Bex", stocks, alive: true },
+      display,
+    });
+
+  assert.match(
+    render(
+      { hunger: { value: 96, min: 0, max: 100 } },
+      { hunger: { tone: "down", vital: true } },
+    ),
+    /Your hunger is critical\./,
+    'a "down"-toned stock near its max is dire',
+  );
+  assert.match(
+    render(
+      { integrity: { value: 8, min: 0, max: 100 } },
+      { integrity: { tone: "up", vital: true } },
+    ),
+    /Your integrity is critical\./,
+    "the alarm never depended on the stock being called health",
+  );
+  // No tone declared: nothing to go on but the raw fraction, so a full gauge
+  // reads as well - the renderer must not guess a direction from the name.
+  assert.match(
+    render(
+      { hunger: { value: 96, min: 0, max: 100 } },
+      { hunger: { vital: true } },
+    ),
+    /You are well\./,
+  );
+});
+
+// A figure is a decision input for "is it worth it" and a distraction for "when
+// do I act". Vitals lost their numbers; the pack kept them.
+test("vitals speak in bands while the pack still counts", () => {
+  let text = renderCharacterResult({
+    sense: "situation",
+    tick: 3,
+    you: {
+      name: "Bex",
+      alive: true,
+      stocks: {
+        hunger: { value: 92, min: 0, max: 100 },
+        food: { value: 2, min: 0, max: 5 },
+        wood: { value: 0, min: 0, max: 5 },
+      },
+    },
+    display: {
+      hunger: { tone: "down", vital: true },
+      food: { tone: "up" },
+      wood: { tone: "up" },
+    },
+  });
+
+  assert.doesNotMatch(text, /92|\/100/, "no vital ever shows a figure");
+  assert.match(text, /Carrying: food 2\/5\./);
+  assert.doesNotMatch(text, /wood/, "an empty pack slot is not worth a word");
+});
+
+// A scenario's own words for its own pressures beat any default this layer
+// could invent - that is the whole reason bands are authored data.
+test("an authored band sentence wins over the generic one", () => {
+  let text = renderCharacterResult({
+    sense: "situation",
+    tick: 3,
+    you: {
+      name: "Bex",
+      alive: true,
+      stocks: { hunger: { value: 96, min: 0, max: 100 } },
+    },
+    display: {
+      hunger: {
+        tone: "down",
+        vital: true,
+        bands: { critical: "You are starving. Eat now." },
+      },
+    },
+  });
+
+  assert.match(text, /You are starving\. Eat now\./);
+  assert.doesNotMatch(text, /is critical/);
+});

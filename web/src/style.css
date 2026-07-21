@@ -1,0 +1,784 @@
+/* The observatory: one dark screen for watching physics precipitate.
+   Map center, Ledger right, Feed below; a character dossier swaps over the
+   Ledger on selection. */
+
+:root {
+  --bg: #0b0e14;
+  --panel: #10141d;
+  --panel-2: #151a26;
+  --edge: #232a3a;
+  --ink: #dfe6f2;
+  --dim: #8b93a7;
+  --faint: #5b6273;
+  --law: #9ece6a;
+  --wish: #7aa2f7;
+  --oracle: #e8b34a;
+  --danger: #f7768e;
+  --warn: #e0af68;
+  --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ---- layout ---- */
+
+.observatory {
+  display: grid;
+  grid-template-rows: 40px 1fr 200px;
+  height: 100%;
+}
+
+.observatory__main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  min-height: 0;
+}
+
+.observatory__map {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.observatory__rail {
+  border-left: 1px solid var(--edge);
+  min-height: 0;
+  display: flex;
+}
+
+/* ---- clock strip ---- */
+
+.clock {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--edge);
+}
+
+.clock__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.clock__logo {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--oracle);
+}
+
+.clock__world {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.clock__mid {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.clock__status {
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.clock__tick,
+.clock__pop,
+.clock__stock {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.clock__tick b {
+  color: var(--ink);
+}
+
+.clock__oracle {
+  font-size: 11px;
+  color: var(--oracle);
+  border: 1px solid color-mix(in srgb, var(--oracle) 40%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.clock__error {
+  color: var(--danger);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clock__controls {
+  display: flex;
+  gap: 4px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.dot--live {
+  background: var(--law);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--law) 60%, transparent);
+}
+
+.dot--waiting {
+  background: var(--warn);
+}
+
+.dot--paused,
+.dot--ended {
+  background: var(--danger);
+}
+
+/* ---- chips (filters, controls) ---- */
+
+.chip {
+  font-size: 11px;
+  color: var(--dim);
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  padding: 2px 10px;
+  background: transparent;
+}
+
+.chip:hover {
+  color: var(--ink);
+  border-color: var(--faint);
+}
+
+.chip--on {
+  color: var(--bg);
+  background: var(--dim);
+  border-color: var(--dim);
+}
+
+/* ---- map ---- */
+
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #05070b;
+}
+
+.map-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.map-stage canvas {
+  display: block;
+}
+
+/* Speech bubbles float over token anchors, scaled with the camera. */
+.speech {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 22px * var(--world-scale, 1)));
+  max-width: 240px;
+  background: var(--panel-2);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.speech--whisper {
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.speech__name {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.speech__badge {
+  font-size: 10px;
+  color: var(--faint);
+  margin-right: 6px;
+}
+
+/* ---- inspector tip ---- */
+
+.tip {
+  position: fixed;
+  z-index: 40;
+  min-width: 180px;
+  max-width: 300px;
+  background: var(--panel-2);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.tip--pinned {
+  pointer-events: auto;
+  border-color: var(--faint);
+}
+
+.tip__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tip__terrain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.tip__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.tip__pos {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  margin-left: auto;
+}
+
+.tip__close {
+  color: var(--faint);
+  font-family: var(--mono);
+  padding: 0 2px;
+}
+
+.tip__close:hover {
+  color: var(--ink);
+}
+
+.tip__fogged {
+  color: var(--faint);
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.tip__row {
+  border-top: 1px solid var(--edge);
+  padding: 5px 0 3px;
+}
+
+.tip__name {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.tip__tags {
+  color: var(--faint);
+  font-size: 10px;
+  margin-right: 6px;
+}
+
+.tip__stocks {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tip__stock {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.tip__inscription {
+  margin-top: 3px;
+  color: var(--oracle);
+  font-style: italic;
+}
+
+.tip__missing {
+  margin-top: 3px;
+  color: var(--danger);
+  font-size: 10px;
+}
+
+/* ---- ledger rail ---- */
+
+.ledger,
+.dossier {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.ledger__head {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.ledger__title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--oracle);
+}
+
+.ledger__metrics {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.metric {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.metric b {
+  color: var(--ink);
+  font-family: var(--mono);
+}
+
+.ledger__scroll,
+.dossier__scroll {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 8px 12px;
+}
+
+.ledger__section {
+  margin-bottom: 14px;
+}
+
+.ledger__heading {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.ledger__empty {
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* A law: a wish that became physics. */
+.law {
+  border: 1px solid color-mix(in srgb, var(--law) 25%, var(--edge));
+  border-left: 3px solid var(--law);
+  border-radius: 6px;
+  background: var(--panel-2);
+  padding: 7px 9px;
+  margin-bottom: 8px;
+}
+
+.law__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.law__verb,
+.wish__verb,
+.row__verb {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.law__verb {
+  color: var(--law);
+}
+
+.law__badge {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.law__badge--gated {
+  color: var(--law);
+  border: 1px solid color-mix(in srgb, var(--law) 45%, transparent);
+}
+
+.law__badge--free {
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+}
+
+.law__latency {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.law__latency--slow {
+  color: var(--danger);
+}
+
+.law__aliases {
+  color: var(--faint);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.law__desc {
+  margin: 4px 0 0;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.law__who {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--faint);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.law__who--gm {
+  color: var(--oracle);
+}
+
+.law__attempts {
+  color: var(--faint);
+}
+
+/* A standing wish: tried, not yet real. */
+.wish {
+  border: 1px dashed color-mix(in srgb, var(--wish) 35%, var(--edge));
+  border-radius: 6px;
+  padding: 6px 9px;
+  margin-bottom: 6px;
+  opacity: 0.9;
+}
+
+.wish__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wish__verb {
+  color: var(--wish);
+}
+
+.wish__count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.wish__ticks {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.wish__who {
+  margin-top: 2px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wish__hope,
+.row__hope {
+  margin: 3px 0 0;
+  color: var(--dim);
+  font-style: italic;
+  font-size: 11px;
+  border: none;
+  padding: 0;
+}
+
+.namelink {
+  color: var(--dim);
+  font-size: 11px;
+  text-decoration: underline dotted;
+}
+
+.namelink:hover {
+  color: var(--ink);
+}
+
+/* ---- dossier ---- */
+
+.dossier__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.dossier__name {
+  margin: 0;
+  font-size: 16px;
+}
+
+.dossier__dead {
+  color: var(--danger);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.dossier__pos {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  margin-left: auto;
+}
+
+.dossier__head .tip__close {
+  pointer-events: auto;
+}
+
+.dossier__section {
+  margin-bottom: 14px;
+}
+
+.dossier__doing {
+  margin: 0;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.dossier__wish {
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.dossier__quote {
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 3px;
+  display: flex;
+  gap: 6px;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 72px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.bar__label {
+  font-size: 11px;
+  color: var(--dim);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar__track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--edge);
+  overflow: hidden;
+}
+
+.bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.bar__fill--ok {
+  background: var(--law);
+}
+
+.bar__fill--warn {
+  background: var(--warn);
+}
+
+.bar__fill--danger {
+  background: var(--danger);
+}
+
+.bar__value {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  text-align: right;
+}
+
+/* ---- feed ---- */
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--edge);
+  background: var(--panel);
+}
+
+.feed__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px 4px;
+}
+
+.feed__title {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.feed__filters {
+  display: flex;
+  gap: 4px;
+}
+
+.feed__scroll {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 2px 12px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.row__tick {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  min-width: 44px;
+  text-align: right;
+}
+
+.row__name {
+  font-weight: 600;
+}
+
+.row__name:hover {
+  text-decoration: underline;
+}
+
+.row__text {
+  color: var(--dim);
+  min-width: 0;
+}
+
+.row--wish .row__verb {
+  color: var(--wish);
+}
+
+.row--law {
+  background: color-mix(in srgb, var(--law) 8%, transparent);
+  border-radius: 4px;
+}
+
+.row--law .row__verb {
+  color: var(--law);
+}
+
+.row--died .row__text,
+.row--death .row__text {
+  color: var(--danger);
+}
+
+.row--announced .row__text {
+  color: var(--oracle);
+}
+
+.row__whisper {
+  font-style: italic;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+/* ---- scrollbars ---- */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--edge);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
+}
