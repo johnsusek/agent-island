@@ -48,13 +48,15 @@ test("a solid token blocks its own tile; an ordinary token does not", () => {
 
   world.entities["wall"] = {
     id: "wall",
-    tags: ["token", "solid"],
+    tags: [],
+    occupancy: "blocking",
     stocks: {},
     pos: { x: 2, y: 0 },
   };
   world.entities["pile"] = {
     id: "pile",
-    tags: ["token"],
+    tags: [],
+    occupancy: "tile",
     stocks: {},
     pos: { x: 3, y: 0 },
   };
@@ -95,7 +97,8 @@ test("travel to a solid token routes to the tile beside it, never onto it", () =
         tokens: [
           {
             name: "hearth",
-            tags: ["token", "solid"],
+            tags: [],
+            occupancy: "blocking",
             x: 3,
             y: 0,
             terrain: "plains",
@@ -150,7 +153,13 @@ test("a solid token spawning on a route reroutes the traveler around it", () => 
         pos: { x: 0, y: 1 },
         action: null,
       },
-      goal: { id: "goal", tags: ["token"], stocks: {}, pos: { x: 4, y: 1 } },
+      goal: {
+        id: "goal",
+        tags: [],
+        occupancy: "tile",
+        stocks: {},
+        pos: { x: 4, y: 1 },
+      },
     },
   };
   spawn(space, "ara", 0, { tokens: ["goal"] });
@@ -168,7 +177,8 @@ test("a solid token spawning on a route reroutes the traveler around it", () => 
   // the unit under test here.
   world.entities["wall"] = {
     id: "wall",
-    tags: ["token", "solid"],
+    tags: [],
+    occupancy: "blocking",
     stocks: {},
     pos: { x: block.x, y: block.y },
   };

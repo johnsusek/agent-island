@@ -174,7 +174,7 @@ export function buildTileTooltip(
       name: tokenHere.token.name,
       kind: tokenHere.token.kind,
       text: backing?.text,
-      tags: tokenHere.token.tags.filter((tag) => tag !== "token"),
+      tags: tokenHere.token.tags,
       missingSprite: missingSpriteKind(tokenHere.token, ctx.kindVisuals),
       stocks: backing ? stockLines(backing.stocks) : [],
     };
@@ -192,7 +192,7 @@ export function buildTileTooltip(
         text: entity.text,
         missingSprite: missingSpriteKind(entity, ctx.kindVisuals),
         color: "#c8b88a",
-        tags: entity.tags.filter((candidate) => candidate !== "token"),
+        tags: entity.tags,
         stocks: stockLines(entity.stocks),
       };
     });
@@ -677,7 +677,7 @@ export async function createWorldViewportController(
         id: agent.id,
         name: agent.name,
         x: localX,
-        y: localY - CELL * 0.34 * camera.scale.y,
+        y: localY - CELL * 1.34 * camera.scale.y,
         scale: camera.scale.x / graphics.scale,
       });
     }
@@ -828,7 +828,7 @@ export async function createWorldViewportController(
     let byTile = new Map<string, EntityView[]>();
     for (let entity of Object.values(entities)) {
       if (!entity.pos || entity.id === "world") continue;
-      if (hasName(entity, "agent") || hasName(entity, "token")) continue;
+      if (hasName(entity, "agent") || entity.occupancy) continue;
       let key = `${entity.pos.x},${entity.pos.y}`;
       let group = byTile.get(key);
       if (!group) byTile.set(key, (group = []));

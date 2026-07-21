@@ -27,17 +27,40 @@ export interface ActiveAction {
   endTick: number;
 }
 
+// How an entity sits on its tile - the one structural axis the substrate
+// itself dispatches on, as opposed to `tags`, which only rules ever match.
+// It is a ladder, not a set of flags: blocking implies holding the tile, and
+// holding the tile implies being on the grid at all. Absent means the entity
+// does not compete for ground - it is invisible to the map and to pathing, and
+// is only reachable through colocation.
+//
+//   undefined  off-grid; colocation-matchable only (an item pile, a corpse)
+//   "tile"     on the grid, holds its tile, walkable (a sign, a shelter)
+//   "blocking" on the grid, holds its tile, routes go around (a wall)
+//
+// Holding the tile is what makes a second build there a refusal rather than a
+// silent no-op, which is why there is no "on the grid but buildable-over"
+// rung: a tile shows one token, so that state could only ever mean "the loser
+// pays and nothing appears".
+export type Occupancy = "tile" | "blocking";
+
+// Tag names that the substrate used to dispatch on, before occupancy replaced
+// them. Rejected wherever an author can still write a tag, so a rulepack that
+// reaches for the old convention gets a sentence instead of silence.
+export const RETIRED_OCCUPANCY_TAGS = new Set(["token", "solid", "exclusive"]);
+
 export interface Entity {
   id: string;
   // The entity's identity: the one species/thing name ("tree", "hearth",
   // "wolf") that visuals, labels, and auto-ids key off. Distinct from `tags`,
-  // which is a pure unordered set of behavior/selector strings ("solid",
-  // "agent", "predator"). For matching, kind counts as a tag (see hasTag);
+  // which is a pure unordered set of behavior/selector strings ("predator",
+  // "water-source"). For matching, kind counts as a tag (see hasTag);
   // for everything else it is the single answer to "what is this thing".
   // Optional: a kindless entity renders as the missing-sprite checker and
   // labels fall back to its id.
   kind?: string;
   tags: string[];
+  occupancy?: Occupancy;
   stocks: Record<string, Stock>;
   pos?: { x: number; y: number };
   action?: ActiveAction | null;
@@ -479,11 +502,18 @@ export interface SpawnSpec {
   // so `{nameOf: "self"}` works here too. A spawn without one renders as the
   // missing-sprite checker.
   kind?: TagRef;
-  // Behavior/selector strings, an unordered set: "token" puts it on the grid,
-  // "solid" blocks routes, and any other name is matchable by rules. Each tag
-  // resolves at spawn time, so `[{nameOf: "self"}]` mints a stash carrying
-  // its builder's id. Order never matters; identity belongs in `kind`.
+  // Behavior/selector strings, an unordered set every one of which is matchable
+  // by rules and none of which the substrate itself reads. Each tag resolves at
+  // spawn time, so `[{nameOf: "self"}]` mints a stash carrying its builder's
+  // id. Order never matters; identity belongs in `kind`, and how the thing sits
+  // on its tile belongs in `occupancy`.
   tags?: TagRef[];
+  // Whether the spawn takes ground, and how. A structure meant to appear on the
+  // map wants "tile"; one that also blocks routes wants "blocking". Omit for
+  // something that merely lies where it fell. Unlike `kind` and `tags` this is
+  // a static enum rather than a TagRef - it is engine structure, not authored
+  // vocabulary, so it must be knowable before the action commits.
+  occupancy?: Occupancy;
   // `icon`/`color` are ignored by the kernel (which only instantiates
   // value/min/max) but carried so the host can register a built structure's
   // stock icon and map look at load.
@@ -1760,6 +1790,13 @@ function applyEffectNow(
     }
     if (effect.tag.add) {
       let added = tagName(effect.tag.add, world, self, args);
+      // These three used to BE the occupancy model. They are inert strings now,
+      // so adding one would look like it worked and change nothing - exactly the
+      // silent no-op the field was introduced to kill. Say so instead.
+      if (RETIRED_OCCUPANCY_TAGS.has(added))
+        throw new Error(
+          `tag: "${added}" is no longer a tag - how an entity sits on its tile is the \`occupancy\` field ("tile" or "blocking")`,
+        );
       if (!hasTag(e, added)) e.tags.push(added);
     }
     return 0;
@@ -1781,6 +1818,11 @@ function applyEffectNow(
     let tags = (spec.tags ?? [])
       .map((t) => tagName(t, world, self, args))
       .filter((t) => t !== kind);
+    for (let t of tags)
+      if (RETIRED_OCCUPANCY_TAGS.has(t))
+        throw new Error(
+          `spawn: "${t}" is no longer a tag - set \`occupancy\` ("tile" or "blocking") instead`,
+        );
     // Auto-id prefix: kind is the natural name for what's being minted. The
     // tags[0] fallback is legacy (pre-kind rulepacks) - cosmetic only, so it
     // stays lenient rather than breaking old spawns on boot.
@@ -1845,6 +1887,7 @@ function applyEffectNow(
       stocks: instantiateStocks(spec.stocks ?? {}),
       pos,
       action: null,
+      ...(spec.occupancy ? { occupancy: spec.occupancy } : {}),
       ...(spec.text !== undefined ? { text: validInscription(spec.text) } : {}),
     };
     return 0;
@@ -2390,7 +2433,7 @@ export function commit(
       error: withTerrain(terrain, () => refusalFor(rule, world, actor, args)),
     };
 
-  let reserved = exclusiveGroundRefusal(rule, actor, tokenAt);
+  let reserved = occupiedGroundRefusal(rule, actor, tokenAt);
   if (reserved) return { ok: false, error: reserved };
 
   actor.action = {
@@ -2555,36 +2598,38 @@ export function actionUnavailableReason(
     .unavailableReason;
 }
 
-// Whether an action rule would raise a new token on the actor's own tile - the
-// build-anywhere pattern: a spawn effect with the literal "token" tag and no
-// anchor (or an explicit "self"). Literal tags only: a TagRef that resolves at
-// runtime can't be known here, and missing one just means the spawn falls back
-// to the grid's silent one-token-per-tile law instead of a crisp refusal.
-function spawnsTokenAtSelf(rule: ActionRule): boolean {
+// Whether an action rule would put something that takes ground on the actor's
+// own tile - the build-anywhere pattern: a spawn effect carrying `occupancy`
+// with no anchor (or an explicit "self"). Because occupancy is a static enum
+// rather than a TagRef, this is knowable before the action commits; a spawn
+// without it wants no ground and never competes for the slot.
+function spawnsOccupantAtSelf(rule: ActionRule): boolean {
   return rule.do.some(
     (eff) =>
       "spawn" in eff &&
       (eff.spawn.at === undefined || eff.spawn.at === "self") &&
-      (eff.spawn.tags ?? []).some((t) => t === "token"),
+      eff.spawn.occupancy !== undefined,
   );
 }
 
-// Exclusive ground: a walkable token tagged "exclusive" (a sign) reserves its
-// tile. An action that would raise a new token where the actor stands is
-// refused up front - before time or materials are spent - rather than letting
-// the spawn fall off the grid under the one-token-per-tile law. Ordinary
-// tokens are exempt on purpose: a destroy-then-spawn action (a corpse
-// butchered into a crate underfoot) legitimately frees the slot within its
-// own tick. Shared by checkAction (the menu/approach probe) and commit (the
-// gate that actually starts the action), so they can never disagree.
-function exclusiveGroundRefusal(
+// Held ground: anything with `occupancy` holds its tile, so an action that
+// would raise a second occupant where the actor stands is refused up front -
+// before time or materials are spent - rather than letting the spawn fall off
+// the grid under the one-token-per-tile law. There is no exemption: a tile
+// shows one token, so a build that "succeeds" onto occupied ground can only
+// ever charge the builder for nothing. (An upgrade-in-place action that
+// destroys the holder in the same tick would need an explicit destroy-aware
+// carve-out here; nothing wants one yet.) Shared by checkAction (the
+// menu/approach probe) and commit (the gate that actually starts the action),
+// so they can never disagree.
+function occupiedGroundRefusal(
   rule: ActionRule,
   actor: Entity,
   tokenAt?: (x: number, y: number) => Entity | undefined,
 ): string | undefined {
-  if (!tokenAt || !actor.pos || !spawnsTokenAtSelf(rule)) return undefined;
+  if (!tokenAt || !actor.pos || !spawnsOccupantAtSelf(rule)) return undefined;
   let holder = tokenAt(actor.pos.x, actor.pos.y);
-  if (holder && holder.id !== actor.id && hasTag(holder, "exclusive"))
+  if (holder && holder.id !== actor.id && holder.occupancy)
     return `${holder.id} stands here and holds this ground; step off it first`;
   return undefined;
 }
@@ -2618,7 +2663,7 @@ export function checkAction(
         applicable: false,
         unavailableReason: rule.fizzleReason ?? `cannot ${type} right now`,
       };
-    let reserved = exclusiveGroundRefusal(rule, actor, tokenAt);
+    let reserved = occupiedGroundRefusal(rule, actor, tokenAt);
     if (reserved) return { applicable: false, unavailableReason: reserved };
     return { applicable: true };
   });

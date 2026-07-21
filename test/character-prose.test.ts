@@ -121,10 +121,6 @@ test("no character result renders as serialized data", () =>
       colony.whisper("s", "bren", "psst"),
       colony.inscribe("s", "a warning"),
       colony.sense("s", "situation"),
-      colony.sense("s", "surroundings"),
-      colony.sense("s", "atlas"),
-      colony.sense("s", "frontier"),
-      colony.sense("s", "find", "wood"),
       colony.sense("s", "changes"),
       // Bren speaking leaves something unseen, so the park returns at once
       // instead of hanging on the turn barrier.
@@ -142,6 +138,86 @@ test("no character result renders as serialized data", () =>
       );
     }
   }));
+
+// The action menu never reaches a character as data (prose-only surface), so
+// the wake renderer has to carry it. A wake without this block leaves an agent
+// guessing verb names and bumping into blocked orders.
+function wake(actions: any[], tick = 4) {
+  return renderCharacterResult({
+    status: "changed",
+    observation: {
+      tick,
+      you: { name: "Ara", alive: true, stocks: {} },
+      availableActions: actions,
+    },
+  });
+}
+
+test("a wake lists what you can do, with the args valid from here", () => {
+  let text = wake([
+    { name: "rest", applicable: true },
+    {
+      name: "travel",
+      applicable: true,
+      paramOptions: { location: ["berry-thicket", "forest"] },
+    },
+    // An entity target carries its own label; the player needs the word.
+    {
+      name: "give",
+      applicable: true,
+      paramOptions: { to: [{ id: "bren", label: "Bren" }] },
+    },
+  ]);
+  assert.match(
+    text,
+    /You can: rest, travel\(location: berry-thicket\|forest\), give\(to: Bren\)\./,
+  );
+});
+
+test("a new action surfaces above the blocked list, with its description", () => {
+  let text = wake([
+    { name: "rest", applicable: true },
+    {
+      name: "build",
+      applicable: false,
+      isNew: true,
+      description: "raise a shelter",
+    },
+  ]);
+  assert.match(text, /New: build - raise a shelter\./);
+  // A new action is a "reconsider" signal, not routine churn - it must not be
+  // filed away in the blocked line.
+  assert.doesNotMatch(text, /Blocked here:/);
+});
+
+test("blocked reasons ride the teaching window, then slim to names", () => {
+  // `description` is the engine's teaching-window marker: present on the first
+  // observation, gone on later slim wakes. The reason follows it.
+  let taught = wake([
+    { name: "rest", applicable: true },
+    {
+      name: "gather_stone",
+      applicable: false,
+      unavailableReason: "stand at a stone outcrop",
+      description: "chip stone from an outcrop",
+    },
+  ]);
+  assert.match(
+    taught,
+    /Blocked here: gather_stone \(stand at a stone outcrop\)\./,
+  );
+
+  let slim = wake([
+    { name: "rest", applicable: true },
+    {
+      name: "gather_stone",
+      applicable: false,
+      unavailableReason: "stand at a stone outcrop",
+    },
+  ]);
+  assert.match(slim, /Blocked here: gather_stone\./);
+  assert.doesNotMatch(slim, /stand at a stone outcrop/);
+});
 
 // Which gauge is in trouble comes from the scenario's own display tone, never
 // from a stock's name: a rising hunger is dire near its max, a falling health

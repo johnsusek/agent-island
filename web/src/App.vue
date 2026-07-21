@@ -33,6 +33,8 @@ function selectByName(name: string) {
       :payload="world.payload.value"
       :liveness="world.liveness.value"
       :error="world.stateError.value"
+      :agents="world.agents.value"
+      @select="(id) => (selectedAgentId = id)"
     />
 
     <main class="observatory__main">
@@ -72,7 +74,6 @@ function selectByName(name: string) {
           v-else
           :laws="world.laws.value"
           :speculations="world.speculations.value"
-          :metrics="world.ledgerMetrics.value"
           @select-name="selectByName"
         />
       </div>

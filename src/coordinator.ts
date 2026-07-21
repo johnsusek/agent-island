@@ -1238,14 +1238,14 @@ export function createColony(options: ColonyOptions = {}) {
     return { status, worldId, agentId };
   }
 
-  // The v2 sense verb. Every mode answers from the character's own knowledge;
-  // only `changes` touches session state (it reads and advances the event
-  // cursor, exactly as observe always has - deliver() owns that). The payload
-  // shape is per-mode protocol data, so it is deliberately untyped here.
-  function sense(sessionId: string, mode: string, arg?: string): any {
+  // The sense verb. `situation` answers from the character's own knowledge;
+  // `changes` touches session state (it reads and advances the event cursor,
+  // exactly as observe always has - deliver() owns that). The payload shape is
+  // per-mode protocol data, so it is deliberately untyped here.
+  function sense(sessionId: string, mode: string): any {
     let session = requireJoined(sessionId);
     if (mode === "changes") return { sense: "changes", ...deliver(session) };
-    return engine.sense(session.agentId!, mode, arg);
+    return engine.sense(session.agentId!, mode);
   }
 
   // Commit an intent or order: flush the new events, let the clock advance if

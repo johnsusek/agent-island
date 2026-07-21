@@ -227,7 +227,8 @@ test("space bridge: syncTokens projects a spawned entity onto the grid and remov
   // A campfire conjured on an empty, already-revealed tile beside the spawn.
   world.entities.campfire = {
     id: "campfire",
-    tags: ["token", "campfire"], // "token" opts it onto the map
+    tags: ["campfire"],
+    occupancy: "tile" as const, // takes ground, so it lands on the map
     stocks: {},
     pos: { x: cx + 1, y: cy },
   };
@@ -245,11 +246,11 @@ test("space bridge: syncTokens projects a spawned entity onto the grid and remov
     "and it's discoverable (the tile was revealed at spawn)",
   );
 
-  world.entities.campfire.tags = ["token", "shelter"];
+  world.entities.campfire.tags = ["shelter"];
   syncTokens(space, world);
   assert.deepEqual(
     tileAt(space.grid, cx + 1, cy).token?.tags,
-    ["token", "shelter"],
+    ["shelter"],
     "retagging the entity refreshes the visible token",
   );
   assert.ok(
@@ -278,7 +279,8 @@ test("space bridge: one token per tile — a structure on an occupied tile stays
   let meadow = space.grid.tokens.find((s) => hasTag(s, "food"))!;
   world.entities.totem = {
     id: "totem",
-    tags: ["token", "totem"],
+    tags: ["totem"],
+    occupancy: "tile",
     stocks: {},
     pos: { x: meadow.x, y: meadow.y },
   };
@@ -304,7 +306,8 @@ test("host bridge: a GM-conjured structure shows on the map and in known locatio
 
   engine.spawnEntity({
     id: "watchtower",
-    tags: ["token", "watchtower"],
+    tags: ["watchtower"],
+    occupancy: "tile",
     pos: { x, y },
   });
 
@@ -313,26 +316,28 @@ test("host bridge: a GM-conjured structure shows on the map and in known locatio
   assert.equal(onMap, "watchtower", "the map renders the new structure");
 
   assert.ok(
-    engine.knownLocations(id).locations.some((l) => l.name === "watchtower"),
+    engine
+      .getObservation(id)
+      .known.locations.some((l) => l.name === "watchtower"),
     "and the character can see it among known locations",
   );
 });
 
-test("GM spawn: discoverable:true carves a token without the GM naming the tag", () => {
+test("GM spawn: occupancy carves a token onto the grid", () => {
   let engine = makeSurvivalEngine();
   let { id } = engine.addAgent("Ara");
   let { x, y } = freeTileBeside(engine, survivalScenario.spawn);
 
   let result = engine.spawnEntity({
     id: "well",
-    discoverable: true, // no explicit "token" tag
+    occupancy: "tile" as const,
     pos: { x, y },
   });
 
-  assert.ok(hasTag(result.entity, "token"), "discoverable adds the tag");
+  assert.equal(result.entity.occupancy, "tile", "the entity takes ground");
   assert.equal(result.onMap, true, "and it lands on the grid");
   assert.ok(
-    engine.knownLocations(id).locations.some((l) => l.name === "well"),
+    engine.getObservation(id).known.locations.some((l) => l.name === "well"),
     "the character (standing beside it) can route to it",
   );
 });
@@ -357,13 +362,13 @@ test("GM spawn: reveal:true makes a far token known immediately, otherwise it st
   let a = hidden.addAgent("Ara").id;
   let r1 = hidden.spawnEntity({
     id: "cache",
-    discoverable: true,
+    occupancy: "tile" as const,
     pos: { x: far!.x, y: far!.y },
   });
   assert.equal(r1.onMap, true);
   assert.deepEqual(r1.revealedTo, [], "reveal not requested");
   assert.equal(
-    hidden.knownLocations(a).locations.some((l) => l.name === "cache"),
+    hidden.getObservation(a).known.locations.some((l) => l.name === "cache"),
     false,
     "a far token stays hidden by fog",
   );
@@ -373,13 +378,13 @@ test("GM spawn: reveal:true makes a far token known immediately, otherwise it st
   let b = shown.addAgent("Bo").id;
   let r2 = shown.spawnEntity({
     id: "cache",
-    discoverable: true,
+    occupancy: "tile" as const,
     reveal: true,
     pos: { x: far!.x, y: far!.y },
   });
   assert.deepEqual(r2.revealedTo, [b], "revealed to every character");
   assert.ok(
-    shown.knownLocations(b).locations.some((l) => l.name === "cache"),
+    shown.getObservation(b).known.locations.some((l) => l.name === "cache"),
     "and the character can now route to it",
   );
 });
@@ -391,12 +396,12 @@ test("GM spawn: a token on an occupied tile reports onMap:false instead of silen
 
   engine.spawnEntity({
     id: "first",
-    discoverable: true,
+    occupancy: "tile" as const,
     pos: { x: cx + 1, y: cy },
   });
   let second = engine.spawnEntity({
     id: "second",
-    discoverable: true,
+    occupancy: "tile" as const,
     pos: { x: cx + 1, y: cy },
   });
 

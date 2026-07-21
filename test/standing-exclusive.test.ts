@@ -38,7 +38,14 @@ test("two characters heading for one tile end up on separate tiles", () => {
         height: 3,
         defaultTerrain: "plains",
         tokens: [
-          { name: "well", tags: ["token"], x: 4, y: 1, terrain: "plains" },
+          {
+            name: "well",
+            tags: [],
+            occupancy: "tile",
+            x: 4,
+            y: 1,
+            terrain: "plains",
+          },
         ],
       },
       {},
@@ -81,7 +88,14 @@ test("a mover arriving where someone stands sidesteps to an open neighbour", () 
         height: 3,
         defaultTerrain: "plains",
         tokens: [
-          { name: "post", tags: ["token"], x: 3, y: 1, terrain: "plains" },
+          {
+            name: "post",
+            tags: [],
+            occupancy: "tile",
+            x: 3,
+            y: 1,
+            terrain: "plains",
+          },
         ],
       },
       {},

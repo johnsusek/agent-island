@@ -237,7 +237,8 @@ test("spawning onto impassable terrain is refused unless allowed", () => {
     () =>
       engine.spawnEntity({
         id: "sunken-crate",
-        tags: ["token"],
+        tags: [],
+        occupancy: "tile",
         pos: { x: plains.x, y: plains.y },
       }),
     /lava/,
@@ -245,7 +246,8 @@ test("spawning onto impassable terrain is refused unless allowed", () => {
 
   let { entity } = engine.spawnEntity({
     id: "lava-shrine",
-    tags: ["token"],
+    tags: [],
+    occupancy: "tile",
     pos: { x: plains.x, y: plains.y },
     allowImpassable: true,
   });

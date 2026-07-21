@@ -27,6 +27,7 @@ import {
   type KernelWorld,
   type Rule,
 } from "./kernel.js";
+import type { DisplayHint } from "./scenario.js";
 
 export interface DryRunReport {
   // Simulated ticks actually run: 0 for an action rule, whose body only runs
@@ -42,6 +43,9 @@ export interface DryRunOptions {
   terrain: string[][];
   // Living character ids, for the action-rule availability sweep.
   agents: string[];
+  // The scenario's display hints, so the body lint can tell a gauge that falls
+  // as a benefit (thirst) from a resource that falls as a cost (wood).
+  display?: Record<string, DisplayHint>;
   ticks?: number;
 }
 
@@ -112,21 +116,60 @@ function sweepAction(
   );
 }
 
+// Is this effect a price the actor pays - a subtraction from its own stocks
+// with nothing given back? Judged from shape only, never from the stock's name:
+// a negative adjust on a "down is good" gauge (a thirst that falls when you
+// drink) is the relief the verb exists to deliver, so it is a payoff and not a
+// price. Anything whose size is an expression rather than a literal number, or
+// whose target is a dynamic reference, is left alone - the sign is not knowable
+// from the shape, and a false alarm on a working rule costs more than a miss.
+function isPrice(eff: unknown, display: Record<string, DisplayHint>): boolean {
+  let adjust = (eff as { adjust?: Record<string, unknown> })?.adjust;
+  if (!adjust || adjust.of !== undefined) return false;
+  if (typeof adjust.by !== "number" || adjust.by >= 0) return false;
+  if (typeof adjust.target !== "string") return false;
+  return display[adjust.target]?.tone !== "down";
+}
+
+// Everything that is not a price is a payoff: a spawn, a transfer, a tag, a
+// move, a relief. forEach is transparent - it pays off if any of its branches
+// does.
+function isPayoff(eff: unknown, display: Record<string, DisplayHint>): boolean {
+  let each = (eff as { forEach?: { do?: unknown[] } })?.forEach;
+  if (each) return (each.do ?? []).some((e) => isPayoff(e, display));
+  return !isPrice(eff, display);
+}
+
 // An action's body never runs in simulation, so its shape is all we can check.
-// The one failure visible from the shape alone, without the engine guessing at
-// what a verb's name means: a `do` that does nothing at all. Everything else
-// about a rule's intent - whether a verb that promises a noun delivers one,
+// Two failures are visible from the shape alone, without the engine guessing at
+// what a verb's name means:
+//
+//   - a `do` that does nothing at all;
+//   - a `do` that only spends. Genesis run 7a04489e minted build_shelter as the
+//     single effect `adjust wood by -3`. The character paid, the order reported
+//     completed, and no hearth was ever placed - so they told each other about a
+//     camp that did not exist, which is the empty-body failure wearing a cost.
+//
+// Both are structural, which is what keeps them here. Everything else about a
+// rule's intent - whether a verb that promises a noun delivers that noun,
 // whether a built thing reserves its tile - is the director's judgment, and
 // belongs in the director's prompt rather than in a list of English words the
 // kernel pretends to understand.
 function lintActionBody(
   rule: { id: string; do?: unknown },
+  display: Record<string, DisplayHint>,
   warnings: string[],
 ) {
   let body = Array.isArray(rule.do) ? rule.do : [];
-  if (body.length === 0)
+  if (body.length === 0) {
     warnings.push(
       `action "${rule.id}" has an empty body - committing it will cost time and change nothing, and characters will believe it worked.`,
+    );
+    return;
+  }
+  if (!body.some((eff) => isPayoff(eff, display)))
+    warnings.push(
+      `action "${rule.id}" only spends - every effect in its body subtracts from the actor and nothing is produced, moved, or placed. Characters will pay the cost, be told the action completed, and find the world unchanged. If this verb makes a thing, spawn that thing here; if it relieves something, adjust the gauge it relieves.`,
     );
 }
 
@@ -173,7 +216,7 @@ export function dryRunRule(
   }
 
   if ("kind" in rule && rule.kind === "action") {
-    lintActionBody(rule, warnings);
+    lintActionBody(rule, opts.display ?? {}, warnings);
     sweepAction(world, rules, ruleId, opts, notes);
     return { ticks: 0, warnings, notes };
   }

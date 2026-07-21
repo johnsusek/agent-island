@@ -1,6 +1,7 @@
-// The sense verb: one tool, seven decision-shaped questions, answered from
-// the asking character's own knowledge. And one renderer family shared between
-// sense output and the wake report, so a character learns a single format.
+// The sense verb: `situation` answers the asking character's "where am I, how am
+// I, what's pressing, what's in sight" from its own knowledge, and `changes`
+// reads the session cursor. One renderer family is shared between sense output
+// and the wake report, so a character learns a single format.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -20,7 +21,7 @@ function withColony(fn: (colony: any) => void | Promise<void>) {
   return Promise.resolve(fn(colony)).finally(() => colony.stop());
 }
 
-test("sense modes answer with marked, mode-shaped payloads", () =>
+test("situation carries the envelope, sight map, and live reserves", () =>
   withColony((colony) => {
     colony.join("s", "Ara");
 
@@ -28,30 +29,11 @@ test("sense modes answer with marked, mode-shaped payloads", () =>
     assert.equal(situation.sense, "situation");
     assert.equal(situation.you.name, "Ara");
     assert.ok(situation.here.terrain);
+    assert.ok(Array.isArray(situation.grid.rows));
+    assert.ok(Array.isArray(situation.grid.legend));
+    assert.ok(Array.isArray(situation.inSight));
 
-    let surroundings = colony.sense("s", "surroundings");
-    assert.equal(surroundings.sense, "surroundings");
-    assert.ok(Array.isArray(surroundings.grid.rows));
-    assert.ok(Array.isArray(surroundings.grid.legend));
-    assert.ok(Array.isArray(surroundings.inSight));
-
-    let atlas = colony.sense("s", "atlas");
-    assert.equal(atlas.sense, "atlas");
-    assert.ok(atlas.coverage > 0 && atlas.coverage < 1);
-
-    let frontier = colony.sense("s", "frontier");
-    assert.equal(frontier.sense, "frontier");
-    assert.ok(frontier.nearestUnseen, "a fresh character has unseen ground");
-
-    // find and route demand their argument.
-    assert.throws(() => colony.sense("s", "find"), /what/);
-    assert.throws(() => colony.sense("s", "route"), /to/);
     assert.throws(() => colony.sense("s", "elsewhere"), /Unknown sense mode/);
-
-    let find = colony.sense("s", "find", "food");
-    assert.equal(find.sense, "find");
-    assert.ok(Array.isArray(find.matches));
-    assert.ok(Array.isArray(find.unsearched));
   }));
 
 test("sense changes reads and advances the session cursor", () =>
@@ -73,48 +55,20 @@ test("sense changes reads and advances the session cursor", () =>
     assert.equal(again.events.length, 0, "the cursor advanced");
   }));
 
-test("sense prose: envelope first, provenance shown, closure lines present", () =>
+test("sense prose: envelope first, sight map, closure lines present", () =>
   withColony((colony) => {
     colony.join("s", "Ara");
 
     let situation = describeSense(colony.sense("s", "situation"));
     assert.match(situation, /^Tick \d+\. You are Ara/);
     assert.match(situation, /pressing/i, "situation closes with a status line");
-
-    let surroundings = describeSense(colony.sense("s", "surroundings"));
-    assert.match(surroundings, /Sight \(\d+x\d+, north up, you @ center\):/);
-    assert.match(surroundings, /Key: @ you, /);
-    assert.match(surroundings, /blank = off-map\./);
-
-    let frontier = describeSense(colony.sense("s", "frontier"));
-    assert.match(frontier, /Your atlas covers \d+% of walkable ground\./);
-
-    let find = describeSense(colony.sense("s", "find", "food"));
-    assert.match(find, /food/);
+    assert.match(situation, /Sight \(\d+x\d+, north up, you @ center\):/);
+    assert.match(situation, /Key: @ you, /);
+    assert.match(situation, /blank = off-map\./);
 
     // No coordinates anywhere in character-facing prose.
-    for (let text of [situation, surroundings, frontier, find])
-      assert.doesNotMatch(text, /\d+\s*,\s*\d+/, "prose never leaks x,y");
+    assert.doesNotMatch(situation, /\d+\s*,\s*\d+/, "prose never leaks x,y");
   }));
-
-test("a remembered place wears its age in atlas prose", () => {
-  let rendered = describeSense({
-    sense: "atlas",
-    tick: 100,
-    coverage: 0.4,
-    locations: [
-      {
-        name: "river-grove",
-        tags: ["token", "wood"],
-        distance: 9,
-        direction: "southeast",
-        lastSeenTicksAgo: 40,
-      },
-    ],
-  });
-  assert.match(rendered, /river-grove/);
-  assert.match(rendered, /seen 40 ticks ago/);
-});
 
 test("the wake report opens with the same envelope sense situation uses", () =>
   withColony(async (colony) => {

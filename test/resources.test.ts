@@ -52,7 +52,8 @@ function woodWorld(tokenReserve = 24) {
   let ara = addAgent(world, "ara");
   let token = {
     id: "grove-1",
-    tags: ["token", "wood"],
+    tags: ["wood"],
+    occupancy: "tile" as const,
     stocks: { wood: stock(tokenReserve, 0, 48) },
     pos: { ...ara.pos! },
   };

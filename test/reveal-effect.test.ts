@@ -31,7 +31,8 @@ function conjureAway(
   let x = from.x + dist < width ? from.x + dist : from.x - dist;
   engine.spawnEntity({
     id,
-    tags: ["token", "landmark"],
+    tags: ["landmark"],
+    occupancy: "tile",
     pos: { x, y: from.y },
   });
   return { x, y: from.y };
@@ -46,8 +47,8 @@ test("a scenario-authored survey action reveals fog through the kernel effect", 
   conjureAway(engine, "far-cairn", here, 15);
   assert.equal(
     engine
-      .knownLocations(ara)
-      .locations.some((l: any) => l.name === "far-cairn"),
+      .getObservation(ara)
+      .known.locations.some((l: any) => l.name === "far-cairn"),
     false,
     "the cairn starts unknown",
   );
@@ -66,8 +67,8 @@ test("a scenario-authored survey action reveals fog through the kernel effect", 
 
   assert.equal(
     engine
-      .knownLocations(ara)
-      .locations.some((l: any) => l.name === "far-cairn"),
+      .getObservation(ara)
+      .known.locations.some((l: any) => l.name === "far-cairn"),
     true,
     "surveying revealed the cairn to the surveyor",
   );
@@ -93,15 +94,15 @@ test("reveal is per-agent: the surveyor learns, bystanders don't", () => {
 
   assert.equal(
     engine
-      .knownLocations(ara)
-      .locations.some((l: any) => l.name === "lone-obelisk"),
+      .getObservation(ara)
+      .known.locations.some((l: any) => l.name === "lone-obelisk"),
     true,
     "ara surveyed and knows",
   );
   assert.equal(
     engine
-      .knownLocations(bo)
-      .locations.some((l: any) => l.name === "lone-obelisk"),
+      .getObservation(bo)
+      .known.locations.some((l: any) => l.name === "lone-obelisk"),
     false,
     "bo stood by and doesn't",
   );

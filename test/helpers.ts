@@ -124,10 +124,7 @@ export function makeSurvivalEngine() {
 
 let setupTokenScatter = (survivalOverlay.setup ?? [])
   .map((directive) => directive.scatter)
-  .filter(
-    (scatter): scatter is TokenScatter =>
-      Boolean(scatter) && hasTag(scatter, "token"),
-  );
+  .filter((scatter): scatter is TokenScatter => Boolean(scatter));
 
 // Production rolls a random spawn, but the kernel-level tests want a fixed, roomy
 // start they can place entities around by offset. Pin spawn to the map's centre —
@@ -179,6 +176,7 @@ export function makeSurvivalWorld(): KernelWorld {
       id: s.name,
       kind: s.kind,
       tags: s.tags,
+      occupancy: s.occupancy ?? "tile",
       stocks: instantiate(s.stocks ?? {}),
       pos: { x: s.x, y: s.y },
     };
@@ -189,7 +187,7 @@ export function makeSurvivalWorld(): KernelWorld {
 // on a resource token without caring which procedurally-named one it is.
 export function findToken(world: KernelWorld, tag: string): Entity {
   let token = Object.values(world.entities).find(
-    (e) => hasTag(e, "token") && hasTag(e, tag),
+    (e) => e.occupancy !== undefined && hasTag(e, tag),
   );
   if (!token) throw new Error(`no token tagged "${tag}"`);
   return token;

@@ -34,8 +34,8 @@ function discoverFood(engine: WorldEngine, id: string, safety = 15) {
   let farFood = new Set(foodTiles.map((t) => t.token!.name));
   let nearestKnown = () =>
     engine
-      .knownLocations(id)
-      .locations.filter((l) => farFood.has(l.name))
+      .getObservation(id)
+      .known.locations.filter((l) => farFood.has(l.name))
       .sort((a, b) => a.distance - b.distance)[0];
   // Eight compass steps, so a blocked beeline (water across the straight line)
   // can detour around instead of dead-ending.
@@ -95,7 +95,9 @@ function discoverFood(engine: WorldEngine, id: string, safety = 15) {
 
 // An existing token the agent has NOT yet discovered — for asserting the fog gate.
 function hiddenToken(engine: WorldEngine, id: string): string {
-  let known = new Set(engine.knownLocations(id).locations.map((l) => l.name));
+  let known = new Set(
+    engine.getObservation(id).known.locations.map((l) => l.name),
+  );
   let tile = engine
     .getMapTokens()
     .find((t) => t.token && !known.has(t.token.name));
@@ -136,8 +138,8 @@ test("an agent spawns perceiving only its surroundings — food is found by expl
   // from across the map.
   assert.ok(
     engine
-      .knownLocations("ara")
-      .locations.filter((l) => hasTag(l, "food"))
+      .getObservation("ara")
+      .known.locations.filter((l) => hasTag(l, "food"))
       .every((l) => l.distance <= 12),
     "only food within sight is known at spawn",
   );
@@ -148,8 +150,8 @@ test("an agent spawns perceiving only its surroundings — food is found by expl
     .getMapTokens()
     .filter((t) => !!t.token && hasTag(t.token, "food")).length;
   let knownFood = engine
-    .knownLocations("ara")
-    .locations.filter((l) => hasTag(l, "food")).length;
+    .getObservation("ara")
+    .known.locations.filter((l) => hasTag(l, "food")).length;
   assert.ok(totalFood > knownFood, "far food sources stay fogged");
 });
 
@@ -257,8 +259,8 @@ test("gather takes food from the source into the pack; eat then works anywhere",
 
   let remainingAtSource = () => {
     let loc = engine
-      .knownLocations("ara")
-      .locations.find((l) => l.name === dest.name)!;
+      .getObservation("ara")
+      .known.locations.find((l) => l.name === dest.name)!;
     if (!("remaining" in loc) || typeof loc.remaining !== "number")
       throw new Error("source carries no reserve");
     return loc.remaining;
@@ -295,7 +297,7 @@ test("gather takes food from the source into the pack; eat then works anywhere",
 test("explore strikes into the unknown and reveals new ground", () => {
   let engine = survival();
   engine.addAgent("ara");
-  let knownBefore = engine.knownLocations("ara").locations.length;
+  let knownBefore = engine.getObservation("ara").known.locations.length;
 
   engine.commitIntent("ara", { type: "explore", direction: "south" });
   let here = engine.getObservation("ara").you.position;
@@ -303,27 +305,7 @@ test("explore strikes into the unknown and reveals new ground", () => {
   let moved = engine.getObservation("ara").you.position;
 
   assert.notDeepEqual({ x: here.x, y: here.y }, { x: moved.x, y: moved.y });
-  assert.ok(engine.knownLocations("ara").locations.length >= knownBefore);
-});
-
-test("get_route reports direction, distance, and eta to a known token", () => {
-  let engine = survival();
-  engine.addAgent("ara");
-  let dest = discoverFood(engine, "ara");
-  let route = engine.route("ara", dest.name);
-  assert.equal(route.location, dest.name);
-  assert.equal(route.reachable, true);
-  assert.ok(
-    (route.distance ?? 0) > 0,
-    "a discovered token is some distance off",
-  );
-  // eta is ticks, distance is tiles: equal on open ground, larger when the route
-  // crosses slow terrain (hills/forest), never less than the tiles walked.
-  assert.ok((route.eta ?? 0) >= (route.distance ?? 0), "eta is weighted ticks");
-  assert.ok(
-    typeof route.direction === "string" && route.direction.length > 0,
-    "a compass direction is reported",
-  );
+  assert.ok(engine.getObservation("ara").known.locations.length >= knownBefore);
 });
 
 test("whisper means leaning in: same tile works, at range it is refused", () => {

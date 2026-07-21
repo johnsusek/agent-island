@@ -348,28 +348,6 @@ function createWorldState() {
       .sort((a, b) => b.lastTick - a.lastTick);
   });
 
-  let ledgerMetrics = computed(() => {
-    let lawList = laws.value;
-    let latencies = lawList
-      .map((law) => law.latency)
-      .filter((latency): latency is number => latency != null)
-      .sort((a, b) => a - b);
-    let medianLatency = latencies.length
-      ? latencies[Math.floor(latencies.length / 2)]
-      : null;
-    let total = actionRules.value.length;
-    return {
-      laws: lawList.length,
-      speculationsOpen: speculations.value.length,
-      medianLatency,
-      // The headline: what share of the live verbs the characters authored.
-      agentOriginatedPct: total
-        ? Math.round((mintedActions.value.length / total) * 100)
-        : null,
-      gated: lawList.filter((law) => law.gated).length,
-    };
-  });
-
   // --- the feed ------------------------------------------------------------
 
   // Chat rows: speech and whispers, kept apart so the map can bubble them and
@@ -397,9 +375,6 @@ function createWorldState() {
       .filter((e) => e.type !== "arrived")
       .filter((e) => e.type !== "order_completed")
       .filter((e) => e.type !== "order_started")
-      .filter(
-        (e) => !(e.type === "action_started" && e.text?.includes("begins to")),
-      )
       .map((e) => {
         let kind: FeedItem["kind"] =
           e.type === "speculative_attempt"
@@ -441,7 +416,6 @@ function createWorldState() {
     liveness,
     laws,
     speculations,
-    ledgerMetrics,
     chat,
     feed,
     nameOf,

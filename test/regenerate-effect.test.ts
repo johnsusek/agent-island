@@ -34,7 +34,8 @@ function floorScenario(): Scenario {
       tokens: [
         {
           name: "grove",
-          tags: ["token", "wood"],
+          tags: ["wood"],
+          occupancy: "tile",
           x: 8,
           y: 8,
           stocks: { wood: { value: 5, min: 0, max: 5, icon: "wood-pile" } },

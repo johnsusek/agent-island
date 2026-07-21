@@ -52,14 +52,15 @@
             "spawn": {
               "kind": "shelter",
               "idPrefix": "shelter",
-              "tags": ["token", "solid"],
+              "tags": [],
               "stocks": {
                 "shelter": {
                   "value": 30,
                   "min": 0,
                   "max": 30
                 }
-              }
+              },
+              "occupancy": "blocking"
             }
           },
           {
@@ -504,7 +505,7 @@
         "id": "sow",
         "kind": "action",
         "duration": 4,
-        "description": "Break open a patch of open plains to sow a new farm plot where you stand, tiring work needing dry, open ground with no token already on the tile.",
+        "description": "Break open a patch of open plains to sow a new farm plot where you stand, tiring work needing dry, open ground.",
         "params": [],
         "requires": {
           "all": [
@@ -520,17 +521,10 @@
                 "type": "plains",
                 "range": 0
               }
-            },
-            {
-              "not": {
-                "colocated": {
-                  "tag": "token"
-                }
-              }
             }
           ]
         },
-        "requireReason": "need open, dry plains ground, no token already here, and the energy to break the soil",
+        "requireReason": "need open, dry plains ground and the energy to break the soil",
         "do": [
           {
             "adjust": {
@@ -542,14 +536,15 @@
             "spawn": {
               "kind": "farm",
               "idPrefix": "plot",
-              "tags": ["token", "food"],
+              "tags": ["food"],
               "stocks": {
                 "food": {
                   "value": 2,
                   "min": 0,
                   "max": 40
                 }
-              }
+              },
+              "occupancy": "tile"
             }
           },
           {
@@ -748,7 +743,7 @@
         "id": "build_campfire",
         "kind": "action",
         "duration": 4,
-        "description": "Build a campfire where you stand for 2 carried wood on dry ground with no other token already on the tile, so the colony has a hearth to gather round.",
+        "description": "Build a campfire where you stand for 2 carried wood on dry ground, so the colony has a hearth to gather round.",
         "params": [],
         "requires": {
           "all": [
@@ -766,17 +761,10 @@
                   "range": 0
                 }
               }
-            },
-            {
-              "not": {
-                "colocated": {
-                  "tag": "token"
-                }
-              }
             }
           ]
         },
-        "requireReason": "need 2 carried wood and dry ground with no other token already on this tile",
+        "requireReason": "need 2 carried wood and dry ground",
         "do": [
           {
             "adjust": {
@@ -788,14 +776,15 @@
             "spawn": {
               "kind": "hearth",
               "idPrefix": "campfire",
-              "tags": ["token", "solid"],
+              "tags": [],
               "stocks": {
                 "fuel": {
                   "value": 10,
                   "min": 0,
                   "max": 30
                 }
-              }
+              },
+              "occupancy": "blocking"
             }
           },
           {
@@ -1442,7 +1431,8 @@
             "spawn": {
               "kind": "stockpile",
               "idPrefix": "stockpile",
-              "tags": ["token", "exclusive"]
+              "tags": [],
+              "occupancy": "tile"
             }
           }
         ],
@@ -1757,7 +1747,7 @@
         "scatter": {
           "kind": "tree",
           "namePrefix": "tree",
-          "tags": ["token", "wood"],
+          "tags": ["wood"],
           "density": 1,
           "onTerrain": ["plains"],
           "minSpacing": 2,
@@ -1767,14 +1757,15 @@
               "value": [3, 5],
               "min": 0
             }
-          }
+          },
+          "occupancy": "tile"
         }
       },
       {
         "scatter": {
           "kind": "food",
           "namePrefix": "berry-thicket",
-          "tags": ["token"],
+          "tags": [],
           "density": 0.35,
           "onTerrain": ["plains"],
           "minSpacing": 2,
@@ -1785,14 +1776,15 @@
               "min": 0,
               "max": [13, 19]
             }
-          }
+          },
+          "occupancy": "tile"
         }
       },
       {
         "scatter": {
           "kind": "predator",
           "namePrefix": "wolf",
-          "tags": ["token"],
+          "tags": [],
           "edgeDensity": 4,
           "minSpacing": 15,
           "spawnKeepout": 20,
@@ -1802,7 +1794,8 @@
               "min": 0,
               "max": 16
             }
-          }
+          },
+          "occupancy": "tile"
         }
       }
     ],
@@ -2917,8 +2910,9 @@
       {
         "kind": "ledger",
         "id": "camp-ledger",
-        "tags": ["token", "solid"],
-        "atSpawn": true
+        "tags": [],
+        "atSpawn": true,
+        "occupancy": "blocking"
       }
     ]
   }

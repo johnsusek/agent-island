@@ -188,7 +188,7 @@
         "scatter": {
           "kind": "outcrop",
           "namePrefix": "outcrop",
-          "tags": ["token", "stone"],
+          "tags": ["stone"],
           "density": 0.35,
           "onTerrain": ["plains"],
           "minSpacing": 3,
@@ -200,7 +200,8 @@
               "icon": "stone-pile",
               "color": "#9aa3ab"
             }
-          }
+          },
+          "occupancy": "tile"
         }
       }
     ],

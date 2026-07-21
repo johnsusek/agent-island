@@ -186,7 +186,8 @@ test("an action fizzles at completion if its precondition lapsed mid-work", () =
   let chopOnly = survivalRules.filter((r) => r.id === "chop");
   let stand = {
     id: "tree",
-    tags: ["token", "tree", "wood"],
+    tags: ["tree", "wood"],
+    occupancy: "tile" as const,
     stocks: { wood: stock(1, 0, 9999) }, // one tree left
     pos: { ...ara.pos! },
     action: null,
@@ -268,7 +269,7 @@ test("terrain slows movement: a costly tile takes its enter cost in ticks to cro
         width: 5,
         height: 1,
         defaultTerrain: "plains",
-        tokens: [{ name: "goal", tags: ["token"], x: 4, y: 0 }],
+        tokens: [{ name: "goal", tags: [], occupancy: "tile", x: 4, y: 0 }],
       },
       { hills: { moveCost: 3 } },
     ),
@@ -328,7 +329,14 @@ test("travel to a token on impassable ground routes to the bank beside it", () =
         height: 1,
         defaultTerrain: "plains",
         tokens: [
-          { name: "dock", tags: ["token"], x: 3, y: 0, terrain: "water" },
+          {
+            name: "dock",
+            tags: [],
+            occupancy: "tile",
+            x: 3,
+            y: 0,
+            terrain: "water",
+          },
         ],
       },
       { water: { passable: false } },
@@ -375,7 +383,14 @@ test("travel to a token walled off by impassable ground still reports no route",
         height: 1,
         defaultTerrain: "plains",
         tokens: [
-          { name: "dock", tags: ["token"], x: 2, y: 0, terrain: "water" },
+          {
+            name: "dock",
+            tags: [],
+            occupancy: "tile",
+            x: 2,
+            y: 0,
+            terrain: "water",
+          },
         ],
       },
       { water: { passable: false } },
@@ -425,7 +440,8 @@ test("travel follows a token that creeps while it stays in sight, then lands on 
   };
   space.grid.tokens.push({
     name: "spark",
-    tags: ["token", "flame"],
+    tags: ["flame"],
+    occupancy: "tile",
     x: 2,
     y: 0,
   });
@@ -898,8 +914,8 @@ test("a full agent loop runs through commitIntent and observe()", () => {
     .filter((t) => !!t.token && hasTag(t.token, "food"));
   let foodOf = () =>
     engine
-      .knownLocations(id)
-      .locations.filter((l) => hasTag(l, "food") && l.distance > 0)
+      .getObservation(id)
+      .known.locations.filter((l) => hasTag(l, "food") && l.distance > 0)
       .sort((a, b) => a.distance - b.distance)[0];
   let food = foodOf();
   for (let i = 0; i < 15 && !food; i += 1) {
@@ -938,8 +954,8 @@ test("a full agent loop runs through commitIntent and observe()", () => {
   // eat from the scenario.
   let remainingOnToken = () => {
     let loc = engine
-      .knownLocations(id)
-      .locations.find((l) => l.name === food!.name)!;
+      .getObservation(id)
+      .known.locations.find((l) => l.name === food!.name)!;
     if (!("remaining" in loc) || typeof loc.remaining !== "number")
       throw new Error("source carries no reserve");
     return loc.remaining;

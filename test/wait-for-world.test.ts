@@ -98,7 +98,11 @@ test("a GM edit in another session wakes a director parked on the audit stream",
     let wake = colony.waitForWorld("director", {
       events: ["entity_spawned"],
     });
-    colony.gmSpawnEntity("console", { id: "obelisk", tags: ["token"] });
+    colony.gmSpawnEntity("console", {
+      id: "obelisk",
+      tags: [],
+      occupancy: "tile",
+    });
 
     let result = await wake;
     assert.equal(result.status, "changed");

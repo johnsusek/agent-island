@@ -204,7 +204,7 @@ test("a malformed rule in a ruleset fails with the ruleset named", () => {
 });
 
 test("a diamond include merges the shared ruleset exactly once", () => {
-  let scatter = { kind: "tree", tags: ["token"], density: 0.1 };
+  let scatter = { kind: "tree", tags: [], occupancy: "tile", density: 0.1 };
   let dir = fixture({
     rulesets: {
       provisions: {

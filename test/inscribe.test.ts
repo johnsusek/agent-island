@@ -18,7 +18,7 @@ import {
 import { SIGHT } from "../src/rules/space.js";
 import type { WorldEngine } from "../src/rules/engine.js";
 import { describeSense } from "../src/sense-prose.js";
-import { makeSurvivalEngine, placeAt } from "./helpers.js";
+import { makeSurvivalEngine, placeAt, runToIdle } from "./helpers.js";
 
 // Displace an agent `dist` tiles along the x axis from `from`, leaning toward
 // whichever side of the map actually has that much room.
@@ -45,14 +45,10 @@ test("inscribe raises an unsigned sign on the writer's tile", () => {
   let snap = engine.snapshot();
   let sign = snap.world.entities[result.sign];
   assert.equal(sign.kind, "sign");
-  assert.ok(sign.tags.includes("token"), "a sign is a discoverable token");
-  assert.ok(
-    !sign.tags.includes("solid"),
-    "a sign never blocks a route - characters walk and stand on it",
-  );
-  assert.ok(
-    sign.tags.includes("exclusive"),
-    "a sign reserves its ground against new tokens",
+  assert.equal(
+    sign.occupancy,
+    "tile",
+    "a sign is on the map and reserves its ground, but never blocks a route - characters walk and stand on it",
   );
   assert.equal(sign.text, "the well is northeast");
   assert.deepEqual(sign.pos, { x: here.x, y: here.y });
@@ -79,7 +75,7 @@ test("adjacent characters read the words; farther sight shows only the sign", ()
   engine.tick(); // let the moved characters perceive their new surroundings
 
   let atSign = (r: any) => r.inSight.find((t: any) => t.name === sign);
-  let boView = engine.sense(bo, "surroundings");
+  let boView = engine.sense(bo, "situation");
   assert.equal(atSign(boView)?.inscription, "the river floods in spring");
   assert.match(
     describeSense(boView),
@@ -87,7 +83,7 @@ test("adjacent characters read the words; farther sight shows only the sign", ()
     "the prose quotes the sign verbatim",
   );
 
-  let cyView = engine.sense(cy, "surroundings");
+  let cyView = engine.sense(cy, "situation");
   assert.ok(atSign(cyView), "the sign itself is visible at distance");
   assert.equal(
     atSign(cyView).inscription,
@@ -98,7 +94,7 @@ test("adjacent characters read the words; farther sight shows only the sign", ()
 
   // The writer reads their own sign from on top of it.
   assert.equal(
-    atSign(engine.sense(ara, "surroundings"))?.inscription,
+    atSign(engine.sense(ara, "situation"))?.inscription,
     "the river floods in spring",
   );
 });
@@ -214,6 +210,52 @@ test("a sign holds its ground: builds are refused on it, and allowed off it", ()
   assert.equal(committed.approaching, false, "committed in place, not walking");
 });
 
+// The bug this whole `occupancy` field exists to kill: a build that carries no
+// self-guard used to spawn structure after structure onto one tile, each one
+// silently falling off the grid while the builder was told it succeeded (a live
+// world reached five shelters stacked on a sign). Drive one build to completion,
+// confirm it actually took the tile, then confirm a second build on the same
+// tile is refused before any wood is spent - and that one structure remains.
+test("a finished build holds its tile: a second build on it is refused", () => {
+  let engine = makeSurvivalEngine();
+  let ara = engine.addAgent("Ara").id;
+  let snap = engine.snapshot();
+  snap.world.entities[ara].stocks.wood = { value: 8, min: 0, max: 25 };
+  engine.restore(snap);
+  let here = engine.getObservation(ara).you.position;
+
+  assert.equal(
+    engine.commitIntent(ara, { type: "build_shelter" }).accepted,
+    true,
+  );
+  runToIdle(engine, ara);
+
+  let shelters = () =>
+    Object.values(engine.snapshot().world.entities).filter(
+      (e) => e.kind === "shelter",
+    );
+  assert.equal(shelters().length, 1, "the build produced exactly one shelter");
+  let built = shelters()[0];
+  assert.deepEqual(built.pos, here, "it stands on the tile Ara built it on");
+  assert.equal(built.occupancy, "blocking", "and it takes (holds) the ground");
+
+  // Wood is back up and Ara has not moved, so only the held ground stops a
+  // second build - refused at commit, before the 4 wood is spent.
+  snap = engine.snapshot();
+  snap.world.entities[ara].stocks.wood = { value: 8, min: 0, max: 25 };
+  engine.restore(snap);
+  assert.throws(
+    () => engine.commitIntent(ara, { type: "build_shelter" }),
+    /(holds this ground|shelter)/,
+  );
+  assert.equal(shelters().length, 1, "still exactly one shelter, not stacked");
+  assert.equal(
+    engine.snapshot().world.entities[ara].stocks.wood.value,
+    8,
+    "no wood was spent walking into the refusal",
+  );
+});
+
 test("a GM fixture carries a pre-written inscription", () => {
   let engine = makeSurvivalEngine();
   let ara = engine.addAgent("Ara").id;
@@ -222,11 +264,11 @@ test("a GM fixture carries a pre-written inscription", () => {
     id: "lore-stone",
     kind: "sign",
     pos: { x: here.x, y: here.y },
-    discoverable: true,
+    occupancy: "tile" as const,
     text: "here fell the first colony",
   });
   assert.equal(entity.text, "here fell the first colony");
-  let view: any = engine.sense(ara, "surroundings");
+  let view: any = engine.sense(ara, "situation");
   assert.equal(
     view.inSight.find((t: any) => t.name === "lore-stone")?.inscription,
     "here fell the first colony",
@@ -260,7 +302,8 @@ function seedRule(text: string): Rule {
         spawn: {
           id: "warning-1",
           kind: "sign",
-          tags: ["token"],
+          tags: [],
+          occupancy: "tile",
           at: { x: 4, y: 4 },
           text,
         },

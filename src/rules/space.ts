@@ -20,6 +20,7 @@ import type {
   KernelEvent,
   KernelWorld,
   MapEdge,
+  Occupancy,
 } from "./kernel.js";
 import { hasTag } from "./kernel.js";
 
@@ -70,6 +71,12 @@ export interface TokenRef {
   name: string;
   kind?: string;
   tags: string[];
+  // Mirrors the backing entity's occupancy, so pathing can tell a wall from a
+  // signpost without a lookup back into the world. Always set on a token
+  // actually projected onto the grid by syncTokens; absent on the synthetic
+  // refs that only ever name a route's goal (an agent being followed, a patch
+  // of terrain), which never sit in a tile slot.
+  occupancy?: Occupancy;
 }
 export interface Tile {
   terrain: Terrain;
@@ -307,7 +314,10 @@ export interface ScatterStock {
 export interface TokenScatter {
   namePrefix: string; // generated tokens are <prefix>-1, <prefix>-2, ...
   kind?: string; // what each token IS ("tree", "boulder") - feeds sprite/label
-  tags: string[]; // e.g. ["token", "wood"] - the gather gate matches these
+  tags: string[]; // e.g. ["wood"] - the gather gate matches these
+  // A scattered token is on the map by definition, so this only chooses whether
+  // it also blocks routes; "tile" when omitted.
+  occupancy?: Occupancy;
   count?: number; // explicit count...
   density?: number; // ...or tokens per 100 tiles of area (resources: local availability constant)...
   edgeDensity?: number; // ...or tokens per 100 tiles of average edge (threats/POIs: encounter rate along a journey)
@@ -322,6 +332,7 @@ export interface TokenGen {
   name: string;
   kind?: string;
   tags: string[];
+  occupancy?: Occupancy; // "tile" when omitted, as for TokenScatter
   x: number;
   y: number;
   terrain?: Terrain; // override the tile's terrain where the token sits
@@ -986,9 +997,21 @@ function makeGrid(spawn: Position, gen?: WorldGen): Grid {
   let tokens: GridToken[] = [];
   for (let s of gen?.tokens ?? []) {
     let tile = tiles[s.y][s.x];
-    tile.token = { name: s.name, kind: s.kind, tags: s.tags };
+    tile.token = {
+      name: s.name,
+      kind: s.kind,
+      tags: s.tags,
+      occupancy: s.occupancy ?? "tile",
+    };
     if (s.terrain !== undefined) tile.terrain = s.terrain;
-    tokens.push({ name: s.name, kind: s.kind, tags: s.tags, x: s.x, y: s.y });
+    tokens.push({
+      name: s.name,
+      kind: s.kind,
+      tags: s.tags,
+      occupancy: s.occupancy ?? "tile",
+      x: s.x,
+      y: s.y,
+    });
   }
 
   let terrainCosts = Object.entries(gen?.terrainCost ?? {});
@@ -1099,6 +1122,7 @@ export function scatterOnGrid(
         name: `${spec.namePrefix}-${made + 1}`,
         kind: spec.kind,
         tags: [...spec.tags],
+        occupancy: spec.occupancy,
         x: candidate.x,
         y: candidate.y,
         terrain: spec.terrain,
@@ -1146,6 +1170,7 @@ export function expandWorldGen(gen: WorldGen, spawn: Position): WorldGen {
       name: token.name,
       kind: token.kind,
       tags: token.tags,
+      occupancy: token.occupancy ?? ("tile" as const),
       x: token.x,
       y: token.y,
     })),
@@ -1210,17 +1235,17 @@ export function pickSpawn(gen?: WorldGen): Position {
 }
 
 // A tile is passable when it is on-map, its terrain is not impassable, and no
-// solid token stands on it. Solid tokens (a hearth, a wall, the ledger) are the
-// one occupancy mechanic beyond terrain: pathing routes around them and travel
-// approaches them from an adjacent bank, exactly as it already does for a token
-// sunk in impassable ground. Standing is exclusive to open ground, so a mist
-// puff or a pile - anything without the "solid" tag - never blocks a route.
+// blocking token stands on it. Blocking tokens (a hearth, a wall, the ledger)
+// are the one occupancy mechanic beyond terrain: pathing routes around them and
+// travel approaches them from an adjacent bank, exactly as it already does for a
+// token sunk in impassable ground. Standing is exclusive to open ground, so a
+// mist puff or a pile - anything short of "blocking" - never blocks a route.
 export function passable(grid: Grid, x: number, y: number): boolean {
   if (!inBoundsOf(grid, x, y)) return false;
   let indexes = tileIndexes(grid, x, y);
   let tile = grid.tiles[indexes.y][indexes.x];
   if (grid.impassable.has(tile.terrain)) return false;
-  return !tile.token || !hasTag(tile.token, "solid");
+  return !tile.token || tile.token.occupancy !== "blocking";
 }
 
 // Ticks to step onto (x, y): the tile's terrain cost, defaulting to 1. Off-map or
@@ -1629,24 +1654,23 @@ export function spawn(
   }
 }
 
-// Reconcile the grid's token layer with the world's positioned, "token"-tagged
-// entities - the bridge that lets a structure a rule spawns (a built campfire, a
-// dropped crate) or a GM conjures appear on the map and in knownTokens, and one a
-// rule destroys disappear. The kernel itself stays space-unaware: it only mints
-// the entity; the host calls this after each tick to project the change onto the
-// grid. Projection is opt-in by the `token` tag - the same tag every authored token
-// already carries - so an agent (no "token") and, importantly, a corpse (which
-// merely drops the "agent" tag on death) never silently become map tokens; a
-// build rule that wants its structure on the map just tags the spawn "token". A
-// tile holds at most one token: a structure landing on a tile that already shows
-// another token still exists as an entity and is colocation-matchable, but is not
-// separately registered on the grid.
+// Reconcile the grid's token layer with the world's positioned entities that
+// take ground - the bridge that lets a structure a rule spawns (a built
+// campfire, a dropped crate) or a GM conjures appear on the map and in
+// knownTokens, and one a rule destroys disappear. The kernel itself stays
+// space-unaware: it only mints the entity; the host calls this after each tick
+// to project the change onto the grid. Projection is opt-in by `occupancy`, so
+// an agent and, importantly, a corpse (which merely drops the "agent" tag on
+// death) never silently become map tokens; a build rule that wants its
+// structure on the map sets the spawn's occupancy. A tile holds at most one
+// token - and because taking ground now also reserves it, a second occupant is
+// refused at commit rather than quietly landing off the grid.
 export function syncTokens(space: Space, world: KernelWorld): boolean {
   let grid = space.grid;
   let want = new Map<string, Entity>();
   let changed = false;
   for (let entity of Object.values(world.entities))
-    if (entity.pos && hasTag(entity, "token")) want.set(entity.id, entity);
+    if (entity.pos && entity.occupancy) want.set(entity.id, entity);
 
   // Keep grid tokens whose entity still exists on the same tile; clear the tile
   // slot of any whose entity was destroyed or moved away.
@@ -1660,14 +1684,17 @@ export function syncTokens(space: Space, world: KernelWorld): boolean {
     ) {
       if (
         gridToken.tags.join("\0") !== entity.tags.join("\0") ||
-        gridToken.kind !== entity.kind
+        gridToken.kind !== entity.kind ||
+        gridToken.occupancy !== entity.occupancy
       ) {
         gridToken.kind = entity.kind;
         gridToken.tags = [...entity.tags];
+        gridToken.occupancy = entity.occupancy!;
         let tile = tileAt(grid, gridToken.x, gridToken.y);
         if (tile.token?.name === gridToken.name) {
           tile.token.kind = entity.kind;
           tile.token.tags = [...entity.tags];
+          tile.token.occupancy = entity.occupancy!;
         }
         changed = true;
       }
@@ -1695,6 +1722,7 @@ export function syncTokens(space: Space, world: KernelWorld): boolean {
       name: entity.id,
       kind: entity.kind,
       tags: [...entity.tags],
+      occupancy: entity.occupancy!,
     };
     tile.token = ref;
     grid.tokens.push({ ...ref, x: entity.pos!.x, y: entity.pos!.y });
@@ -2169,40 +2197,6 @@ function travelToNearestTerrain(
     ok: false,
     error: `No route to any known ${terrain}.`,
     commitError: `no route to any known ${terrain}`,
-  };
-}
-
-// Direction, path distance, and eta to a discovered token - the route read.
-export function routeTo(
-  space: Space,
-  id: string,
-  from: Position,
-  locationName: string,
-  world?: KernelWorld,
-) {
-  let route = travelRoute(space, id, from, locationName, world);
-  if (!route.ok) {
-    if (!route.token) throw new Error(route.error);
-    if (route.error !== "no route found") throw new Error(route.error);
-    return {
-      location: route.token.name,
-      reachable: false,
-      reason: route.error,
-    };
-  }
-  if (route.path.length === 0)
-    return {
-      location: route.token.name,
-      distance: 0,
-      eta: 0,
-      direction: "here",
-    };
-  return {
-    location: route.token.name,
-    reachable: true,
-    distance: route.path.length, // tiles to walk
-    eta: route.eta, // ticks, weighted by terrain
-    direction: route.direction,
   };
 }
 

@@ -34,7 +34,8 @@ function firstWithTag(world: KernelWorld, tag: string): Entity | undefined {
 function pileOn(world: KernelWorld, at: Entity): Entity {
   let pile: Entity = {
     id: "pile",
-    tags: ["token", "stockpile"],
+    tags: ["stockpile"],
+    occupancy: "tile",
     stocks: {},
     pos: { ...at.pos! },
   };
@@ -56,7 +57,7 @@ test("found_stockpile raises a bare shared pile - a deposit conjures the resourc
 
   let pile = firstWithTag(world, "stockpile");
   assert.ok(pile, "a stockpile entity now exists");
-  assert.ok(hasTag(pile!, "token"), "tagged a token so it hits the map");
+  assert.equal(pile!.occupancy, "tile", "takes ground so it hits the map");
   assert.deepEqual(pile!.pos, ara.pos, "sits on the founder's tile");
   assert.deepEqual(pile!.stocks, {}, "starts empty, not wood-flavoured");
 });

@@ -119,6 +119,45 @@ test("an action with an empty body is warned about", () => {
   );
 });
 
+// Genesis run 7a04489e: build_shelter was minted as `adjust wood by -3` and
+// nothing else, under a description promising a hearth. Cygnus paid 3 wood, the
+// order reported completed, and the world ended with 32 outcrops and no hearth -
+// the same failure as the empty body, wearing a cost so it no longer looks empty.
+
+test("an action whose body only spends is warned about", () => {
+  let engine = survival();
+  engine.addAgent("Ada");
+  engine.addRule({
+    id: "build_lodge",
+    kind: "action",
+    duration: 10,
+    requires: { cmp: "gte", left: { stock: "wood" }, right: 3 },
+    do: [{ adjust: { target: "wood", by: -3 } }],
+  });
+
+  assert.ok(
+    engine
+      .dryRunRule("build_lodge")
+      .warnings.some((w) => w.includes("only spends")),
+  );
+});
+
+// The check reads shape, not stock names: thirst falling is what `drink` is for.
+// Its tone is the only thing telling the two subtractions apart.
+
+test("an action that only relieves a down-tone gauge is not warned about", () => {
+  let engine = survival();
+  engine.addAgent("Ada");
+  engine.addRule({
+    id: "sip",
+    kind: "action",
+    duration: 1,
+    do: [{ adjust: { target: "thirst", by: -45 } }],
+  });
+
+  assert.deepEqual(engine.dryRunRule("sip").warnings, []);
+});
+
 test("a spawn of an undrawn kind is warned about", () => {
   let engine = survival();
   engine.addAgent("Ada");
@@ -126,7 +165,7 @@ test("a spawn of an undrawn kind is warned about", () => {
     id: "build_cairn",
     kind: "action",
     duration: 5,
-    do: [{ spawn: { kind: "dropped_stone", tags: ["token"] } }],
+    do: [{ spawn: { kind: "dropped_stone", tags: [], occupancy: "tile" } }],
   });
 
   assert.ok(

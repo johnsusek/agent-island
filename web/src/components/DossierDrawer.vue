@@ -2,7 +2,12 @@
 import { computed } from "vue";
 import { nameTint } from "../glyphs";
 import type { AgentView, DisplayHint, Stock } from "../types";
-import type { ChatItem, FeedItem, LawCard, SpeculationCard } from "../useWorldState";
+import type {
+  ChatItem,
+  FeedItem,
+  LawCard,
+  SpeculationCard,
+} from "../useWorldState";
 
 const props = defineProps<{
   agent: AgentView;
@@ -41,7 +46,9 @@ let stocks = computed(() =>
 // This character's own speculations: standing ones plus the laws their speculating
 // helped mint.
 let mySpeculations = computed(() =>
-  props.speculations.filter((spec) => spec.speculators.includes(props.agent.name)),
+  props.speculations.filter((spec) =>
+    spec.speculators.includes(props.agent.name),
+  ),
 );
 let myLaws = computed(() =>
   props.laws.filter((law) => law.speculators.includes(props.agent.name)),
@@ -97,7 +104,11 @@ let doing = computed(() => {
 
       <section v-if="mySpeculations.length" class="dossier__section">
         <h3 class="ledger__heading">still speculating</h3>
-        <div v-for="spec in mySpeculations" :key="spec.verb" class="dossier__spec">
+        <div
+          v-for="spec in mySpeculations"
+          :key="spec.verb"
+          class="dossier__spec"
+        >
           <b class="row__verb">{{ spec.verb }}</b>
           <span v-if="spec.expectation" class="row__hope">
             "{{ spec.expectation }}"</span

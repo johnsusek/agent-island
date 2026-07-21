@@ -25,6 +25,7 @@ import {
   type KernelEvent,
   type KernelWorld,
   type MapEdge,
+  type Occupancy,
   type Rule,
   type Stock,
 } from "./kernel.js";
@@ -37,7 +38,6 @@ import {
   EARSHOT,
   expandWorldGen,
   extendTerrain,
-  frontier,
   knownTokens,
   planMove,
   makeSpace,
@@ -50,7 +50,6 @@ import {
   revealAt,
   replanRoutesForTerrain,
   replanRoutesForSolids,
-  routeTo,
   setTerrainAt,
   SIGHT,
   tokenNameAt,
@@ -387,7 +386,9 @@ export interface FixtureSpec {
   // how a scenario anchors camp furniture (a hearth, the coordination ledger)
   // without knowing coordinates at authoring time. Ignored when `pos` is given.
   atSpawn?: boolean;
-  discoverable?: boolean;
+  // Whether the fixture takes ground, and how (see Entity.occupancy). Omit for
+  // something that lies where it was put without appearing on the map.
+  occupancy?: Occupancy;
   // A pre-written inscription (see Entity.text) - GM-seeded lore, a posted
   // notice. Persistent like the rest of the fixture, so it survives a reset.
   text?: string;
@@ -570,6 +571,7 @@ export function createWorld(scenario: Scenario) {
         id: s.name,
         kind: s.kind,
         tags: s.tags,
+        occupancy: s.occupancy ?? "tile",
         stocks: instantiate(s.stocks ?? {}),
         pos: { x: s.x, y: s.y },
       };
@@ -1957,12 +1959,13 @@ export function createWorld(scenario: Scenario) {
       rewrote = sign.text !== undefined;
     } else {
       let signId = freshId(world, "sign");
-      // "exclusive" is the sign's ground-law: walkable (no "solid"), but the
-      // tile is reserved - checkAction refuses to raise another token here.
+      // A sign is walkable but holds its tile, so checkAction refuses to raise
+      // anything else here.
       sign = {
         id: signId,
         kind: "sign",
-        tags: ["token", "exclusive"],
+        tags: [],
+        occupancy: "tile",
         stocks: {},
         pos: { x: here.x, y: here.y },
         action: null,
@@ -2179,128 +2182,37 @@ export function createWorld(scenario: Scenario) {
     });
   }
 
-  function knownLocations(id: string) {
+  // Sensing is reconciling the world against what this agent knows. `situation`
+  // is the one free, decision-shaped question an agent asks of its own
+  // knowledge; `changes` (what happened since my cursor) is not here at all - it
+  // lives in the coordinator, which owns per-session cursors.
+  function senseView(id: string, mode: string) {
     requireAgent(id);
     let p = posOf(id);
-    return structuredClone({
-      tick: world.tick,
-      locations: knownTokensView(id, p),
-    });
-  }
-
-  function route(id: string, location: string) {
-    requireAgent(id);
-    return routeTo(space, id, posOf(id), location, world);
-  }
-
-  // What this character does NOT know: coverage, nearest never-seen ground,
-  // most-unknown directions, stalest sector.
-  function frontierView(id: string) {
-    requireAgent(id);
-    let view = frontier(space, id, posOf(id), world.tick);
-    return structuredClone({
-      sense: "frontier",
-      tick: world.tick,
-      ...view,
-    });
-  }
-
-  // Sensing is reconciling the world against what this agent knows, and the
-  // modes are the decision-shaped questions an agent actually asks - not data
-  // buckets. `changes` (what happened since my cursor) lives in the
-  // coordinator, which owns per-session cursors; everything else answers from
-  // the agent's own knowledge, free, never advancing the world.
-  function senseView(id: string, mode: string, arg?: string) {
-    requireAgent(id);
-    let p = posOf(id);
-    switch (mode) {
-      // Where am I, how am I, what's pressing - the envelope, and the same
-      // composition the wake report renders.
-      case "situation":
-        return structuredClone({
-          sense: "situation",
-          tick: world.tick,
-          you: agentView(id),
-          here: tileSummary(p),
-          // Every payload that carries `you` carries this too: without it prose
-          // cannot tell a vital from a pack slot, and reads a full health bar
-          // as cargo.
-          display: displayHints,
-          others: visibleOthers(id),
-          heard: recentlyHeard(id).slice(-3),
-          colony: coordinationLedger(id),
-        });
-      // What's around me right now - the sight map, plus live reserves only.
-      // The map is the sole spatial channel: no bearing/distance prose rides
-      // alongside for anything the grid already shows.
-      case "surroundings":
-        return structuredClone({
-          sense: "surroundings",
-          tick: world.tick,
-          you: agentView(id),
-          here: tileSummary(p),
-          display: displayHints,
-          grid: sightGrid(id),
-          // Live reserves only; the map carries WHERE, so the bearing fields
-          // are stripped rather than riding along in structuredContent.
-          inSight: knownTokensView(id, p)
-            .filter((t) => t.lastSeenTicksAgo === 0)
-            .map(({ distance, direction, ...t }) => t),
-          colony: coordinationLedger(id),
-        });
-      // Nearest <what> I know of - by resource tag or name fragment, plus
-      // where I haven't looked, so "not found" points somewhere useful.
-      case "find": {
-        if (!arg)
-          throw new Error(
-            'sense find needs `what`: a resource tag like "wood" or a name fragment.',
-          );
-        let want = arg.trim().toLowerCase();
-        let matches = knownTokensView(id, p).filter(
-          (l) =>
-            l.name.toLowerCase().includes(want) ||
-            l.kind?.toLowerCase() === want ||
-            l.tags.some((t) => t.toLowerCase() === want),
-        );
-        let fr = frontier(space, id, p, world.tick);
-        return structuredClone({
-          sense: "find",
-          tick: world.tick,
-          what: want,
-          matches: matches.slice(0, 5),
-          totalKnown: matches.length,
-          unsearched: fr.unexplored.slice(0, 2).map((u) => u.direction),
-        });
-      }
-      // Everything I know, age-stamped, plus how much of the world that
-      // actually is.
-      case "atlas": {
-        let fr = frontier(space, id, p, world.tick);
-        return structuredClone({
-          sense: "atlas",
-          tick: world.tick,
-          locations: knownTokensView(id, p),
-          coverage: fr.coverage,
-        });
-      }
-      case "frontier":
-        return frontierView(id);
-      case "route": {
-        if (!arg)
-          throw new Error(
-            "sense route needs `to`: a token name or terrain kind.",
-          );
-        return structuredClone({
-          sense: "route",
-          tick: world.tick,
-          ...route(id, arg),
-        });
-      }
-      default:
-        throw new Error(
-          `Unknown sense mode "${mode}". Modes: situation, surroundings, find, atlas, frontier, route, changes.`,
-        );
-    }
+    // Where am I, how am I, what's pressing, and what's in sight - the envelope
+    // the wake report renders, folded together with the sight map and live
+    // reserves.
+    if (mode === "situation")
+      return structuredClone({
+        sense: "situation",
+        tick: world.tick,
+        you: agentView(id),
+        here: tileSummary(p),
+        // Every payload that carries `you` carries this too: without it prose
+        // cannot tell a vital from a pack slot, and reads a full health bar
+        // as cargo.
+        display: displayHints,
+        others: visibleOthers(id),
+        heard: recentlyHeard(id).slice(-3),
+        colony: coordinationLedger(id),
+        grid: sightGrid(id),
+        // Live reserves only; the map carries WHERE, so the bearing fields
+        // are stripped rather than riding along in structuredContent.
+        inSight: knownTokensView(id, p)
+          .filter((t) => t.lastSeenTicksAgo === 0)
+          .map(({ distance, direction, ...t }) => t),
+      });
+    throw new Error(`Unknown sense mode "${mode}". Modes: situation.`);
   }
 
   // --- projections ------------------------------------------------------
@@ -2383,10 +2295,7 @@ export function createWorld(scenario: Scenario) {
         }
         let tile = tileAt(space.grid, x, y);
         if (tile.token) {
-          let label =
-            tile.token.kind ??
-            tile.token.tags.find((t) => t !== "token") ??
-            tile.token.name;
+          let label = tile.token.kind ?? tile.token.tags[0] ?? tile.token.name;
           row += glyphFor(label, true);
           continue;
         }
@@ -2644,7 +2553,7 @@ export function createWorld(scenario: Scenario) {
             // An inscribed token (a sign) rides through for the same reason:
             // its words change without bumping a map revision, and the
             // dashboard reads them from the tile card.
-            (!hasTag(entity, "token") ||
+            (!entity.occupancy ||
               hasTag(entity, "stockpile") ||
               entity.text !== undefined ||
               Object.keys(entity.stocks).length > 0),
@@ -2756,9 +2665,7 @@ export function createWorld(scenario: Scenario) {
             let tile = tileAt(g, x, y);
             if (tile.token) {
               let label =
-                tile.token.kind ??
-                tile.token.tags.find((t) => t !== "token") ??
-                tile.token.name;
+                tile.token.kind ?? tile.token.tags[0] ?? tile.token.name;
               tokenCounts.set(label, (tokenCounts.get(label) ?? 0) + 1);
             } else {
               terrainCounts.set(
@@ -2933,6 +2840,7 @@ export function createWorld(scenario: Scenario) {
         id: s.name,
         kind: s.kind,
         tags: s.tags,
+        occupancy: s.occupancy ?? "tile",
         stocks: instantiate(s.stocks ?? {}),
         pos: { x: s.x, y: s.y },
       };
@@ -3228,6 +3136,7 @@ export function createWorld(scenario: Scenario) {
     let report = dryRunRule(world, live, id, {
       terrain: space.grid.tiles.map((row) => row.map((t) => t.terrain)),
       agents: livingIds(),
+      display: displayHints,
       ticks,
     });
     for (let kind of unillustratedSpawns(live.find((r) => r.id === id)))
@@ -3458,6 +3367,7 @@ export function createWorld(scenario: Scenario) {
         id: token.name,
         kind: token.kind,
         tags: token.tags,
+        occupancy: token.occupancy ?? "tile",
         stocks: token.stocks,
         pos: { x: token.x, y: token.y },
       });
@@ -3558,8 +3468,8 @@ export function createWorld(scenario: Scenario) {
   // and an optional grid position so a `colocated` gate can match it. This is the
   // kernel-level spawn. A positioned, non-agent entity is then projected onto the
   // grid by syncTokens, so it becomes a discoverable token (subject to fog and the
-  // one-token-per-tile rule) and shows in look_around and the map - the same bridge
-  // a rule-driven spawn effect rides on the next tick.
+  // one-token-per-tile rule) and shows in what an agent senses and on the map -
+  // the same bridge a rule-driven spawn effect rides on the next tick.
   // Write a fixture's entity record into the world and project it onto the grid.
   // Shared by the live spawnEntity path and the overlay replay that re-creates GM
   // fixtures after a reset, so both land an entity the same way. Returns whether a
@@ -3587,17 +3497,14 @@ export function createWorld(scenario: Scenario) {
   }
 
   function placeFixture(spec: FixtureSpec): boolean {
-    // `discoverable` is the ergonomic spelling of the "token" tag: the tag is what
-    // syncTokens projects onto the grid, but the GM shouldn't have to know that.
-    let tags = spec.tags ? [...spec.tags] : [];
-    if (spec.discoverable && !tags.includes("token")) tags.push("token");
     let pos = spec.pos ?? (spec.atSpawn ? nearSpawnTile() : undefined);
     world.entities[spec.id] = {
       id: spec.id,
       kind: spec.kind,
-      tags,
+      tags: spec.tags ? [...spec.tags] : [],
       stocks: instantiate(spec.stocks ?? {}),
       pos: pos ? { x: pos.x, y: pos.y } : undefined,
+      ...(spec.occupancy ? { occupancy: spec.occupancy } : {}),
       ...(spec.text !== undefined ? { text: validInscription(spec.text) } : {}),
     };
     if (syncTokens(space, world)) tokenRevision += 1;
@@ -3610,7 +3517,7 @@ export function createWorld(scenario: Scenario) {
     tags?: string[];
     stocks?: Record<string, StockSpec>;
     pos?: Position;
-    discoverable?: boolean;
+    occupancy?: Occupancy;
     reveal?: boolean;
     icon?: string;
     color?: string;
@@ -3652,7 +3559,7 @@ export function createWorld(scenario: Scenario) {
       tags: spec.tags ? [...spec.tags] : undefined,
       stocks: spec.stocks,
       pos: spec.pos ? { x: spec.pos.x, y: spec.pos.y } : undefined,
-      discoverable: spec.discoverable,
+      occupancy: spec.occupancy,
       text: spec.text,
     };
     let onMap = placeFixture(fixture);
@@ -3686,7 +3593,7 @@ export function createWorld(scenario: Scenario) {
     let named = [...(placed.kind ? [placed.kind] : []), ...placed.tags];
     recordGm(
       "entity_spawned",
-      `spawned ${spec.id}${named.length ? ` [${named.join(", ")}]` : ""}${spec.pos ? ` @ (${spec.pos.x}, ${spec.pos.y})` : ""}${spec.pos && hasTag(placed, "token") && !onMap ? " (tile occupied - not on map)" : ""}`,
+      `spawned ${spec.id}${named.length ? ` [${named.join(", ")}]` : ""}${spec.pos ? ` @ (${spec.pos.x}, ${spec.pos.y})` : ""}${spec.pos && placed.occupancy && !onMap ? " (tile occupied - not on map)" : ""}`,
       {
         target: spec.id,
         detail: { entity: structuredClone(placed) },
@@ -3794,10 +3701,7 @@ export function createWorld(scenario: Scenario) {
     visibleTo,
     visibleEventsSince,
     getObservation,
-    knownLocations,
-    frontierView,
     sense: senseView,
-    route,
     getAdminState,
     getEntities,
     getMapEntities,

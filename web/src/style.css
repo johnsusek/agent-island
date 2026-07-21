@@ -113,20 +113,85 @@ button {
   overflow: hidden;
 }
 
-.clock__status {
-  color: var(--dim);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 .clock__tick,
-.clock__pop,
 .clock__stock {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--dim);
   white-space: nowrap;
+}
+
+/* "N alive" wears the same pill as the oracle badge, in the ink tones. */
+.clock__pop {
+  font-size: 11px;
+  color: var(--dim);
+  border: 1px solid color-mix(in srgb, var(--dim) 40%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.clock__pop:hover {
+  color: var(--ink);
+  border-color: var(--faint);
+}
+
+/* The roster popover under "N alive". */
+.clock__roster {
+  position: relative;
+}
+
+.roster {
+  /* Fixed so .clock__mid's overflow:hidden cannot clip it. */
+  position: fixed;
+  top: 44px;
+  z-index: 50;
+  min-width: 180px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+.roster__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.roster__row:hover {
+  background: var(--panel);
+}
+
+.roster__name {
+  font-weight: 600;
+}
+
+.roster__pos {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.roster__dead {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--danger);
+}
+
+.roster__empty {
+  margin: 4px 8px;
+  color: var(--faint);
+  font-size: 11px;
 }
 
 .clock__tick b {
@@ -153,27 +218,6 @@ button {
 .clock__controls {
   display: flex;
   gap: 4px;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--faint);
-}
-
-.dot--live {
-  background: var(--law);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--law) 60%, transparent);
-}
-
-.dot--waiting {
-  background: var(--warn);
-}
-
-.dot--paused,
-.dot--ended {
-  background: var(--danger);
 }
 
 /* ---- chips (filters, controls) ---- */
@@ -376,22 +420,6 @@ button {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--oracle);
-}
-
-.ledger__metrics {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.metric {
-  font-size: 11px;
-  color: var(--dim);
-}
-
-.metric b {
-  color: var(--ink);
-  font-family: var(--mono);
 }
 
 .ledger__scroll,

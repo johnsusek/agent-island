@@ -24,7 +24,7 @@ function tickUntil(engine: WorldEngine, done: () => boolean, safety = 60) {
 function firstTokenPos(engine: WorldEngine, tag: string) {
   let snap = engine.snapshot();
   let token = Object.values(snap.world.entities).find(
-    (e) => hasTag(e, "token") && hasTag(e, tag) && e.pos,
+    (e) => e.occupancy !== undefined && hasTag(e, tag) && e.pos,
   );
   if (!token?.pos) throw new Error(`no positioned token tagged "${tag}"`);
   return token.pos;

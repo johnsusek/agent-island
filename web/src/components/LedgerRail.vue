@@ -4,13 +4,6 @@ import type { LawCard, SpeculationCard } from "../useWorldState";
 defineProps<{
   laws: LawCard[];
   speculations: SpeculationCard[];
-  metrics: {
-    laws: number;
-    speculationsOpen: number;
-    medianLatency: number | null;
-    agentOriginatedPct: number | null;
-    gated: number;
-  };
 }>();
 
 defineEmits<{ (e: "selectName", name: string): void }>();
@@ -20,32 +13,11 @@ defineEmits<{ (e: "selectName", name: string): void }>();
   <aside class="ledger">
     <header class="ledger__head">
       <h2 class="ledger__title">The Ledger</h2>
-      <div class="ledger__metrics">
-        <span class="metric" title="Laws minted this run">
-          <b>{{ metrics.laws }}</b> laws
-        </span>
-        <span class="metric" title="Verbs speculated that no law answers yet">
-          <b>{{ metrics.speculationsOpen }}</b> open
-        </span>
-        <span
-          class="metric"
-          title="Median ticks from first speculation to minted law - latency is the enemy"
-        >
-          <b>{{ metrics.medianLatency ?? "-" }}</b
-          >t mint
-        </span>
-        <span
-          class="metric"
-          title="Share of live verbs that characters speculated into existence"
-        >
-          <b>{{ metrics.agentOriginatedPct ?? "-" }}%</b> theirs
-        </span>
-      </div>
     </header>
 
     <div class="ledger__scroll">
       <section v-if="speculations.length" class="ledger__section">
-        <h3 class="ledger__heading">open speculations</h3>
+        <h3 class="ledger__heading">speculations</h3>
         <article v-for="spec in speculations" :key="spec.verb" class="spec">
           <div class="spec__line">
             <span class="spec__verb">{{ spec.verb }}</span>

@@ -1,4 +1,4 @@
-import { hasTag } from "./rules/kernel.js";
+import type { Occupancy } from "./rules/kernel.js";
 import type { WorldEngine } from "./rules/engine.js";
 import type { SpriteSpec } from "./rules/sprite.js";
 import {
@@ -209,7 +209,7 @@ export function createGmCommands(context: GmCommandContext) {
         }
       >;
       pos?: { x: number; y: number };
-      discoverable?: boolean;
+      occupancy?: Occupancy;
       reveal?: boolean;
       icon?: string;
       color?: string;
@@ -219,9 +219,8 @@ export function createGmCommands(context: GmCommandContext) {
   ) {
     context.requireGm(sessionId);
     let { entity, onMap, revealedTo } = context.engine.spawnEntity(spec);
-    let token = hasTag(entity, "token");
     return finishGmEdit(
-      `* GM spawned entity ${spec.id}${token ? (onMap ? " (on map)" : " (tile occupied - off map)") : ""}`,
+      `* GM spawned entity ${spec.id}${entity.occupancy ? (onMap ? " (on map)" : " (tile occupied - off map)") : ""}`,
       { ok: true, entity, onMap, revealedTo },
     );
   }

@@ -81,15 +81,25 @@ in a per-agent derived rule totals that agent's own stashes. A tag ref always re
 
 **Kind vs tags**
 
-An entity's `kind` is its one identity name ("wolf", "hearth") — sprite, label, and auto-id key off it. `tags` is an unordered behavior set ("solid" blocks routes, "token" projects onto the map). The tag effect cannot touch kind; change identity with the `kind` effect (immediate phases only):
+An entity's `kind` is its one identity name ("wolf", "hearth") — sprite, label, and auto-id key off it. `tags` is an unordered behavior set ("predator", "water-source") that only your own rules ever read. The tag effect cannot touch kind; change identity with the `kind` effect (immediate phases only):
 
 ```
 {kind:{of:"self",set:"carcass"}}
 ```
 
-`"token"` is not decoration: a spawn that lands with a position and without it is invisible on the map, absent from what agents can see and route to, and reachable by nothing but a colocation match on its own tile. Anything your rule mints that is supposed to _exist in the world_ — a dropped item, a built structure, a carcass — gets `tags:["token"]` or it is a ghost.
+**Occupancy**
 
-A tile shows exactly one token, and `"exclusive"` is how a token reserves its ground: an action that would raise a new token where an exclusive one already stands is refused up front, before time or materials are spent. Without it the same build silently falls off the grid — the builder pays, the log says it worked, and the tile still shows whatever was already there. `"solid"` is the separate question of whether the thing blocks routes.
+`occupancy` is how a spawn sits on its tile — a separate field from `tags`, because the substrate itself reads it:
+
+| value        | on the map | holds its tile             | routes       |
+| ------------ | ---------- | -------------------------- | ------------ |
+| _omitted_    | no         | no                         | pass through |
+| `"tile"`     | yes        | yes — builds there refused | pass through |
+| `"blocking"` | yes        | yes — builds there refused | go around it |
+
+It is not decoration. A positioned spawn without `occupancy` is invisible on the map, absent from what agents can see and route to, and reachable by nothing but a colocation match on its own tile. Anything your rule mints that is supposed to _exist in the world_ — a built structure, a signpost, a wall — sets it, or it is a ghost. Something that merely lies where it fell (a dropped item, a carcass) correctly omits it.
+
+A tile shows exactly one token, so taking ground also reserves it: an action that would raise a second occupant where one already stands is refused up front, before time or materials are spent.
 
 Every matcher takes both forms: `tag:"wolf"` is loose (matches the name in either slot — kind or tags), `kind:"wolf"` is strict (the entity IS a wolf; a tag carrying the name doesn't count). Available at `each:{kind}`, conditions (`{kind:"wolf",of:...}` — one of tag/kind per cond, combine with `all`), `colocated:{kind,range,pick}`, aggregates (`{count:{kind:"wolf"}}`), and action target params. In colocated/aggregate/each, giving both tag and kind demands both; giving neither is rejected.
 
@@ -180,7 +190,7 @@ or alias) is rejected.
 A `spawn` puts an entity in the world; nothing consumes it unless another rule says so. The pair that makes an item economy real is a `requires` naming the item and a `destroy` spending it:
 
 ```
-{id:"gather_food", kind:"action", duration:4, do:[{spawn:{kind:"berry",tags:["token"],at:"self"}}]}
+{id:"gather_food", kind:"action", duration:4, do:[{spawn:{kind:"berry",occupancy:"tile",at:"self"}}]}
 {id:"eat_food", kind:"action", duration:2, requires:{colocated:{kind:"berry",range:1}},
  requireReason:"must be beside berries to eat",
  do:[{destroy:{of:{colocated:{kind:"berry",range:1}}}},{adjust:{target:"hunger",by:-25}}]}

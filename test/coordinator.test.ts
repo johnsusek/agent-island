@@ -1573,7 +1573,7 @@ test("dashboard payload keeps heavy map and observations out of the poll", () =>
     assert.ok(
       Object.values(payload.entities).every((entity: any) => {
         if (hasTag(entity, "agent")) return false;
-        if (!hasTag(entity, "token")) return true;
+        if (!entity.occupancy) return true;
         return Object.keys(entity.stocks).length > 0;
       }),
       "entity stream keeps only live token state, not decorative tokens",
@@ -1608,7 +1608,8 @@ test("dashboard payload keeps heavy map and observations out of the poll", () =>
     )!;
     colony.gmSpawnEntity("gm", {
       id: "watchtower",
-      tags: ["token", "structure"],
+      tags: ["structure"],
+      occupancy: "tile",
       pos: { x: freeTile.x, y: freeTile.y },
     });
 

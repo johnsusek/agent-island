@@ -26,8 +26,9 @@ Everything meets over MCP; the server never launches an LLM.
   restart-storm guard), and reports token usage on drain.
 - **`scripts/world.mjs`** - world ops CLI: status, reset, pause, clock.
 - **`web/`** - the observatory: a read-mostly spectator UI. Map center (PixiJS),
-  the Ledger right (laws minted, open speculations, mint latency), the feed below.
-  Click a character for their dossier; click a token to pin its card.
+  the Ledger right (laws minted, open speculations), the feed below. The clock
+  strip's population count opens a roster; click a character for their dossier,
+  or click a map token to pin its card.
 - **`.claude/skills/genesis-run`** - the experiment protocol, end to end.
 
 ## Running
@@ -72,7 +73,10 @@ Watch it:
 ./scripts/world.mjs status                         # world tick/clock/actives
 curl -s localhost:3000/api/state | jq '{tick: .state.tick, oracle: .liveness.gmConnected,
   laws: [.rules[] | select(.kind == "action") | .id], speculations: [.speculative[].verb]}'
-jq -rf scripts/watch-log.jq data/characters/*/logs/codex/play-*.jsonl   # a seat's mind, readable
+tail -q -n +1 -F data/characters/*/logs/claude/play-*.jsonl \
+  | jq --unbuffered -rf scripts/watch-log-claude.jq         # a seat's mind, live
+tail -q -n +1 -F data/characters/*/logs/codex/play-*.jsonl \
+  | jq --unbuffered -rf scripts/watch-log-codex.jq          # same, for codex seats
 ```
 
 Stop and steer:

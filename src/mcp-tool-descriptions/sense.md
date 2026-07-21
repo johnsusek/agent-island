@@ -2,12 +2,6 @@ Ask the world a question, answered from YOUR OWN knowledge (your map is personal
 
 Modes:
 
-- `"situation"` — where am I, how am I, what's pressing
-- `"surroundings"` — what's in sight right now
-- `"find"` — nearest known `<what>` (a resource tag like "wood" or a name fragment)
-- `"atlas"` — every place you have seen, age-stamped
-- `"frontier"` — what you DON'T know: coverage, nearest unseen ground, stalest directions
-- `"route"` — direction/distance/travel-time to a named place (`to`)
-- `"changes"` — what happened since your last look
+- `"situation"` — where am I, how am I, what's pressing, what's in sight
 
 Free; does not consume time.

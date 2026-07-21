@@ -137,6 +137,8 @@ export interface MapToken {
   // The token's identity - the kindVisuals key its sprite and label draw from.
   kind?: string;
   tags: string[];
+  // How it sits on its tile; mirrors the server's Entity.occupancy.
+  occupancy?: "tile" | "blocking";
 }
 
 export interface MapTile {
@@ -190,6 +192,9 @@ export interface EntityView {
   // Words written on the thing (a sign's inscription), when it carries any.
   text?: string;
   tags: string[];
+  // Set when the entity takes ground; such entities are drawn from the token
+  // layer, so the object layer skips them.
+  occupancy?: "tile" | "blocking";
   stocks: Record<string, Stock>;
   pos?: Position;
   action?: unknown;

@@ -279,24 +279,11 @@ function createCharacterMcpServer(
     {
       description: describe("sense"),
       inputSchema: {
-        mode: schema
-          .string()
-          .describe(
-            "situation | surroundings | find | atlas | frontier | route | changes",
-          ),
-        what: schema
-          .string()
-          .optional()
-          .describe('find: what to look for, e.g. "wood" or "cairn"'),
-        to: schema
-          .string()
-          .optional()
-          .describe("route: a token name or terrain kind"),
+        mode: schema.string().describe("situation"),
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async ({ mode, what, to }) =>
-      coordinator.sense(sessionId, mode, what ?? to),
+    async ({ mode }) => coordinator.sense(sessionId, mode),
   );
 
   registerTool(
@@ -821,7 +808,7 @@ function registerGmTools(
           .array(schema.string())
           .optional()
           .describe(
-            'Behavior tags rules bind to (unordered), e.g. "solid" blocks routes; identity goes in `kind`',
+            'Behavior tags rules bind to (unordered), e.g. "water-source"; identity goes in `kind`, and how it sits on its tile goes in `occupancy`',
           ),
         stocks: schema
           .record(schema.string(), schema.unknown())
@@ -833,11 +820,11 @@ function registerGmTools(
           .object({ x: schema.number(), y: schema.number() })
           .optional()
           .describe("Grid position for colocation"),
-        discoverable: schema
-          .boolean()
+        occupancy: schema
+          .enum(["tile", "blocking"])
           .optional()
           .describe(
-            'Carve onto the grid as a token agents can see and travel to (adds the "token" tag). Needs pos.',
+            'How it takes ground. "tile" carves it onto the grid as a token agents can see, travel to, and cannot build over; "blocking" does the same and also makes routes go around it (a wall). Omit for something that only lies where it was put - invisible on the map, matchable by colocation. Needs pos.',
           ),
         reveal: schema
           .boolean()
@@ -889,7 +876,7 @@ function registerGmTools(
       tags,
       stocks,
       pos,
-      discoverable,
+      occupancy,
       reveal,
       icon,
       color,
@@ -902,7 +889,7 @@ function registerGmTools(
         tags,
         stocks: stocks as any,
         pos,
-        discoverable,
+        occupancy,
         reveal,
         icon,
         color,

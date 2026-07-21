@@ -98,7 +98,8 @@ test("the legacy blobs recipe still paints the exact same map", () => {
     tokenScatter: [
       {
         namePrefix: "grove",
-        tags: ["token", "wood"],
+        tags: ["wood"],
+        occupancy: "tile",
         count: 4,
         onTerrain: ["forest"],
         minSpacing: 2,

@@ -117,6 +117,14 @@ function planClaude(options) {
       "stream-json",
       "--verbose",
       "--no-session-persistence",
+      // Ephemeral seat: load no user/project/local settings so nothing from
+      // the operator's own claude config bleeds into a character's context.
+      // --bare would go further (skips hooks, auto-memory, CLAUDE.md
+      // discovery) but it refuses OAuth/keychain auth, so only use it when
+      // an API key is available.
+      ...(process.env.ANTHROPIC_API_KEY ? ["--bare"] : []),
+      "--setting-sources",
+      "",
       "--model",
       options.model,
       "--effort",

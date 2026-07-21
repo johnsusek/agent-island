@@ -16,41 +16,6 @@ import { bandedStocks, bandSentence, carriedStocks } from "./rules/vitals.js";
 
 type Dict = Record<string, any>;
 
-function span(distance: number, direction: string): string {
-  if (!direction || direction === "here") return "here";
-  return `${distance} ${distance === 1 ? "tile" : "tiles"} ${direction}`;
-}
-
-function age(ticksAgo: number | undefined): string {
-  if (ticksAgo === undefined) return "";
-  if (ticksAgo === 0) return "seen just now";
-  return `seen ${ticksAgo} ${ticksAgo === 1 ? "tick" : "ticks"} ago`;
-}
-
-// "riverside-grove [seen 40 ticks ago]"
-function provenance(l: Dict): string {
-  if (l.kind === "terrain") return "";
-  return ` [${age(l.lastSeenTicksAgo)}]`;
-}
-
-function kindOf(l: Dict): string {
-  let tags = (l.tags ?? []).filter((t: string) => t !== "token");
-  // Lead with the entity's kind (its identity), then any extra tags. The
-  // "terrain" kind marks a synthetic terrain destination, not an identity.
-  let names =
-    l.kind && l.kind !== "terrain" ? [...new Set([l.kind, ...tags])] : tags;
-  return names.length ? names.join("/") : "token";
-}
-
-// One atlas/find line: name, kind, bearing, live reserve if truly live.
-function placeLine(l: Dict): string {
-  let reserve =
-    l.remaining !== undefined
-      ? `: ${l.resource} ${l.remaining}/${l.capacity} (live)`
-      : "";
-  return `${l.name} (${kindOf(l)}), ${span(l.distance, l.direction)}${reserve}${provenance(l)}`;
-}
-
 // The vitals digest: only the gauges in trouble, in the scenario's own words,
 // worst first. A figure never appears - see rules/vitals.ts for why.
 //
@@ -168,6 +133,8 @@ function describeSituation(r: Dict): string {
       ? "Nothing else pressing."
       : "No one within sight; nothing pressing.",
   );
+  lines.push(...mapBlock(r.grid));
+  lines.push(...inSightLines(r.inSight));
   return lines.join("\n");
 }
 
@@ -188,14 +155,12 @@ function mapBlock(grid: Dict | undefined): string[] {
   ];
 }
 
-function describeSurroundings(r: Dict): string {
-  let lines = [envelope(r.tick, r.you, r.here, r.display)];
-  lines.push(...ledgerLines(r.colony));
-  lines.push(...mapBlock(r.grid));
-  // Live reserves of tokens in sight - the only place a depletion figure is
-  // ever a bare number, because it is a live sighting. Name and figure only;
-  // WHERE it stands is the map's job.
-  for (let t of r.inSight ?? []) {
+// Live reserves of tokens in sight - the only place a depletion figure is
+// ever a bare number, because it is a live sighting. Name and figure only;
+// WHERE it stands is the map's job.
+function inSightLines(inSight: Dict[] | undefined): string[] {
+  let lines: string[] = [];
+  for (let t of inSight ?? []) {
     if (t.remaining !== undefined)
       lines.push(
         `${t.name}: ${t.resource} ${t.remaining}/${t.capacity} (live).`,
@@ -206,71 +171,7 @@ function describeSurroundings(r: Dict): string {
     if (t.inscription !== undefined)
       lines.push(`${t.name} reads: "${t.inscription}"`);
   }
-  return lines.join("\n");
-}
-
-function describeFind(r: Dict): string {
-  if (!r.matches?.length)
-    return (
-      `No ${r.what} known to you.` +
-      (r.unsearched?.length
-        ? ` Unsearched: ${r.unsearched.join(", ")}.`
-        : " You have searched everywhere you know.")
-    );
-  let lines = r.matches.map((m: Dict) => placeLine(m));
-  let more = r.totalKnown - r.matches.length;
-  lines.push(
-    `No other ${r.what} known to you${more > 0 ? ` (+${more} farther)` : ""}.` +
-      (r.unsearched?.length ? ` Unsearched: ${r.unsearched.join(", ")}.` : ""),
-  );
-  return lines.join("\n");
-}
-
-const ATLAS_LINES = 20;
-
-function describeAtlas(r: Dict): string {
-  let locations = r.locations ?? [];
-  let head = `Your atlas: ${locations.length} places, covering ${Math.round((r.coverage ?? 0) * 100)}% of walkable ground.`;
-  let lines = locations.slice(0, ATLAS_LINES).map((l: Dict) => placeLine(l));
-  if (locations.length > ATLAS_LINES)
-    lines.push(`...and ${locations.length - ATLAS_LINES} more, farther out.`);
-  if (!locations.length) lines.push("You know no named places yet.");
-  return [head, ...lines].join("\n");
-}
-
-function describeFrontier(r: Dict): string {
-  let lines = [
-    `Your atlas covers ${Math.round((r.coverage ?? 0) * 100)}% of walkable ground.`,
-  ];
-  if (r.nearestUnseen)
-    lines.push(
-      `Nearest unseen ground: ${span(r.nearestUnseen.distance, r.nearestUnseen.direction)}.`,
-    );
-  else lines.push("No unseen ground remains.");
-  if (r.unexplored?.length)
-    lines.push(
-      "Most unknown: " +
-        r.unexplored
-          .slice(0, 3)
-          .map(
-            (u: Dict) =>
-              `${u.direction} (${Math.round(u.unknownShare * 100)}% unseen)`,
-          )
-          .join(", ") +
-        ".",
-    );
-  if (r.stalest)
-    lines.push(
-      `Stalest knowledge: ${r.stalest.direction}, ~${r.stalest.ticksAgo} ticks old.`,
-    );
-  return lines.join("\n");
-}
-
-function describeRoute(r: Dict): string {
-  if (r.reachable === false)
-    return `${r.location}: unreachable (${r.reason ?? "no route"}).`;
-  if (r.distance === 0) return `${r.location}: you are here.`;
-  return `${r.location}: ${span(r.distance, r.direction)}, ~${r.eta} ticks on foot.`;
+  return lines;
 }
 
 // Events digest, salience first: decision-grade events verbatim (they are
@@ -286,6 +187,86 @@ function eventLines(events: Dict[] | undefined, cap = 8): string[] {
     lines.unshift(`- (${notable.length - cap} earlier events omitted)`);
   if (routine > 0) lines.push(`- (+${routine} routine)`);
   return lines;
+}
+
+// The action menu in one compact block - the ONLY place a character learns the
+// action vocabulary, since the observation's availableActions array never
+// reaches them as data (see the file header). Three salience tiers: what you
+// can do now (with the arg values actually valid from here, so an order fills
+// in without guessing), any action the world just handed you (`isNew` - high
+// signal, so it carries its description), and the verbs that exist but are
+// blocked where you stand. A blocked verb's reason ("stand at the outcrop")
+// rides only in the teaching window, next to the description - the same static
+// precondition sentence every wake is bloat, so slim wakes list the verb by
+// name alone. Lists are capped: the point is the shape and a few real options,
+// not to enumerate a big world.
+const OPTION_CAP = 6;
+const BLOCKED_CAP = 6;
+
+function actionsBlock(actions: Dict[] | undefined): string[] {
+  if (!actions?.length) return [];
+  let lines: string[] = [];
+
+  let usable = actions.filter((a) => a.applicable);
+  if (usable.length)
+    lines.push("You can: " + usable.map(actionPhrase).join(", ") + ".");
+
+  // New actions ride even when blocked - their arrival is the signal to
+  // reconsider, so they surface above the routine blocked list, with the
+  // description the engine keeps attached to anything `isNew`.
+  let fresh = actions.filter((a) => a.isNew);
+  if (fresh.length)
+    lines.push(
+      "New: " +
+        fresh
+          .map((a) => (a.description ? `${a.name} - ${a.description}` : a.name))
+          .join("; ") +
+        ".",
+    );
+
+  let blocked = actions.filter((a) => !a.applicable && !a.isNew);
+  if (blocked.length) {
+    let shown = blocked.slice(0, BLOCKED_CAP);
+    let phrases = shown.map((a) =>
+      // `description` is the engine's teaching-window marker; the reason rides
+      // with it and is dropped on slim wakes for the same reason.
+      a.description && a.unavailableReason
+        ? `${a.name} (${a.unavailableReason})`
+        : a.name,
+    );
+    if (blocked.length > shown.length)
+      phrases.push(`+${blocked.length - shown.length} more`);
+    lines.push("Blocked here: " + phrases.join(", ") + ".");
+  }
+
+  return lines;
+}
+
+// One applicable action: its name, plus the arg values valid from here when the
+// action narrows the choice (travel's reachable places, give's recipients). An
+// action with no such narrowing is just its bare name.
+function actionPhrase(action: Dict): string {
+  let paramOptions = action.paramOptions as
+    | Record<string, unknown[]>
+    | undefined;
+  if (!paramOptions) return action.name;
+  let parts: string[] = [];
+  for (let [param, opts] of Object.entries(paramOptions)) {
+    if (!opts?.length) continue;
+    let vals = opts.slice(0, OPTION_CAP).map(optionLabel);
+    let tail = opts.length > vals.length ? "|..." : "";
+    parts.push(`${param}: ${vals.join("|")}${tail}`);
+  }
+  return parts.length ? `${action.name}(${parts.join("; ")})` : action.name;
+}
+
+// An arg option is either a bare string value or an entity target that carries
+// its own label (a recipient, a prey token); either way the player needs the
+// word, not the shape.
+function optionLabel(opt: unknown): string {
+  if (typeof opt === "string") return opt;
+  let o = opt as Dict;
+  return String(o.label ?? o.id ?? "");
 }
 
 function describeChanges(r: Dict): string {
@@ -315,6 +296,7 @@ export function renderWake(r: Dict): string {
   lines.push(...receipt(r));
   let events = eventLines(r.events);
   if (events.length) lines.push(...events);
+  lines.push(...actionsBlock(r.observation?.availableActions));
   return lines.join("\n");
 }
 
@@ -387,16 +369,6 @@ export function describeSense(r: Dict): string {
   switch (r.sense) {
     case "situation":
       return describeSituation(r);
-    case "surroundings":
-      return describeSurroundings(r);
-    case "find":
-      return describeFind(r);
-    case "atlas":
-      return describeAtlas(r);
-    case "frontier":
-      return describeFrontier(r);
-    case "route":
-      return describeRoute(r);
     case "changes":
       return describeChanges(r);
     default:
