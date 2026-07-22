@@ -194,8 +194,8 @@ test("an icon must be a game-icons slug, not an emoji or a sentence", () => {
 test("updating an already-known resource needs no icon", () => {
   let engine = survival();
   engine.addAgent("Ada");
-  // hunger/health are scenario resources already on Ada — no icon required.
-  assert.doesNotThrow(() => engine.setStock("ada", "hunger", 80));
+  // satiation/health are scenario resources already on Ada — no icon required.
+  assert.doesNotThrow(() => engine.setStock("ada", "satiation", 80));
   assert.doesNotThrow(() => engine.setStock("ada", "health", 50));
   // Once mana is registered with an icon, later writes don't re-demand one.
   engine.setStockDefault("mana", { value: 100, icon: "sparkles" });

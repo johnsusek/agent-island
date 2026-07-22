@@ -459,7 +459,7 @@ test("space bridge: a corpse does not become a map token when an agent dies", ()
 
   // Starve first so the fed-recovery rule won't heal Ara back above zero, then
   // bottom out health: the death rule strips the "agent" tag next tick.
-  engine.setStock(id, "hunger", 100);
+  engine.setStock(id, "satiation", 0);
   engine.setStock(id, "health", 0);
   engine.tick();
 

@@ -1,0 +1,246 @@
+{
+  "name": "combat-fixture",
+  "description": "ENGINE TEST FIXTURE: predator fight/butcher mechanics in isolation - no map, no metabolism. Split out of survival.json so combat.test.ts doesn't drag in the whole needs loop.",
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "fight",
+        "kind": "action",
+        "duration": 3,
+        "description": "Fight a beast on your tile - your blow lands on the most wounded one so fighters finishing a beast together converge - bloody and tiring work best shared.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "predator"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "health",
+                "of": {
+                  "colocated": "predator"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must share a tile with a living beast",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "tag": "predator",
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "health"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the beast is already down",
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "of": {
+                "colocated": {
+                  "tag": "predator",
+                  "pick": {
+                    "lowest": "health"
+                  }
+                }
+              },
+              "by": -8,
+              "as": "beastId"
+            }
+          },
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          },
+          {
+            "adjust": {
+              "target": "energy",
+              "by": -10
+            }
+          }
+        ],
+        "emit": {
+          "type": "fought"
+        }
+      },
+      {
+        "id": "predator-dies",
+        "description": "When a beast's health hits zero it is slain, leaving a carcass laden with meat for the colony to butcher.",
+        "phase": "transition",
+        "each": {
+          "tag": "predator"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "set": {
+              "target": "food",
+              "to": 10
+            }
+          },
+          {
+            "kind": {
+              "set": "carcass"
+            }
+          }
+        ],
+        "emit": {
+          "type": "beast_slain"
+        }
+      },
+      {
+        "id": "butcher",
+        "kind": "action",
+        "duration": 3,
+        "description": "Butcher a slain beast where it fell, cutting as much meat as will fit into your pack, since a big carcass feeds several.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "carcass"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "food",
+                "of": {
+                  "colocated": "carcass"
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": "food"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must stand over a carcass that still has meat, with room in your pack",
+        "fizzleWhen": {
+          "cmp": "lte",
+          "left": {
+            "stock": "food",
+            "of": {
+              "colocated": "carcass"
+            }
+          },
+          "right": 0
+        },
+        "fizzleReason": "the carcass was stripped bare before you got your share",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "food",
+                "of": {
+                  "colocated": "carcass"
+                }
+              },
+              "to": {
+                "stock": "food"
+              },
+              "amount": {
+                "min": [
+                  {
+                    "stock": "food",
+                    "of": {
+                      "colocated": "carcass"
+                    }
+                  },
+                  {
+                    "headroom": "food"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "butchered"
+        }
+      },
+      {
+        "id": "carcass-stripped",
+        "description": "A carcass stripped of all its meat is cleared away - nothing left to butcher.",
+        "phase": "transition",
+        "each": {
+          "tag": "carcass"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "food"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "destroy": {
+              "of": "self"
+            }
+          }
+        ]
+      }
+    ],
+    "removedBaseIds": [],
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "label": "Health",
+        "tone": "up",
+        "role": "vital"
+      },
+      "energy": {
+        "value": 100,
+        "icon": "energy",
+        "color": "#d8c95a",
+        "label": "Energy",
+        "tone": "up",
+        "role": "vital"
+      },
+      "food": {
+        "value": 0,
+        "max": 12,
+        "icon": "food",
+        "color": "#e0453f",
+        "stockpilable": true,
+        "label": "Food",
+        "tone": "up",
+        "role": "pack"
+      }
+    }
+  }
+}

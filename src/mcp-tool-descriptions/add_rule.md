@@ -25,7 +25,7 @@ A per-agent flow — add `each:{tag:"agent"}`.
 A watch fires its emit once when `when` newly becomes true (re-arming when it clears). Adding `interrupt` makes the alarm stop the subject's hands — their in-flight action and running order end "interrupted" with this text as the reason:
 
 ```
-{id:"starving", description:"The hunger alarm", phase:"watch", each:{tag:"agent"}, when:{cmp:"gte", left:{stock:"hunger"}, right:100}, emit:{type:"starving", interrupt:"you are starving - eat now"}}
+{id:"starving", description:"The hunger alarm", phase:"watch", each:{tag:"agent"}, when:{cmp:"lte", left:{stock:"satiation"}, right:0}, emit:{type:"starving", interrupt:"you are starving - eat now"}}
 ```
 
 **Inter-agent rules**
@@ -155,7 +155,7 @@ scatters an airdrop (off-map coordinates throw as a `rule_error` rather than spa
 {id:"drink_water", kind:"action", duration:3, aliases:["drink","scoop_water"],
  requires:{nearTerrain:{type:"water",range:1}},
  requireReason:"you have to be standing at the water's edge",
- do:[{adjust:{target:"thirst",by:-40}}]}
+ do:[{adjust:{target:"hydration",by:40}}]}
 ```
 
 Reach for this before spawning tokens whenever the world already has ground that means the thing. An unlimited ambient source — a lake, a forest, an ore seam — is terrain the verb reads; a token is for a countable thing that gets carried, depleted, or destroyed. Painting a lake as a hundred "water" tokens is the wrong shape: the map fills with clutter, and characters treat a puddle as an object to hoard rather than a place to go.
@@ -205,7 +205,7 @@ A `spawn` puts an entity in the world; nothing consumes it unless another rule s
 {id:"gather_food", kind:"action", duration:4, do:[{spawn:{kind:"berry",occupancy:"tile",at:"self"}}]}
 {id:"eat_food", kind:"action", duration:2, requires:{colocated:{kind:"berry",range:1}},
  requireReason:"must be beside berries to eat",
- do:[{destroy:{of:{colocated:{kind:"berry",range:1}}}},{adjust:{target:"hunger",by:-25}}]}
+ do:[{destroy:{of:{colocated:{kind:"berry",range:1}}}},{adjust:{target:"satiation",by:25}}]}
 ```
 
 Write the second rule with no `requires` and no `destroy` and the two are unrelated systems that merely look like a loop: the berries accumulate untouched forever and `eat_food` pays out hunger relief on demand, needing nothing. The dry-run cannot catch this — an unconditional rule is valid, just free.

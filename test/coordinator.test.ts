@@ -1060,11 +1060,11 @@ test("dead names are refused, not reincarnated", async () => {
   colony.connect("g");
   try {
     colony.join("a", "Ara");
-    // A GM starves Ara (maxed hunger gates off the well-fed recovery rule) and
+    // A GM starves Ara (zeroed satiation gates off the well-fed recovery rule) and
     // zeroes her health; parking her lets the world tick so the scenario's death
     // rule fires and turns her into a corpse.
     colony.joinAsGm("g");
-    colony.gmSetStock("g", "ara", "hunger", 100);
+    colony.gmSetStock("g", "ara", "satiation", 0);
     colony.gmSetStock("g", "ara", "health", 0);
     colony.act("a", { type: "rest" });
     await colony.waitForChange("a");

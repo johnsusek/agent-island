@@ -1,0 +1,199 @@
+{
+  "name": "hunger-interrupt-fixture",
+  "description": "ENGINE TEST FIXTURE: the needs-alarm trio (starving/parched/critical) and their interrupt contract, plus enough map to exercise order interruption mid-travel. Split out of survival.json so hunger-interrupt.test.ts doesn't depend on which alarms the shared fixture happens to still carry.",
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "satiation-falls",
+        "description": "Every character's satiation drains each tick; eating is what holds it back.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.1,
+        "channel": "satiation.fall"
+      },
+      {
+        "id": "starving",
+        "description": "Fires once when a character first becomes starving — the hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - eat from your pack now, or make getting food your only task"
+        }
+      },
+      {
+        "id": "critical",
+        "description": "Fires once when a character's health first drops to a critical level — the last-chance warning.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 25
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "critical",
+          "interrupt": "your health is critical - stop and see to your survival before anything else"
+        }
+      },
+      {
+        "id": "parched",
+        "description": "Fires once when a character first becomes dangerously thirsty.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "hydration"
+          },
+          "right": 10
+        },
+        "emit": {
+          "type": "parched",
+          "interrupt": "you are dangerously thirsty - drink now"
+        }
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 2,
+        "description": "Eat food from your own pack to ease your hunger.",
+        "params": [],
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "food"
+          },
+          "right": 1
+        },
+        "requireReason": "must be carrying food to eat",
+        "do": [
+          {
+            "adjust": {
+              "target": "food",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 40
+            }
+          }
+        ],
+        "emit": {
+          "type": "ate"
+        }
+      }
+    ],
+    "removedBaseIds": [],
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "label": "Health",
+        "tone": "up",
+        "role": "vital"
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "label": "Satiation",
+        "tone": "up",
+        "role": "vital"
+      },
+      "hydration": {
+        "value": 80,
+        "icon": "water",
+        "color": "#5c9fd4",
+        "label": "Hydration",
+        "tone": "up",
+        "role": "vital"
+      },
+      "food": {
+        "value": 0,
+        "max": 12,
+        "icon": "food",
+        "color": "#e0453f",
+        "stockpilable": true,
+        "label": "Food",
+        "tone": "up",
+        "role": "pack"
+      }
+    },
+    "setup": [
+      {
+        "scatter": {
+          "kind": "food",
+          "namePrefix": "berry-thicket",
+          "tags": [],
+          "density": 0.35,
+          "onTerrain": ["plains"],
+          "minSpacing": 2,
+          "spawnKeepout": 5,
+          "stocks": {
+            "food": {
+              "value": [6, 12],
+              "min": 0,
+              "max": [13, 19]
+            }
+          },
+          "occupancy": "tile"
+        }
+      }
+    ],
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1
+      },
+      "water": {
+        "passable": false
+      }
+    },
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "water",
+        "gen": {
+          "noise": {
+            "scale": 14,
+            "above": 0.66,
+            "octaves": 2
+          }
+        }
+      }
+    ],
+    "connect": true
+  }
+}

@@ -8,7 +8,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { WorldEngine } from "../src/rules/engine.js";
-import { makeSurvivalEngine } from "./helpers.js";
+import { makeFixtureEngine } from "./helpers.js";
+
+// Standalone fixture (test/stock-roles.json): role semantics in isolation,
+// decoupled from whatever rules/stocks the shared survival fixture happens to carry.
+function makeSurvivalEngine() {
+  return makeFixtureEngine("stock-roles");
+}
 
 function displayOf(engine: WorldEngine, id: string, name: string) {
   return engine.getObservation(id).display[name];
@@ -124,8 +130,8 @@ test("give gates on role: pack yes, stat and vital no", () => {
   let giver = engine.addAgent("Ara").id;
   engine.addAgent("Bo");
 
-  // food is role: "pack" (survival.json) - already covered by give.test.ts;
-  // morale is role: "stat" - never givable.
+  // pack-role giving is already covered by give.test.ts;
+  // morale here is role: "stat" - never givable.
   let statGive = engine.setOrder(giver, {
     kind: "sequence",
     steps: [{ type: "give", target: "bo", item: "morale" }],
@@ -198,10 +204,10 @@ test("dry-run does not flag a rule gated on an already-vital stock", () => {
   engine.addAgent("Ara");
   engine.addRule({
     id: "starvation_extra",
-    description: "test: hunger (vital) harms health - both marked",
+    description: "test: satiation (vital) harms health - both marked",
     phase: "threshold",
     each: { tag: "agent" },
-    when: { cmp: "gte", left: { stock: "hunger" }, right: 90 },
+    when: { cmp: "lte", left: { stock: "satiation" }, right: 10 },
     do: [{ adjust: { target: "health", by: -1 } }],
   });
 

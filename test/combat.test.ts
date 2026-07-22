@@ -8,9 +8,20 @@ import {
   stock,
   type Entity,
 } from "../src/rules/kernel.js";
-import { addAgent, makeSurvivalWorld, survivalRules } from "./helpers.js";
+import { addAgentTo, loadFixtureOverlay, makeBareWorld } from "./helpers.js";
 
 const PLAINS = () => "plains";
+
+// Standalone fixture (test/combat.json): fight/butcher mechanics in isolation,
+// no map or metabolism dragged in from the shared survival fixture.
+let combatOverlay = loadFixtureOverlay("combat");
+let survivalRules = combatOverlay.dynamicRules;
+function makeSurvivalWorld() {
+  return makeBareWorld(combatOverlay);
+}
+function addAgent(world: ReturnType<typeof makeBareWorld>, id: string) {
+  return addAgentTo(world, id, combatOverlay);
+}
 
 function wolfAt(pos: { x: number; y: number }): Entity {
   return {

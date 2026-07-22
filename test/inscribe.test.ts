@@ -20,6 +20,32 @@ import type { WorldEngine } from "../src/rules/engine.js";
 import { describeSense } from "../src/sense-prose.js";
 import { makeSurvivalEngine, placeAt, runToIdle } from "./helpers.js";
 
+// A minimal multi-tick, ground-holding build action - survival.json's own
+// build_shelter moved to its own test fixture, so the two occupancy tests
+// below (which only care about a spawn-with-blocking-occupancy action, not
+// shelters specifically) mint an equivalent rule inline instead.
+function addBuildRule(engine: WorldEngine) {
+  engine.addRule({
+    id: "build_shelter",
+    kind: "action",
+    duration: 8,
+    requires: { cmp: "gte", left: { stock: "wood" }, right: 4 },
+    requireReason: "need 4 carried wood",
+    do: [
+      { adjust: { target: "wood", by: -4 } },
+      {
+        spawn: {
+          kind: "shelter",
+          idPrefix: "shelter",
+          tags: [],
+          occupancy: "blocking",
+        },
+      },
+    ],
+    emit: { type: "shelter_complete" },
+  });
+}
+
 // Displace an agent `dist` tiles along the x axis from `from`, leaning toward
 // whichever side of the map actually has that much room.
 function placeAway(
@@ -134,13 +160,13 @@ test("one writing per tick; the budget resets when the world advances", () => {
 test("a tile owned by another token refuses writing", () => {
   let engine = makeSurvivalEngine();
   let ara = engine.addAgent("Ara").id;
-  let tree: any = Object.values(engine.snapshot().world.entities).find(
-    (e: any) => e.kind === "tree" && e.pos,
+  let patch: any = Object.values(engine.snapshot().world.entities).find(
+    (e: any) => e.kind === "food" && e.pos,
   );
-  assert.ok(tree, "survival scatters trees");
-  placeAt(engine, ara, tree.pos.x, tree.pos.y);
+  assert.ok(patch, "survival scatters food");
+  placeAt(engine, ara, patch.pos.x, patch.pos.y);
   assert.throws(
-    () => engine.inscribe(ara, "this tree is mine"),
+    () => engine.inscribe(ara, "this patch is mine"),
     /already stands here/,
   );
 });
@@ -184,6 +210,7 @@ test("witnesses in sight see the act but never the words", () => {
 
 test("a sign holds its ground: builds are refused on it, and allowed off it", () => {
   let engine = makeSurvivalEngine();
+  addBuildRule(engine);
   let ara = engine.addAgent("Ara").id;
   let snap = engine.snapshot();
   snap.world.entities[ara].stocks.wood = { value: 10, min: 0, max: 25 };
@@ -218,6 +245,7 @@ test("a sign holds its ground: builds are refused on it, and allowed off it", ()
 // tile is refused before any wood is spent - and that one structure remains.
 test("a finished build holds its tile: a second build on it is refused", () => {
   let engine = makeSurvivalEngine();
+  addBuildRule(engine);
   let ara = engine.addAgent("Ara").id;
   let snap = engine.snapshot();
   snap.world.entities[ara].stocks.wood = { value: 8, min: 0, max: 25 };

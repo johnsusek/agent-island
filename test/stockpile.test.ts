@@ -11,13 +11,28 @@ import {
   type KernelWorld,
 } from "../src/rules/kernel.js";
 import {
-  addAgent,
+  addAgentTo,
+  loadFixtureOverlay,
+  makeBareWorld,
   makeSurvivalEngine,
-  makeSurvivalWorld,
-  survivalRules,
 } from "./helpers.js";
 
 const PLAINS = () => "plains";
+
+// Standalone fixture (test/stockpile.json): found_stockpile/deposit/withdraw
+// mechanics in isolation, no map or metabolism dragged in from the shared
+// survival fixture. The last two tests below still boot makeSurvivalEngine()
+// purely for its side effect of installing the *real* shipped scenario's
+// stockpilable set (see setStockpilable) - that's the one thing genuinely
+// worth testing against the production config rather than this fixture.
+let stockpileOverlay = loadFixtureOverlay("stockpile");
+let survivalRules = stockpileOverlay.dynamicRules;
+function makeSurvivalWorld() {
+  return makeBareWorld(stockpileOverlay);
+}
+function addAgent(world: ReturnType<typeof makeBareWorld>, id: string) {
+  return addAgentTo(world, id, stockpileOverlay);
+}
 
 // Drive an agent's committed action to completion (bounded).
 function finish(world: KernelWorld, id: string) {

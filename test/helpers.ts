@@ -48,16 +48,21 @@ import type { Scenario, StockSpec } from "../src/rules/scenario.js";
 // fixture is self-contained today (its include list is empty), so this is a
 // straight read, but staying on the loader path keeps the scaffold honest if a
 // fixture ever pulls a ruleset in again.
-function readScenario(name: string): { overlay: RuleOverlay } {
+// Load a `test/<name>.json` fixture and resolve its includes exactly as the
+// live loader does - the general form `readScenario` used to hardcode to
+// "survival" alone. Every standalone per-test fixture (combat.json,
+// stockpile.json, ...) rides this same path.
+export function loadFixtureOverlay(name: string): RuleOverlay {
   let parsed = JSON.parse(
     readFileSync(path.resolve(`test/${name}.json`), "utf8"),
   );
-  return {
-    overlay: resolveIncludes(
-      parsed,
-      rulesetsDirFor(path.resolve("config/scenarios")),
-    ),
-  };
+  return resolveIncludes(
+    parsed,
+    rulesetsDirFor(path.resolve("config/scenarios")),
+  );
+}
+function readScenario(name: string): { overlay: RuleOverlay } {
+  return { overlay: loadFixtureOverlay(name) };
 }
 let scenarioNames = ["survival"];
 
@@ -119,14 +124,48 @@ export let survivalScenario: Scenario = {
   ),
 };
 
+// A fresh engine over ANY `test/<name>.json` fixture: merge its terrain fields
+// onto the base scenario exactly as bootScenario does (so pickSpawn rolls
+// against the real passability), then apply its overlay. Generalizes what
+// makeSurvivalEngine used to do only for "survival" - every standalone
+// per-test fixture that needs a full host (not just a bare kernel world)
+// rides this instead of duplicating the terrain-merge dance.
+export function makeFixtureEngine(name: string): WorldEngine {
+  let overlay = loadFixtureOverlay(name);
+  let terrainSpecs = {
+    ...(scenario.terrainSpecs ?? {}),
+    ...(overlay.terrainSpecs ?? {}),
+  };
+  let worldgen = scenario.worldgen
+    ? {
+        ...scenario.worldgen,
+        ...(overlay.defaultTerrain !== undefined
+          ? { defaultTerrain: overlay.defaultTerrain }
+          : {}),
+        ...(overlay.blobs !== undefined ? { blobs: overlay.blobs } : {}),
+        ...(overlay.terrainLayers !== undefined
+          ? { terrainLayers: overlay.terrainLayers }
+          : {}),
+        ...(overlay.connect !== undefined ? { connect: overlay.connect } : {}),
+      }
+    : undefined;
+  let fixtureScenario: Scenario = {
+    ...scenario,
+    terrainSpecs,
+    worldgen,
+    spawn: pickSpawn(worldgenWithTerrainPolicy(worldgen, terrainSpecs)),
+  };
+  let engine = createWorld(fixtureScenario);
+  engine.applyOverlay(overlay);
+  return engine;
+}
+
 // A fresh engine running the full layered game - the scenario as the
 // coordinator boots it plus the survival scenario, which is what production
 // always runs.
 // Host-level tests build on this unless they specifically probe bare worlds.
 export function makeSurvivalEngine() {
-  let engine = createWorld(survivalScenario);
-  engine.applyOverlay(survivalOverlay);
-  return engine;
+  return makeFixtureEngine("survival");
 }
 
 let setupTokenScatter = (survivalOverlay.setup ?? [])
@@ -161,7 +200,9 @@ let survivalWorldGen = survivalWorldGenInput
   ? expandWorldGen(survivalWorldGenInput, TEST_SPAWN)
   : undefined;
 
-function instantiate(specs: Record<string, StockSpec>): Record<string, Stock> {
+export function instantiate(
+  specs: Record<string, StockSpec>,
+): Record<string, Stock> {
   let out: Record<string, Stock> = {};
   for (let [name, s] of Object.entries(specs))
     out[name] = stock(s.value, s.min, s.max);
@@ -190,6 +231,45 @@ export function makeSurvivalWorld(): KernelWorld {
   return { tick: 0, entities };
 }
 
+// A bare kernel world seeded from ANY overlay's worldStocks, with no scattered
+// map tokens - the generic form of makeSurvivalWorld for fixtures that never
+// touch space/travel (combat, stockpile: pure commit()/step() at the kernel
+// level, entities placed by hand).
+export function makeBareWorld(overlay: RuleOverlay): KernelWorld {
+  return {
+    tick: 0,
+    entities: {
+      world: {
+        id: "world",
+        tags: ["world"],
+        stocks: instantiate(overlay.worldStocks ?? {}),
+      },
+    },
+  };
+}
+
+// addAgent, generalized to any overlay's stockDefaults rather than
+// survivalOverlay specifically.
+export function addAgentTo(
+  world: KernelWorld,
+  id: string,
+  overlay: RuleOverlay,
+): Entity {
+  let template = scenario.agentTemplate ?? { tags: ["agent"], stocks: {} };
+  let agent: Entity = {
+    id,
+    tags: [...template.tags],
+    stocks: instantiate({
+      ...template.stocks,
+      ...(overlay.stockDefaults ?? {}),
+    }),
+    pos: { ...TEST_SPAWN },
+    action: null,
+  };
+  world.entities[id] = agent;
+  return agent;
+}
+
 // The first token carrying a given tag (e.g. "wood") — kernel tests stand an agent
 // on a resource token without caring which procedurally-named one it is.
 export function findToken(world: KernelWorld, tag: string): Entity {
@@ -201,23 +281,7 @@ export function findToken(world: KernelWorld, tag: string): Entity {
 }
 
 export function addAgent(world: KernelWorld, id: string): Entity {
-  // The scenario no longer authors an agent template - a character is the bare
-  // "agent" tag plus the scenario's per-agent stock defaults (health/hunger/
-  // thirst/energy/warmth/morale/wood), the same layering addAgent does in the
-  // engine via withStockDefaults.
-  let template = scenario.agentTemplate ?? { tags: ["agent"], stocks: {} };
-  let agent: Entity = {
-    id,
-    tags: [...template.tags],
-    stocks: instantiate({
-      ...template.stocks,
-      ...(survivalOverlay.stockDefaults ?? {}),
-    }),
-    pos: { ...TEST_SPAWN },
-    action: null,
-  };
-  world.entities[id] = agent;
-  return agent;
+  return addAgentTo(world, id, survivalOverlay);
 }
 
 // The compass direction (one of the eight the explore action accepts) from

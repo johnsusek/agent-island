@@ -280,12 +280,12 @@ test("gather takes food from the source into the pack; eat then works anywhere",
   );
 
   // Eat now works away from any source, straight from the scenario.
-  let hungryBefore = engine.getObservation("ara").you.stocks.hunger.value;
+  let satiationBefore = engine.getObservation("ara").you.stocks.satiation.value;
   let carriedBefore = engine.getObservation("ara").you.stocks.food.value;
   engine.commitIntent("ara", { type: "eat" });
   runToIdle(engine, "ara");
   assert.ok(
-    engine.getObservation("ara").you.stocks.hunger.value < hungryBefore,
+    engine.getObservation("ara").you.stocks.satiation.value > satiationBefore,
     "hunger eased by eating from the scenario",
   );
   assert.ok(
@@ -373,7 +373,7 @@ test("speak and whisper are free and never interrupt an action in progress", () 
 test("a neglected agent dies but the world keeps running", () => {
   let engine = survival();
   engine.addAgent("ara");
-  // Neglect kills within the safety window: hunger climbs to 100 around tick
+  // Neglect kills within the safety window: satiation runs out around tick
   // 500 and then health drains, so death lands around ~550 ticks.
   let safety = 0;
   while (engine.isAlive("ara") && safety < 800) {

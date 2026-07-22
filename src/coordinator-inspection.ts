@@ -235,7 +235,7 @@ export function buildInspection(
         'inspect_world({agent:"Ada"}) - one agent, full state + observation',
       entity:
         'inspect_world({entity:"meadow-1"}) - one entity, full stocks/tags',
-      rule: 'inspect_world({rule:"hunger-rises"}) - one rule, full body',
+      rule: 'inspect_world({rule:"satiation-falls"}) - one rule, full body',
       area: 'inspect_world({area:{around:"meadow-1",radius:4}}) - local map tiles + occupants',
       include: `inspect_world({include:[...]}) - full sections: ${Object.keys(fullSections).join(", ")}, or "all"`,
     },

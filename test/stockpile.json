@@ -1,0 +1,303 @@
+{
+  "name": "stockpile-fixture",
+  "description": "ENGINE TEST FIXTURE: found_stockpile/deposit/withdraw mechanics in isolation. Split out of survival.json so stockpile.test.ts doesn't drag in the whole needs loop.",
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "found_stockpile",
+        "kind": "action",
+        "duration": 3,
+        "description": "Clear a patch of ground and declare it a stockpile pile by standing where you want it, then announce the spot so others can travel here. Each pile holds one resource type, so found a separate pile for food, wood, stone, and so on.",
+        "params": [],
+        "requires": {
+          "all": [
+            {
+              "not": {
+                "colocated": {
+                  "tag": "stockpile"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "there is already a stockpile on this tile",
+        "do": [
+          {
+            "spawn": {
+              "kind": "stockpile",
+              "idPrefix": "stockpile",
+              "tags": [],
+              "occupancy": "tile"
+            }
+          }
+        ],
+        "emit": {
+          "type": "stockpile_founded"
+        }
+      },
+      {
+        "id": "deposit",
+        "kind": "action",
+        "duration": 2,
+        "description": "Store one carried resource in this pile. Each pile is dedicated to the first resource type deposited (20 max), so take a different resource to a different pile.",
+        "params": [
+          {
+            "name": "item",
+            "type": "enum",
+            "from": "stockpilable",
+            "required": true,
+            "description": "which carried resource to unload onto the pile"
+          }
+        ],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "stockpile"
+              }
+            },
+            {
+              "stockpilable": {
+                "arg": "item"
+              }
+            },
+            {
+              "stockpileAccepts": {
+                "arg": "item"
+              },
+              "of": {
+                "colocated": "stockpile"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                },
+                "maxIfMissing": 20
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": {
+                  "arg": "item"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must carry the resource and stand on a compatible stockpile with space",
+        "fizzleWhen": {
+          "any": [
+            {
+              "not": {
+                "stockpileAccepts": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                }
+              }
+            },
+            {
+              "cmp": "lte",
+              "left": {
+                "headroom": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                },
+                "maxIfMissing": 20
+              },
+              "right": 0
+            }
+          ]
+        },
+        "fizzleReason": "the stockpile filled or was claimed for another resource",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": {
+                  "arg": "item"
+                }
+              },
+              "to": {
+                "stock": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                },
+                "maxIfMissing": 20
+              },
+              "amount": {
+                "min": [
+                  {
+                    "stock": {
+                      "arg": "item"
+                    }
+                  },
+                  {
+                    "headroom": {
+                      "arg": "item"
+                    },
+                    "of": {
+                      "colocated": "stockpile"
+                    },
+                    "maxIfMissing": 20
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "deposited"
+        }
+      },
+      {
+        "id": "withdraw",
+        "kind": "action",
+        "duration": 2,
+        "description": "Take a chosen resource from the stockpile you stand on into your own pack, taking as much as will fit.",
+        "params": [
+          {
+            "name": "item",
+            "type": "enum",
+            "from": "stockpilable",
+            "required": true,
+            "description": "which stored resource to take into your pack"
+          }
+        ],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "stockpile"
+              }
+            },
+            {
+              "stockpilable": {
+                "arg": "item"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": {
+                  "arg": "item"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "must stand on the stockpile, it must hold the resource you name, and your pack must have room for it",
+        "fizzleWhen": {
+          "cmp": "lte",
+          "left": {
+            "stock": {
+              "arg": "item"
+            },
+            "of": {
+              "colocated": "stockpile"
+            }
+          },
+          "right": 0
+        },
+        "fizzleReason": "the pile was emptied before you could take any",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                }
+              },
+              "to": {
+                "stock": {
+                  "arg": "item"
+                }
+              },
+              "amount": {
+                "min": [
+                  {
+                    "stock": {
+                      "arg": "item"
+                    },
+                    "of": {
+                      "colocated": "stockpile"
+                    }
+                  },
+                  {
+                    "headroom": {
+                      "arg": "item"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "withdrew"
+        }
+      }
+    ],
+    "removedBaseIds": [],
+    "stockDefaults": {
+      "wood": {
+        "value": 0,
+        "max": 25,
+        "icon": "wood",
+        "color": "#86b35a",
+        "stockpilable": true,
+        "label": "Wood",
+        "tone": "up",
+        "role": "pack"
+      },
+      "food": {
+        "value": 0,
+        "max": 12,
+        "icon": "food",
+        "color": "#e0453f",
+        "stockpilable": true,
+        "label": "Food",
+        "tone": "up",
+        "role": "pack"
+      },
+      "hunger": {
+        "value": 0,
+        "icon": "food",
+        "color": "#e0453f",
+        "label": "Hunger",
+        "tone": "down",
+        "role": "vital"
+      }
+    }
+  }
+}

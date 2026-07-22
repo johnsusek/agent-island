@@ -104,7 +104,10 @@ test("flows drift each tick: hunger rises", () => {
 
   for (let t = 1; t <= 3; t += 1) step(world, survivalRules);
   // Compare within epsilon: three 0.1 drifts accumulate float error.
-  assert.ok(Math.abs(ara.stocks.hunger.value - 0.3) < 1e-9, "hunger +0.1/tick");
+  assert.ok(
+    Math.abs(ara.stocks.satiation.value - 99.7) < 1e-9,
+    "satiation -0.1/tick",
+  );
 });
 
 test("a neglected agent runs a full life to death, then is tagged out of the living", () => {
@@ -125,21 +128,22 @@ test("a neglected agent runs a full life to death, then is tagged out of the liv
 });
 
 test("watch rules fire once, on the crossing — not every tick after", () => {
-  // Seed a nearly-starved agent so the hunger edge triggers inside a short
+  // Seed a nearly-starved agent so the satiation edge triggers inside a short
   // window, and assert the alert appears on exactly one tick, not every tick.
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
-  ara.stocks.hunger = stock(98);
+  ara.stocks.satiation = stock(2);
 
   let byTick: Record<string, number[]> = {};
   for (let t = 1; t <= 24; t += 1)
     for (let e of step(world, survivalRules)) (byTick[e.type] ??= []).push(t);
 
-  // hunger 98 + 0.1/tick crosses 100 on tick 21 (float drift on the 0.1 sum
-  // leaves tick 20 a hair under): starving fires then, only then.
+  // satiation 2 - 0.1/tick crosses 0 on tick 20 (float drift on the 0.1
+  // difference leaves it a hair under exactly then): starving fires then,
+  // only then.
   assert.deepEqual(
     byTick.starving,
-    [21],
+    [20],
     "starving fires once at the crossing",
   );
 });
@@ -150,8 +154,8 @@ test("gather fills the scenario from the source underfoot; eat then eases hunger
   let foodToken = findToken(world, "food");
   bo.pos = { ...foodToken.pos! }; // standing on a wild food source
 
-  for (let t = 1; t <= 50; t += 1) step(world, survivalRules); // hunger climbs
-  let hungry = bo.stocks.hunger.value;
+  for (let t = 1; t <= 50; t += 1) step(world, survivalRules); // satiation drains
+  let hungry = bo.stocks.satiation.value;
   let atCommit = foodToken.stocks.food.value;
 
   // Gather moves food from the source into Bo's scenario (bounded by scenario headroom;
@@ -174,7 +178,7 @@ test("gather fills the scenario from the source underfoot; eat then eases hunger
     carried - 1,
     "one ration eaten from the scenario",
   );
-  assert.ok(bo.stocks.hunger.value < hungry, "hunger dropped");
+  assert.ok(bo.stocks.satiation.value > hungry, "hunger eased");
 });
 
 test("an action fizzles at completion if its precondition lapsed mid-work", () => {
@@ -972,11 +976,11 @@ test("a full agent loop runs through commitIntent and observe()", () => {
     "the scenario now holds gathered food",
   );
 
-  let hungryBefore = engine.getObservation(id).you.stocks.hunger.value;
+  let hungryBefore = engine.getObservation(id).you.stocks.satiation.value;
   assert.equal(engine.commitIntent(id, { type: "eat" }).accepted, true);
   runToIdle(engine, id);
   assert.ok(
-    engine.getObservation(id).you.stocks.hunger.value < hungryBefore,
+    engine.getObservation(id).you.stocks.satiation.value > hungryBefore,
     "hunger eased by eating from the scenario",
   );
 

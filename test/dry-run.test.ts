@@ -84,7 +84,7 @@ test("an action rule gets an availability sweep instead of a tick simulation", (
     duration: 1,
     requires: { cmp: "gte", left: { stock: "gold" }, right: 10 },
     requireReason: "you need 10 gold",
-    do: [{ adjust: { target: "morale", by: 5 } }],
+    do: [{ adjust: { target: "energy", by: 5 } }],
   });
 
   let report = engine.dryRunRule("sacrifice");
@@ -146,17 +146,26 @@ test("an action whose body only spends is warned about", () => {
   );
 });
 
-// The check reads shape, not stock names: thirst falling is what `drink` is for.
-// Its tone is the only thing telling the two subtractions apart.
+// The check reads shape, not stock names: a negative adjust on a "down is
+// bad" gauge is a price, but on a "down is good" (tone "down") gauge it is
+// the relief the verb exists to deliver. Its tone is the only thing telling
+// the two subtractions apart, so this registers a synthetic down-tone stock
+// rather than relying on any scenario's own vitals.
 
 test("an action that only relieves a down-tone gauge is not warned about", () => {
   let engine = survival();
+  engine.setStockDefault("chill", {
+    value: 0,
+    tone: "down",
+    role: "vital",
+    icon: "ice-cube",
+  });
   engine.addAgent("Ada");
   engine.addRule({
     id: "sip",
     kind: "action",
     duration: 1,
-    do: [{ adjust: { target: "thirst", by: -45 } }],
+    do: [{ adjust: { target: "chill", by: -45 } }],
   });
 
   assert.deepEqual(engine.dryRunRule("sip").warnings, []);

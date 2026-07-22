@@ -1,0 +1,93 @@
+{
+  "name": "stock-roles-fixture",
+  "description": "ENGINE TEST FIXTURE: stock role (vital/stat/pack) semantics in isolation - give/stockpile gating, dry-run lints. Split out of survival.json so stock-roles.test.ts doesn't depend on which rules the shared fixture happens to carry.",
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "deposit",
+        "kind": "action",
+        "duration": 2,
+        "description": "Store one carried resource in this pile.",
+        "params": [
+          {
+            "name": "item",
+            "type": "enum",
+            "from": "stockpilable",
+            "required": true,
+            "description": "which carried resource to unload onto the pile"
+          }
+        ],
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "tag": "stockpile"
+              }
+            },
+            {
+              "stockpilable": {
+                "arg": "item"
+              }
+            }
+          ]
+        },
+        "requireReason": "must carry the resource and stand on a stockpile",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": {
+                  "arg": "item"
+                }
+              },
+              "to": {
+                "stock": {
+                  "arg": "item"
+                },
+                "of": {
+                  "colocated": "stockpile"
+                },
+                "maxIfMissing": 20
+              },
+              "amount": {
+                "stock": {
+                  "arg": "item"
+                }
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "deposited"
+        }
+      }
+    ],
+    "removedBaseIds": [],
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "label": "Health",
+        "tone": "up",
+        "role": "vital"
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "label": "Satiation",
+        "tone": "up",
+        "role": "vital"
+      },
+      "morale": {
+        "value": 70,
+        "icon": "morale",
+        "color": "#d2b45c",
+        "label": "Morale",
+        "tone": "up",
+        "role": "stat"
+      }
+    }
+  }
+}

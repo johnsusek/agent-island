@@ -9,15 +9,15 @@
   "overlay": {
     "dynamicRules": [
       {
-        "id": "hunger-rises",
-        "description": "Everyone grows hungrier, slowly - about two thousand ticks from full to starving.",
+        "id": "satiation-falls",
+        "description": "Everyone's satiation drains, slowly - about two thousand ticks from full to starving.",
         "phase": "flow",
         "each": {
           "tag": "agent"
         },
-        "target": "hunger",
-        "rate": 0.05,
-        "channel": "hunger.rise"
+        "target": "satiation",
+        "rate": -0.05,
+        "channel": "satiation.fall"
       },
       {
         "id": "starving",
@@ -27,11 +27,11 @@
           "tag": "agent"
         },
         "when": {
-          "cmp": "gte",
+          "cmp": "lte",
           "left": {
-            "stock": "hunger"
+            "stock": "satiation"
           },
-          "right": 100
+          "right": 0
         },
         "emit": {
           "type": "starving",
@@ -46,11 +46,11 @@
           "tag": "agent"
         },
         "when": {
-          "cmp": "gte",
+          "cmp": "lte",
           "left": {
-            "stock": "hunger"
+            "stock": "satiation"
           },
-          "right": 100
+          "right": 0
         },
         "do": [
           {
@@ -62,15 +62,15 @@
         ]
       },
       {
-        "id": "thirst-rises",
-        "description": "Everyone grows thirstier, three times faster than they grow hungry - about seven hundred ticks from slaked to parched.",
+        "id": "hydration-falls",
+        "description": "Everyone's hydration drains, three times faster than satiation - about seven hundred ticks from slaked to parched.",
         "phase": "flow",
         "each": {
           "tag": "agent"
         },
-        "target": "thirst",
-        "rate": 0.15,
-        "channel": "thirst.rise"
+        "target": "hydration",
+        "rate": -0.15,
+        "channel": "hydration.fall"
       },
       {
         "id": "parched",
@@ -80,11 +80,11 @@
           "tag": "agent"
         },
         "when": {
-          "cmp": "gte",
+          "cmp": "lte",
           "left": {
-            "stock": "thirst"
+            "stock": "hydration"
           },
-          "right": 100
+          "right": 0
         },
         "emit": {
           "type": "parched",
@@ -99,11 +99,11 @@
           "tag": "agent"
         },
         "when": {
-          "cmp": "gte",
+          "cmp": "lte",
           "left": {
-            "stock": "thirst"
+            "stock": "hydration"
           },
-          "right": 100
+          "right": 0
         },
         "do": [
           {
@@ -479,30 +479,30 @@
           "critical": "You are dying."
         }
       },
-      "hunger": {
-        "value": 0,
+      "satiation": {
+        "value": 100,
         "icon": "food",
         "color": "#e0453f",
         "min": 0,
         "max": 100,
         "role": "vital",
-        "label": "hunger",
-        "tone": "down",
+        "label": "satiation",
+        "tone": "up",
         "bands": {
           "pressing": "You are getting hungry.",
           "serious": "You are very hungry - find food soon.",
           "critical": "You are starving. Eat now, or getting food is your only task."
         }
       },
-      "thirst": {
-        "value": 0,
+      "hydration": {
+        "value": 100,
         "icon": "water",
         "color": "#5c9fd4",
         "min": 0,
         "max": 100,
         "role": "vital",
-        "label": "thirst",
-        "tone": "down",
+        "label": "hydration",
+        "tone": "up",
         "bands": {
           "pressing": "You are thirsty.",
           "serious": "You are parched - find water soon.",

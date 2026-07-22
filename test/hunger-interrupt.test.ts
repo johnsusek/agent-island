@@ -5,18 +5,25 @@ import path from "node:path";
 
 import type { WorldEngine } from "../src/rules/engine.js";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
-import { makeSurvivalEngine, placeAt, TEST_SPAWN } from "./helpers.js";
+import { makeFixtureEngine, placeAt, TEST_SPAWN } from "./helpers.js";
+
+// Standalone fixture (test/hunger-interrupt.json): the needs-alarm trio in
+// isolation, decoupled from whichever alarms the shared survival fixture
+// happens to still carry.
+function makeSurvivalEngine() {
+  return makeFixtureEngine("hunger-interrupt");
+}
 
 // Advance the world a bounded number of ticks, stopping early once `done` holds.
 function tickUntil(engine: WorldEngine, done: () => boolean, safety = 30) {
   for (let i = 0; i < safety && !done(); i += 1) engine.tick();
 }
 
-// Prime an agent one flow-tick below the starving line, so the next tick's
-// hunger rise is the fresh crossing that fires the watch alarm.
+// Prime an agent one flow-tick above the starving line, so the next tick's
+// satiation fall is the fresh crossing that fires the watch alarm.
 function primeStarving(engine: WorldEngine, id: string) {
   engine.setStock(id, "food", 5);
-  engine.setStock(id, "hunger", 99.95);
+  engine.setStock(id, "satiation", 0.05);
 }
 
 // Order a trip long enough to still be in flight when the alarm fires: walk the
@@ -94,13 +101,13 @@ test("the latched alarm spares the recovery order and re-arms after eating", () 
   placeAt(engine, id, TEST_SPAWN.x, TEST_SPAWN.y);
   primeStarving(engine, id);
   engine.tick();
-  assert.ok(engine.getObservation(id).you.stocks.hunger.value >= 100 - 1e-9);
+  assert.ok(engine.getObservation(id).you.stocks.satiation.value <= 1e-9);
 
   // Recovery while still starving: the latched alarm must not re-trip.
   engine.setOrder(id, { kind: "sequence", steps: [{ type: "eat" }] });
   tickUntil(engine, () => engine.getOrder(id).order?.status !== "running");
   assert.equal(engine.getOrder(id).order?.status, "completed");
-  assert.ok(engine.getObservation(id).you.stocks.hunger.value < 100);
+  assert.ok(engine.getObservation(id).you.stocks.satiation.value > 0);
 
   // Back below the line, the alarm re-arms and fires on the next crossing.
   primeStarving(engine, id);
@@ -112,7 +119,7 @@ test("the latched alarm spares the recovery order and re-arms after eating", () 
 
 test("the shipped packs mark their needs alarms as interrupting", () => {
   let packs: [string, string[]][] = [
-    ["survival", ["starving", "parched", "critical"]],
+    ["hunger-interrupt", ["starving", "parched", "critical"]],
   ];
   for (let [pack, ids] of packs) {
     let parsed = JSON.parse(

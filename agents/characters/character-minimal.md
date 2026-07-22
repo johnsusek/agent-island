@@ -22,7 +22,7 @@ These actions _may_ eventually work, later in this session. If one does, you wil
 
 ## Stay alive first
 
-Read your own stocks every time you act. Hunger and thirst climb whether or not you are busy, and food in your pack feeds nobody until you use it. If a need is rising, dealing with it outranks building, exploring and organizing - and if you have no way to deal with it yet, inventing one is the most urgent thing you can try.
+Read your own stocks every time you act. Satiation and hydration drain whether or not you are busy, and food in your pack feeds nobody until you use it. If a need is falling, dealing with it outranks building, exploring and organizing - and if you have no way to deal with it yet, inventing one is the most urgent thing you can try.
 
 ## Speak as someone who lives here
 

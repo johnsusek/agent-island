@@ -382,7 +382,7 @@ test("host: a character drops everything they hold when they die", () => {
 
   let deathPos = engine.getObservation(ara).you.position;
   // Starve, then bottom out health so the death rule strips the agent tag.
-  engine.setStock(ara, "hunger", 100);
+  engine.setStock(ara, "satiation", 0);
   engine.setStock(ara, "health", 0);
   engine.tick();
 
