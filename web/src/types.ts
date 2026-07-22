@@ -22,8 +22,9 @@ export type StockRole = "vital" | "stat" | "pack";
 
 // How a per-character stock starts out (mirrors the engine's scenario.StockSpec).
 // `icon` is the game-icons slug it draws with. The overview payload strips the
-// prose fields (label/tone/bands) - they ride `display` instead - so most of
-// these are only present on the full section.
+// prose fields (label/bands) - they ride `display` instead - so most of
+// these are only present on the full section. Direction isn't a field: every
+// gauge reads up as good, so harm always sits toward the floor.
 export interface StockSpec {
   value: number;
   min?: number;
@@ -33,7 +34,6 @@ export interface StockSpec {
   stockpilable?: boolean;
   role?: StockRole;
   label?: string;
-  tone?: "up" | "down";
   bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
 }
 
@@ -44,7 +44,6 @@ export interface StockDisplay {
   role: StockRole;
   scope: "world" | "agent";
   label?: string;
-  tone?: "up" | "down";
   bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
 }
 

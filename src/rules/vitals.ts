@@ -4,9 +4,13 @@
 // every run read `hunger 33.4/100` and did nothing. So the world says which
 // band a gauge is in, in words, and says nothing at all while it is fine.
 //
-// Which way is bad comes from the stock's own declared tone, never from its
-// name: this module can price a world whose vitality is called `integrity`
-// and whose clock is called `decay` without knowing either word.
+// Which way is bad is not a per-stock choice: every gauge in this world reads
+// up as good, so harm always lies toward the floor. This module never reads a
+// stock's name - it can price a world whose vitality is called `integrity`
+// and whose clock is called `decay` without knowing either word - and a
+// scenario whose harm would otherwise rise (a cold, an exposure) names the
+// stock for its relief instead (warmth, not cold), which is what keeps this
+// true without a field a scenario could get backwards.
 
 import type { StockDisplay, StockRole } from "./scenario.js";
 
@@ -16,7 +20,7 @@ export type VitalBand = "pressing" | "serious" | "critical";
 export const VITAL_BANDS: VitalBand[] = ["critical", "serious", "pressing"];
 
 // How well a gauge is doing, 1 = fine and 0 = dire. Everything below is
-// expressed in this one number, so no caller needs the tone again.
+// expressed in this one number.
 const BAND_CUTOFFS: [VitalBand, number][] = [
   ["critical", 0.15],
   ["serious", 0.3],
@@ -31,18 +35,12 @@ interface StockValue {
 
 // null for anything unbounded or non-numeric: a counter with no ceiling has no
 // "how well", and guessing one would invent alarms out of bookkeeping.
-export function wellOf(
-  stock: StockValue | undefined,
-  hint?: StockDisplay,
-): number | null {
+export function wellOf(stock: StockValue | undefined): number | null {
   if (!stock || typeof stock.value !== "number") return null;
   let min = stock.min ?? 0;
   let max = stock.max;
   if (typeof max !== "number" || max <= min) return null;
-  let fraction = (stock.value - min) / (max - min);
-  // "down" means harm lies toward the ceiling (a hunger that climbs), so a full
-  // gauge is a dire one.
-  return hint?.tone === "down" ? 1 - fraction : fraction;
+  return (stock.value - min) / (max - min);
 }
 
 // The epsilon is not fussiness: a gauge sitting exactly on a cutoff lands on
@@ -74,7 +72,7 @@ export function bandedStocks(
     .filter(([name]) => display?.[name]?.role === role)
     .map(([name, stock]) => ({
       name,
-      band: bandOf(wellOf(stock, display?.[name])),
+      band: bandOf(wellOf(stock)),
     }))
     .filter((entry): entry is { name: string; band: VitalBand } => !!entry.band)
     .sort((a, b) => VITAL_BANDS.indexOf(a.band) - VITAL_BANDS.indexOf(b.band));

@@ -188,14 +188,21 @@
         "scatter": {
           "kind": "outcrop",
           "namePrefix": "outcrop",
-          "tags": ["stone"],
+          "tags": [
+            "stone"
+          ],
           "density": 0.35,
-          "onTerrain": ["plains"],
+          "onTerrain": [
+            "plains"
+          ],
           "minSpacing": 3,
           "spawnKeepout": 4,
           "stocks": {
             "stone": {
-              "value": [4, 9],
+              "value": [
+                4,
+                9
+              ],
               "min": 0,
               "icon": "stone-pile",
               "color": "#9aa3ab"
@@ -227,7 +234,9 @@
           }
         },
         "where": {
-          "on": ["plains"]
+          "on": [
+            "plains"
+          ]
         }
       }
     ],
@@ -237,7 +246,10 @@
         "moveCost": 1,
         "visual": {
           "sprite": {
-            "size": [16, 16],
+            "size": [
+              16,
+              16
+            ],
             "kind": "terrain",
             "palette": {
               ".": "none",
@@ -272,7 +284,10 @@
         "passable": false,
         "visual": {
           "sprite": {
-            "size": [16, 16],
+            "size": [
+              16,
+              16
+            ],
             "kind": "terrain",
             "palette": {
               ".": "none",
@@ -307,7 +322,10 @@
         "moveCost": 2,
         "visual": {
           "sprite": {
-            "size": [16, 16],
+            "size": [
+              16,
+              16
+            ],
             "kind": "terrain",
             "palette": {
               ".": "none",
@@ -344,7 +362,10 @@
         "icon": "stone-pile",
         "color": "#9aa3ab",
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -376,7 +397,10 @@
       },
       "agent": {
         "sprite": {
-          "size": [16, 32],
+          "size": [
+            16,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -430,7 +454,10 @@
         "icon": "marker",
         "color": "#b9985f",
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -472,7 +499,6 @@
         "max": 100,
         "role": "vital",
         "label": "health",
-        "tone": "up",
         "bands": {
           "pressing": "You are hurt.",
           "serious": "You are badly hurt.",
@@ -487,7 +513,6 @@
         "max": 100,
         "role": "vital",
         "label": "satiation",
-        "tone": "up",
         "bands": {
           "pressing": "You are getting hungry.",
           "serious": "You are very hungry - find food soon.",
@@ -502,7 +527,6 @@
         "max": 100,
         "role": "vital",
         "label": "hydration",
-        "tone": "up",
         "bands": {
           "pressing": "You are thirsty.",
           "serious": "You are parched - find water soon.",

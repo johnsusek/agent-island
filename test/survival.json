@@ -399,7 +399,6 @@
         "icon": "health",
         "color": "#e56b6f",
         "label": "Health",
-        "tone": "up",
         "bands": {
           "pressing": "You are hurt.",
           "serious": "You are badly hurt.",
@@ -412,7 +411,6 @@
         "icon": "food",
         "color": "#e0453f",
         "label": "Satiation",
-        "tone": "up",
         "bands": {
           "pressing": "You are getting hungry.",
           "serious": "You are very hungry - find food soon.",
@@ -427,7 +425,6 @@
         "color": "#e0453f",
         "stockpilable": true,
         "label": "Food",
-        "tone": "up",
         "role": "pack"
       },
       "energy": {
@@ -435,7 +432,6 @@
         "icon": "energy",
         "color": "#d8c95a",
         "label": "Energy",
-        "tone": "up",
         "bands": {
           "pressing": "You are tired.",
           "serious": "You are exhausted.",
@@ -448,7 +444,6 @@
         "icon": "warmth",
         "color": "#e8843a",
         "label": "Warmth",
-        "tone": "up",
         "role": "vital"
       },
       "wood": {
@@ -458,7 +453,6 @@
         "color": "#86b35a",
         "stockpilable": true,
         "label": "Wood",
-        "tone": "up",
         "role": "pack"
       }
     },
@@ -477,14 +471,21 @@
         "scatter": {
           "kind": "tree",
           "namePrefix": "tree",
-          "tags": ["wood"],
+          "tags": [
+            "wood"
+          ],
           "density": 1,
-          "onTerrain": ["plains"],
+          "onTerrain": [
+            "plains"
+          ],
           "minSpacing": 2,
           "spawnKeepout": 5,
           "stocks": {
             "wood": {
-              "value": [3, 5],
+              "value": [
+                3,
+                5
+              ],
               "min": 0
             }
           },
@@ -497,14 +498,22 @@
           "namePrefix": "berry-thicket",
           "tags": [],
           "density": 0.35,
-          "onTerrain": ["plains"],
+          "onTerrain": [
+            "plains"
+          ],
           "minSpacing": 2,
           "spawnKeepout": 5,
           "stocks": {
             "food": {
-              "value": [6, 12],
+              "value": [
+                6,
+                12
+              ],
               "min": 0,
-              "max": [13, 19]
+              "max": [
+                13,
+                19
+              ]
             }
           },
           "occupancy": "tile"
@@ -516,7 +525,10 @@
         "moveCost": 1,
         "visual": {
           "sprite": {
-            "size": [16, 16],
+            "size": [
+              16,
+              16
+            ],
             "kind": "terrain",
             "palette": {
               ".": "none",
@@ -551,7 +563,10 @@
         "passable": false,
         "visual": {
           "sprite": {
-            "size": [16, 16],
+            "size": [
+              16,
+              16
+            ],
             "kind": "terrain",
             "palette": {
               ".": "none",
@@ -600,7 +615,10 @@
     "kindVisuals": {
       "agent": {
         "sprite": {
-          "size": [16, 32],
+          "size": [
+            16,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -652,7 +670,10 @@
       },
       "dead": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -686,7 +707,10 @@
       },
       "food": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -722,7 +746,10 @@
       },
       "water": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -757,7 +784,10 @@
       },
       "predator": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -794,7 +824,10 @@
       },
       "wolf": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -829,7 +862,10 @@
       },
       "carcass": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -864,7 +900,10 @@
       },
       "forage": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -901,7 +940,10 @@
       },
       "fire": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -937,7 +979,10 @@
       },
       "item": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -972,7 +1017,10 @@
       },
       "stone": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1006,7 +1054,10 @@
       },
       "iron": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1041,7 +1092,10 @@
       },
       "metal": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1076,7 +1130,10 @@
       },
       "fish": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1111,7 +1168,10 @@
       },
       "tree": {
         "sprite": {
-          "size": [16, 32],
+          "size": [
+            16,
+            32
+          ],
           "kind": "token",
           "mirror": "none",
           "palette": {
@@ -1163,7 +1223,10 @@
       },
       "quarry": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1197,7 +1260,10 @@
       },
       "vein": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1233,7 +1299,10 @@
       },
       "farm": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1268,7 +1337,10 @@
       },
       "hearth": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -1306,7 +1378,10 @@
       },
       "smelter": {
         "sprite": {
-          "size": [16, 32],
+          "size": [
+            16,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -1358,7 +1433,10 @@
       },
       "forge": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "mirror": "none",
           "palette": {
@@ -1395,7 +1473,10 @@
       },
       "shelter": {
         "sprite": {
-          "size": [32, 32],
+          "size": [
+            32,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -1448,7 +1529,10 @@
       },
       "structure": {
         "sprite": {
-          "size": [32, 32],
+          "size": [
+            32,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -1502,7 +1586,10 @@
       },
       "stockpile": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1538,7 +1625,10 @@
       },
       "storage": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1573,7 +1663,10 @@
       },
       "ledger": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",

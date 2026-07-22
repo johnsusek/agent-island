@@ -2842,9 +2842,9 @@ export function createWorld(scenario: Scenario) {
       you: agentView(id),
       here: tileSummary(p),
       grid: sightGrid(id),
-      // The scenario's own reading of its stocks - which way is bad ("down" for
-      // a hunger that climbs, "up" for a health that falls). Prose needs it to
-      // know which gauge is in trouble without knowing what any stock is called.
+      // The scenario's own reading of its stocks - role, label, bands. Prose
+      // needs it to know which gauge is in trouble without knowing what any
+      // stock is called; every gauge reads up as good, so low is always it.
       display: stockDisplay(),
       colony: coordinationLedger(id),
       world: { stocks: roundedStocks(worldStocks()) },
@@ -3775,7 +3775,6 @@ export function createWorld(scenario: Scenario) {
         role: spec.role ?? "pack",
         scope,
         ...(spec.label !== undefined ? { label: spec.label } : {}),
-        ...(spec.tone !== undefined ? { tone: spec.tone } : {}),
         ...(spec.bands !== undefined ? { bands: spec.bands } : {}),
       };
     };
@@ -3981,8 +3980,6 @@ export function createWorld(scenario: Scenario) {
       throw new Error(
         `Stock "${stockName}" role must be one of ${STOCK_ROLES.join("|")}.`,
       );
-    if (spec.tone !== undefined && spec.tone !== "up" && spec.tone !== "down")
-      throw new Error(`Stock "${stockName}" tone must be "up" or "down".`);
     if (spec.bands !== undefined) assertValidBands(stockName, spec.bands);
     // stockpilable is a pack-role subflag (see StockSpec.stockpilable), never
     // a second givability axis - a vital or stat cannot opt into hauling no
@@ -4003,7 +4000,6 @@ export function createWorld(scenario: Scenario) {
       ...(spec.stockpilable ? { stockpilable: true } : {}),
       ...(spec.role !== undefined ? { role: spec.role } : {}),
       ...(spec.label !== undefined ? { label: spec.label } : {}),
-      ...(spec.tone !== undefined ? { tone: spec.tone } : {}),
       ...(spec.bands !== undefined ? { bands: spec.bands } : {}),
     };
     stockDefaults[stockName] = full;

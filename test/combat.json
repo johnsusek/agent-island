@@ -220,7 +220,6 @@
         "icon": "health",
         "color": "#e56b6f",
         "label": "Health",
-        "tone": "up",
         "role": "vital"
       },
       "energy": {
@@ -228,7 +227,6 @@
         "icon": "energy",
         "color": "#d8c95a",
         "label": "Energy",
-        "tone": "up",
         "role": "vital"
       },
       "food": {
@@ -238,7 +236,6 @@
         "color": "#e0453f",
         "stockpilable": true,
         "label": "Food",
-        "tone": "up",
         "role": "pack"
       }
     }

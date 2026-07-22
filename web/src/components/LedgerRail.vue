@@ -26,12 +26,7 @@ defineEmits<{ (e: "selectName", name: string): void }>();
             </span>
           </div>
           <div class="spec__who">
-            <button
-              v-for="name in spec.speculators"
-              :key="name"
-              class="namelink"
-              @click="$emit('selectName', name)"
-            >
+            <button v-for="name in spec.speculators" :key="name" class="namelink" @click="$emit('selectName', name)">
               {{ name }}
             </button>
           </div>
@@ -42,12 +37,7 @@ defineEmits<{ (e: "selectName", name: string): void }>();
       </section>
 
       <section class="ledger__section">
-        <h3 class="ledger__heading">Laws</h3>
-        <p v-if="!laws.length" class="ledger__empty">
-          No physics has been speculated into being yet. When a character tries
-          a verb the world doesn't know and the Oracle ratifies it, the law
-          lands here.
-        </p>
+        <h3 v-if="laws.length" class="ledger__heading">Laws</h3>
         <article v-for="law in laws" :key="law.id" class="law">
           <div class="law__line">
             <span class="law__verb">{{ law.id }}</span>

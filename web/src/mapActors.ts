@@ -194,7 +194,7 @@ function createActor(position: Position, unit: number): ActorVisual {
   // 32 source px tall, a 1-tile one 16).
   name.position.y = -19 * unit;
   container.addChild(name);
-  // The character's current action, in a smaller yellow voice directly under the
+  // The character's current action, in a smaller yellow voice directly above the
   // name (hidden entirely when idle - see activityLabel).
   let activity = new Text({
     style: {
@@ -204,7 +204,7 @@ function createActor(position: Position, unit: number): ActorVisual {
       stroke: { color: 0x0b0b0c, width: unit },
     },
   });
-  activity.anchor.set(0.5, 0);
+  activity.anchor.set(0.5, 1);
   activity.position.y = -18.5 * unit;
   activity.visible = false;
   container.addChild(activity);
@@ -265,15 +265,21 @@ function slotOffset(index: number, count: number, unit: number): Position {
   };
 }
 
-// The nameplate's second line: the action type plus a short detail (goal,
-// direction, or arg), matching the roster's inline activity. Idle or absent
-// actions return "" so the caller can hide the line entirely.
+// The nameplate's first line: the action type plus a short detail (goal,
+// direction, or arg), matching the roster's inline activity. Speculative
+// expectation prose is intentionally omitted. Idle or absent actions return ""
+// so the caller can hide the line entirely.
 function activityLabel(action: ActionView | null | undefined): string {
   let type = action?.type;
   if (!type || type === "idle") return "";
-  let argDetail = action?.args ? Object.values(action.args).join(" ") : "";
+  let argDetail = action?.args
+    ? Object.entries(action.args)
+        .filter(([name]) => name !== "expectation")
+        .map(([, value]) => value)
+        .join(" ")
+    : "";
   let detail = action?.goal ?? action?.direction ?? argDetail ?? "";
-  return [type, detail].filter(Boolean).join(" ");
+  return [type, detail].filter(Boolean).join(" • ");
 }
 
 function facingForDelta(
@@ -303,7 +309,7 @@ function faceSprite(actor: ActorVisual) {
   actor.sprite.scale.x = actor.facing === "west" ? -scale : scale;
 }
 
-// Seat the two-line name/activity block just above the sprite's head. The
+// Seat the two-line activity/name block just above the sprite's head. The
 // sprite is bottom-anchored at 2*unit, so its top sits that many pixels above
 // origin minus its own pixel height; taller characters (2-tile = 32px) push the
 // nameplate correspondingly higher without any hardcoded offset per art size.
@@ -313,6 +319,7 @@ function layoutNameplate(
   unit: number,
 ) {
   let spriteTop = 2 * unit - spriteHeight;
-  actor.activity.position.y = spriteTop - 4.5 * unit;
-  actor.name.position.y = actor.activity.position.y - 0.5 * unit;
+  actor.name.position.y = spriteTop - 0.5 * unit;
+  actor.activity.position.y =
+    actor.name.position.y - actor.name.height - 0.5 * unit;
 }

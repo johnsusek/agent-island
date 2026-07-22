@@ -191,13 +191,13 @@ export function buildInspection(
       ]),
     );
 
-  // stockDefaults' own label/tone/bands are authoring data, not something a
+  // stockDefaults' own label/bands are authoring data, not something a
   // director reading the overview needs twice - the same presentation already
   // rides the scenario block's `display` (the engine's stockDisplay
   // projection), and a vital's bands alone can be several sentences per band.
   // Keep the mechanical bits (bounds/icon/color/stockpilable/role) a director
   // might still want at a glance; strip the prose duplicate.
-  const PROSE_FIELDS = ["label", "tone", "bands"];
+  const PROSE_FIELDS = ["label", "bands"];
   let leanStockDefaults = (defaults: unknown) =>
     Object.fromEntries(
       Object.entries((defaults ?? {}) as Record<string, object>).map(

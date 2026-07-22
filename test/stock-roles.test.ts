@@ -30,7 +30,6 @@ test("an explicit role rides the overlay and re-applies onto a fresh engine", ()
     icon: "sparkles",
     role: "stat",
     label: "courage",
-    tone: "up",
     bands: { critical: "You have lost your nerve." },
   });
 
@@ -56,18 +55,18 @@ test("a registry-declared vital alarms with no scenario display block at all", (
   let engine = makeSurvivalEngine();
   let ara = engine.addAgent("Ara").id;
   engine.setStockDefault("dread", {
-    value: 0,
+    value: 100,
     min: 0,
     max: 100,
     icon: "skull",
     role: "vital",
-    tone: "down",
     bands: { critical: "Dread consumes you." },
   });
   // Push straight to the critical band on the next tick's threshold pass -
   // engine.setStock bypasses rule effects, so poke it directly then tick to
-  // let raiseVitalAlarms notice the crossing.
-  engine.setStock(ara, "dread", 100);
+  // let raiseVitalAlarms notice the crossing. Every vital reads up as good,
+  // so the crossing is toward the floor.
+  engine.setStock(ara, "dread", 0);
   engine.tick();
 
   let alarm = engine
@@ -94,7 +93,7 @@ test("stockpilable is rejected on a non-pack role", () => {
   );
 });
 
-test("role/tone/bands are validated", () => {
+test("role/bands are validated", () => {
   let engine = makeSurvivalEngine();
   assert.throws(
     () =>
@@ -104,15 +103,6 @@ test("role/tone/bands are validated", () => {
         role: "bogus" as any,
       }),
     /role must be one of/,
-  );
-  assert.throws(
-    () =>
-      engine.setStockDefault("y", {
-        value: 0,
-        icon: "gear",
-        tone: "sideways" as any,
-      }),
-    /tone must be/,
   );
   assert.throws(
     () =>

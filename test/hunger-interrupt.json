@@ -122,7 +122,6 @@
         "icon": "health",
         "color": "#e56b6f",
         "label": "Health",
-        "tone": "up",
         "role": "vital"
       },
       "satiation": {
@@ -130,7 +129,6 @@
         "icon": "food",
         "color": "#e0453f",
         "label": "Satiation",
-        "tone": "up",
         "role": "vital"
       },
       "hydration": {
@@ -138,7 +136,6 @@
         "icon": "water",
         "color": "#5c9fd4",
         "label": "Hydration",
-        "tone": "up",
         "role": "vital"
       },
       "food": {
@@ -148,7 +145,6 @@
         "color": "#e0453f",
         "stockpilable": true,
         "label": "Food",
-        "tone": "up",
         "role": "pack"
       }
     },
@@ -159,14 +155,22 @@
           "namePrefix": "berry-thicket",
           "tags": [],
           "density": 0.35,
-          "onTerrain": ["plains"],
+          "onTerrain": [
+            "plains"
+          ],
           "minSpacing": 2,
           "spawnKeepout": 5,
           "stocks": {
             "food": {
-              "value": [6, 12],
+              "value": [
+                6,
+                12
+              ],
               "min": 0,
-              "max": [13, 19]
+              "max": [
+                13,
+                19
+              ]
             }
           },
           "occupancy": "tile"

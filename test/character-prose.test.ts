@@ -220,11 +220,11 @@ test("blocked reasons ride the teaching window, then slim to names", () => {
   assert.doesNotMatch(slim, /stand at a stone outcrop/);
 });
 
-// Which gauge is in trouble comes from the scenario's own display tone, never
-// from a stock's name: a rising hunger is dire near its max, a falling health
-// near its min, and the renderer must not need to know either word to say so.
-// A world whose vitality is called `integrity` reads exactly the same.
-test("the vitals alarm follows the scenario's tone, not a stock name", () => {
+// Which gauge is in trouble is not a per-stock choice: every vital reads up
+// as good, so low is always dire, and the renderer never needs to know what
+// any stock is called to say so. A world whose vitality is called `integrity`
+// reads exactly the same as one that calls it health.
+test("the vitals alarm reads low as dire, whatever the stock is called", () => {
   let render = (stocks: any, display: any) =>
     renderCharacterResult({
       sense: "situation",
@@ -235,26 +235,26 @@ test("the vitals alarm follows the scenario's tone, not a stock name", () => {
 
   assert.match(
     render(
-      { hunger: { value: 96, min: 0, max: 100 } },
-      { hunger: { role: "vital", tone: "down" } },
+      { warmth: { value: 4, min: 0, max: 100 } },
+      { warmth: { role: "vital" } },
     ),
-    /Your hunger is critical\./,
-    'a "down"-toned stock near its max is dire',
+    /Your warmth is critical\./,
+    "a vital near its floor is dire",
   );
   assert.match(
     render(
       { integrity: { value: 8, min: 0, max: 100 } },
-      { integrity: { role: "vital", tone: "up" } },
+      { integrity: { role: "vital" } },
     ),
     /Your integrity is critical\./,
     "the alarm never depended on the stock being called health",
   );
-  // No tone declared: nothing to go on but the raw fraction, so a full gauge
-  // reads as well - the renderer must not guess a direction from the name.
+  // A full gauge reads as well - the renderer never needs a direction to
+  // guess at, only the fraction.
   assert.match(
     render(
-      { hunger: { value: 96, min: 0, max: 100 } },
-      { hunger: { role: "vital" } },
+      { warmth: { value: 96, min: 0, max: 100 } },
+      { warmth: { role: "vital" } },
     ),
     /You are well\./,
   );
@@ -270,19 +270,19 @@ test("vitals speak in bands while the pack still counts", () => {
       name: "Bex",
       alive: true,
       stocks: {
-        hunger: { value: 92, min: 0, max: 100 },
+        warmth: { value: 8, min: 0, max: 100 },
         food: { value: 2, min: 0, max: 5 },
         wood: { value: 0, min: 0, max: 5 },
       },
     },
     display: {
-      hunger: { role: "vital", tone: "down" },
-      food: { role: "pack", tone: "up" },
-      wood: { role: "pack", tone: "up" },
+      warmth: { role: "vital" },
+      food: { role: "pack" },
+      wood: { role: "pack" },
     },
   });
 
-  assert.doesNotMatch(text, /92|\/100/, "no vital ever shows a figure");
+  assert.doesNotMatch(text, /\b8\b|\/100/, "no vital ever shows a figure");
   assert.match(text, /Carrying: food 2\/5\./);
   assert.doesNotMatch(text, /wood/, "an empty pack slot is not worth a word");
 });
@@ -296,12 +296,11 @@ test("an authored band sentence wins over the generic one", () => {
     you: {
       name: "Bex",
       alive: true,
-      stocks: { hunger: { value: 96, min: 0, max: 100 } },
+      stocks: { satiation: { value: 4, min: 0, max: 100 } },
     },
     display: {
-      hunger: {
+      satiation: {
         role: "vital",
-        tone: "down",
         bands: { critical: "You are starving. Eat now." },
       },
     },
@@ -324,7 +323,7 @@ test("a stat speaks adjectivally when banded, and never shows a figure", () => {
       stocks: { courage: { value: 8, min: 0, max: 100 } },
     },
     display: {
-      courage: { tone: "up", role: "stat" },
+      courage: { role: "stat" },
     },
   });
 
@@ -342,7 +341,7 @@ test("a stat stays silent when it's not in a band", () => {
       stocks: { courage: { value: 90, min: 0, max: 100 } },
     },
     display: {
-      courage: { tone: "up", role: "stat" },
+      courage: { role: "stat" },
     },
   });
 
@@ -362,8 +361,8 @@ test("a stat is excluded from the Carrying line even when it isn't banded", () =
       },
     },
     display: {
-      courage: { tone: "up", role: "stat" },
-      wood: { tone: "up", role: "pack" },
+      courage: { role: "stat" },
+      wood: { role: "pack" },
     },
   });
 

@@ -121,30 +121,27 @@ function sweepAction(
 }
 
 // Is this effect a price the actor pays - a subtraction from its own stocks
-// with nothing given back? Judged from shape only, never from the stock's name:
-// a negative adjust on a "down is good" gauge (a thirst that falls when you
-// drink) is the relief the verb exists to deliver, so it is a payoff and not a
-// price. Anything whose size is an expression rather than a literal number, or
-// whose target is a dynamic reference, is left alone - the sign is not knowable
-// from the shape, and a false alarm on a working rule costs more than a miss.
-function isPrice(eff: unknown, display: Record<string, StockDisplay>): boolean {
+// with nothing given back? Judged from shape only, never from the stock's
+// name: every gauge in this world reads up as good, so a negative adjust is
+// always a cost - the relief a verb delivers (easing hunger, slaking thirst)
+// is authored as a rise, never a fall (see StockSpec). Anything whose size is
+// an expression rather than a literal number, or whose target is a dynamic
+// reference, is left alone - the sign is not knowable from the shape, and a
+// false alarm on a working rule costs more than a miss.
+function isPrice(eff: unknown): boolean {
   let adjust = (eff as { adjust?: Record<string, unknown> })?.adjust;
   if (!adjust || adjust.of !== undefined) return false;
   if (typeof adjust.by !== "number" || adjust.by >= 0) return false;
-  if (typeof adjust.target !== "string") return false;
-  return display[adjust.target]?.tone !== "down";
+  return typeof adjust.target === "string";
 }
 
 // Everything that is not a price is a payoff: a spawn, a transfer, a tag, a
 // move, a relief. forEach is transparent - it pays off if any of its branches
 // does.
-function isPayoff(
-  eff: unknown,
-  display: Record<string, StockDisplay>,
-): boolean {
+function isPayoff(eff: unknown): boolean {
   let each = (eff as { forEach?: { do?: unknown[] } })?.forEach;
-  if (each) return (each.do ?? []).some((e) => isPayoff(e, display));
-  return !isPrice(eff, display);
+  if (each) return (each.do ?? []).some((e) => isPayoff(e));
+  return !isPrice(eff);
 }
 
 // Every stock name a literal adjust/set/transfer effect writes, collected
@@ -229,11 +226,7 @@ function lintUnknownStockWrites(
 // whether a built thing reserves its tile - is the director's judgment, and
 // belongs in the director's prompt rather than in a list of English words the
 // kernel pretends to understand.
-function lintActionBody(
-  rule: { id: string; do?: unknown },
-  display: Record<string, StockDisplay>,
-  warnings: string[],
-) {
+function lintActionBody(rule: { id: string; do?: unknown }, warnings: string[]) {
   let body = Array.isArray(rule.do) ? rule.do : [];
   if (body.length === 0) {
     warnings.push(
@@ -241,7 +234,7 @@ function lintActionBody(
     );
     return;
   }
-  if (!body.some((eff) => isPayoff(eff, display)))
+  if (!body.some((eff) => isPayoff(eff)))
     warnings.push(
       `action "${rule.id}" only spends - every effect in its body subtracts from the actor and nothing is produced, moved, or placed. Characters will pay the cost, be told the action completed, and find the world unchanged. If this verb makes a thing, spawn that thing here; if it relieves something, adjust the gauge it relieves.`,
     );
@@ -323,10 +316,10 @@ function literalCondStocks(cond: unknown): string[] {
 }
 
 // Whether a literal adjust effect moves a vital stock in the harmful
-// direction, judged from shape plus the vital's own tone - never from its
-// name. Ambiguous shapes (a dynamic by/target, no tone on record) are left
-// alone: a false alarm on a working rule costs more than a miss, the same
-// doctrine as isPrice/isPayoff.
+// direction, judged from shape - never from its name. Every vital reads up as
+// good, so the harmful direction is always a fall. Ambiguous shapes (a
+// dynamic by/target) are left alone: a false alarm on a working rule costs
+// more than a miss, the same doctrine as isPrice/isPayoff.
 function harmsVital(
   eff: unknown,
   display: Record<string, StockDisplay>,
@@ -335,14 +328,8 @@ function harmsVital(
   if (!adjust || adjust.of !== undefined) return null;
   if (typeof adjust.by !== "number" || typeof adjust.target !== "string")
     return null;
-  let hint = display[adjust.target];
-  if (hint?.role !== "vital") return null;
-  // Mirrors isPrice's convention: tone "down" means harm lies toward the
-  // ceiling (hunger rising), so a positive adjust is what harms it; any other
-  // tone (including undefined) means harm lies toward the floor (health
-  // falling), so a negative adjust harms it.
-  let harmful = hint.tone === "down" ? adjust.by > 0 : adjust.by < 0;
-  return harmful ? adjust.target : null;
+  if (display[adjust.target]?.role !== "vital") return null;
+  return adjust.by < 0 ? adjust.target : null;
 }
 
 // The name of a vital this rule harms, if any - its own `do` body (including
@@ -368,14 +355,11 @@ function ruleHarmsVital(
   if (
     rule.phase === "flow" &&
     typeof rule.target === "string" &&
-    typeof rule.rate === "number"
-  ) {
-    let hint = display[rule.target];
-    if (hint?.role === "vital") {
-      let harmful = hint.tone === "down" ? rule.rate > 0 : rule.rate < 0;
-      if (harmful) return rule.target;
-    }
-  }
+    typeof rule.rate === "number" &&
+    display[rule.target]?.role === "vital" &&
+    rule.rate < 0
+  )
+    return rule.target;
   return null;
 }
 
@@ -411,6 +395,58 @@ function lintLethalUnmarkedGate(
   }
 }
 
+// Whether this rule signals danger to a character - a threshold that harms
+// another stock, or a watch whose emit interrupts the subject's hands. The
+// two shapes an alarm actually takes in this DSL (see add_rule.md).
+function ruleSignalsDanger(rule: unknown): boolean {
+  let r = rule as { do?: unknown; phase?: string; emit?: { interrupt?: unknown } };
+  if (r.phase === "watch") return typeof r.emit?.interrupt === "string";
+  return (Array.isArray(r.do) ? r.do : []).some((eff) => {
+    let adjust = (eff as { adjust?: Record<string, unknown> })?.adjust;
+    return (
+      !!adjust &&
+      adjust.of === undefined &&
+      typeof adjust.by === "number" &&
+      adjust.by < 0
+    );
+  });
+}
+
+// Genesis run 3a89cfab: exposure was declared role:"vital" and wired to rise
+// toward harm (a threshold at "gte 100"), but every vital in this world reads
+// up as good - low is always the emergency. The band prose read the stock
+// backwards: it screamed at exposure 0.8 and went silent at 100, the one tick
+// health actually started draining. Solving the problem escalated the alarm.
+//
+// The fix isn't a per-stock switch (that's the field this refactor removed -
+// it's what let the mismatch exist undetected). It's catchable from shape: a
+// single, literal `{cmp:"gte"|"gt", left:{stock}, right:number}` gating a
+// rule that harms is the exact shape of "this stock's crisis is high", which
+// can never be correct once every vital's crisis is defined as low. Compound
+// conditions (all/any/not) are left alone - a co-gate inside an "all" isn't
+// necessarily the rule's own trigger, and a false alarm here costs more than
+// a miss, the same doctrine as every other check in this file.
+function lintBackwardsVitalGate(
+  rule: unknown,
+  display: Record<string, StockDisplay>,
+  warnings: string[],
+) {
+  let r = rule as { id: string; when?: unknown; phase?: string };
+  if (r.phase !== "threshold" && r.phase !== "watch") return;
+  let when = r.when as
+    | { cmp?: unknown; left?: { stock?: unknown }; right?: unknown }
+    | undefined;
+  if (!when || typeof when.cmp !== "string") return;
+  if (when.cmp !== "gte" && when.cmp !== "gt") return;
+  let name = when.left?.stock;
+  if (typeof name !== "string" || typeof when.right !== "number") return;
+  if (display[name]?.role !== "vital") return;
+  if (!ruleSignalsDanger(rule)) return;
+  warnings.push(
+    `"${r.id}" signals danger when "${name}" is HIGH, but every vital in this world treats low as the emergency (up is good) - this alarm reads backwards: quiet while "${name}" climbs toward real trouble, loud the moment it's actually fine. Either flip the comparison to "lte"/"lt", or "${name}" is really named for its problem rather than its relief - name it for the relief instead (warmth, not cold) so a low value is naturally the danger.`,
+  );
+}
+
 // Lint one rule by simulation. `rules` is the full candidate set and must
 // already contain the rule under test - which is how one code path serves both
 // add_rule (candidate = live set, now including the newcomer) and tweak_rule
@@ -432,6 +468,7 @@ export function dryRunRule(
 
   lintUnknownStockWrites(rule, opts.knownStocks, warnings);
   lintLethalUnmarkedGate(rule, opts.display ?? {}, warnings);
+  lintBackwardsVitalGate(rule, opts.display ?? {}, warnings);
 
   // A selector that matches nothing is almost always a typo'd tag/kind - but
   // it is also the legitimate shape of a rule awaiting entities the GM spawns
@@ -457,7 +494,7 @@ export function dryRunRule(
   }
 
   if ("kind" in rule && rule.kind === "action") {
-    lintActionBody(rule, opts.display ?? {}, warnings);
+    lintActionBody(rule, warnings);
     lintSpawnIds(rule, warnings, notes);
     sweepAction(world, rules, ruleId, opts, notes);
     return { ticks: 0, warnings, notes };

@@ -769,12 +769,6 @@ function registerGmTools(
           .describe(
             "Friendly label for prose and the dashboard (e.g. 'warmth'); defaults to the stock name",
           ),
-        tone: schema
-          .enum(["up", "down"])
-          .optional()
-          .describe(
-            'Which direction is bad: "up" (more is worse, e.g. hunger) or "down" (less is worse, e.g. health). Drives band alarms on a vital and bar coloring everywhere.',
-          ),
         bands: schema
           .object({
             pressing: schema.string().trim().min(1).optional(),
@@ -792,7 +786,7 @@ function registerGmTools(
         openWorldHint: false,
       },
     },
-    async ({ stock, value, min, max, icon, color, role, stockpilable, label, tone, bands }) =>
+    async ({ stock, value, min, max, icon, color, role, stockpilable, label, bands }) =>
       coordinator.gmSetStockDefault(sessionId, stock, {
         value,
         min,
@@ -802,7 +796,6 @@ function registerGmTools(
         role,
         stockpilable,
         label,
-        tone,
         bands,
       }),
   );

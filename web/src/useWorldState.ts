@@ -48,6 +48,8 @@ export interface FeedItem {
   expectation?: string;
 }
 
+let hiddenFeedEventText = /\bbegins to (?:explore|travel)\b/;
+
 // One law of the physics ledger: a runtime-minted action rule with its
 // provenance - who speculated for it, when, and how fast the Oracle answered.
 export interface LawCard {
@@ -375,6 +377,11 @@ function createWorldState() {
       .filter((e) => e.type !== "arrived")
       .filter((e) => e.type !== "order_completed")
       .filter((e) => e.type !== "order_started")
+      .filter(
+        (e) =>
+          e.type !== "action_started" ||
+          !hiddenFeedEventText.test(e.text ?? ""),
+      )
       .map((e) => {
         let kind: FeedItem["kind"] =
           e.type === "speculative_attempt"

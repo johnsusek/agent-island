@@ -45,15 +45,17 @@ export interface StockSpec {
   // What this stock IS - see StockRole. Omitted, the stock is pack.
   role?: StockRole;
   // How the stock reads to a character and on the dashboard. `label` names it
-  // in prose ("your warmth"); `tone` says which direction is bad ("up": less
-  // is worse, like health; "down": more is worse, like hunger); `bands` are
-  // what the world tells a vital/stat at each depth of trouble, with any band
-  // left unwritten getting a default built from the label. This is the ONLY
-  // home for a stock's presentation - a stock spec is both the declaration
-  // and the authoring, so a GM's set_stock_default carries it at runtime with
-  // no second registry to keep in step (see engine.ts stockDisplay).
+  // in prose ("your warmth"); `bands` are what the world tells a vital/stat at
+  // each depth of trouble, with any band left unwritten getting a default
+  // built from the label. Direction is not a choice here: every gauge in this
+  // world reads up as good, so harm always sits toward the floor - a stock
+  // whose harm rises (a cold, an exposure) is named for its relief instead
+  // (warmth, not cold), which is what makes that true without a field to get
+  // backwards. This is the ONLY home for a stock's presentation - a stock spec
+  // is both the declaration and the authoring, so a GM's set_stock_default
+  // carries it at runtime with no second registry to keep in step (see
+  // engine.ts stockDisplay).
   label?: string;
-  tone?: "up" | "down";
   bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
 }
 
@@ -67,7 +69,6 @@ export interface StockDisplay {
   role: StockRole;
   scope: "agent" | "world";
   label?: string;
-  tone?: "up" | "down";
   bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
 }
 

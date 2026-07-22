@@ -146,29 +146,27 @@ test("an action whose body only spends is warned about", () => {
   );
 });
 
-// The check reads shape, not stock names: a negative adjust on a "down is
-// bad" gauge is a price, but on a "down is good" (tone "down") gauge it is
-// the relief the verb exists to deliver. Its tone is the only thing telling
-// the two subtractions apart, so this registers a synthetic down-tone stock
-// rather than relying on any scenario's own vitals.
+// The check reads shape, not stock names: every gauge in this world reads up
+// as good, so a relief is authored as a rise (satiation, not hunger) and only
+// a fall is ever a price. A rule whose only effect raises a vital is a
+// relief, not a spend, and must not be warned about.
 
-test("an action that only relieves a down-tone gauge is not warned about", () => {
+test("an action that only relieves a vital is not warned about", () => {
   let engine = survival();
   engine.setStockDefault("chill", {
     value: 0,
-    tone: "down",
     role: "vital",
     icon: "ice-cube",
   });
   engine.addAgent("Ada");
   engine.addRule({
-    id: "sip",
+    id: "warm_up",
     kind: "action",
     duration: 1,
-    do: [{ adjust: { target: "chill", by: -45 } }],
+    do: [{ adjust: { target: "chill", by: 45 } }],
   });
 
-  assert.deepEqual(engine.dryRunRule("sip").warnings, []);
+  assert.deepEqual(engine.dryRunRule("warm_up").warnings, []);
 });
 
 test("a spawn of an undrawn kind is warned about", () => {
@@ -226,4 +224,81 @@ test("add_rule and tweak_rule surface the dry-run report through the coordinator
   } finally {
     colony.stop();
   }
+});
+
+// Genesis run 3a89cfab: exposure was declared role:"vital" and wired to rise
+// toward harm - a threshold at "gte 100" harming health - while every vital
+// in this world reads up as good. The band prose read the stock backwards:
+// screaming at exposure 0.8, silent at 100, the one tick health actually
+// started draining. This is the shape that mismatch takes and must be caught
+// before a character ever sees it.
+test("a threshold that harms when a vital is HIGH is flagged as backwards", () => {
+  let engine = survival();
+  engine.setStockDefault("exposure", { value: 0, role: "vital", icon: "sun" });
+  engine.addAgent("Ada");
+  engine.addRule({
+    id: "exposure_hurts",
+    phase: "threshold",
+    each: { tag: "agent" },
+    when: { cmp: "gte", left: { stock: "exposure" }, right: 100 },
+    do: [{ adjust: { target: "health", by: -1 } }],
+  });
+
+  let report = engine.dryRunRule("exposure_hurts");
+  assert.ok(
+    report.warnings.some(
+      (w) => w.includes('"exposure"') && w.includes("backwards"),
+    ),
+    `expected a backwards-gate warning, got: ${JSON.stringify(report.warnings)}`,
+  );
+});
+
+// The mirror image is silent: a threshold gated low on a vital is exactly
+// the shape every real alarm in this codebase already takes.
+test("a threshold that harms when a vital is LOW is not flagged", () => {
+  let engine = survival();
+  engine.setStockDefault("exposure", { value: 100, role: "vital", icon: "sun" });
+  engine.addAgent("Ada");
+  engine.addRule({
+    id: "exposure_hurts",
+    phase: "threshold",
+    each: { tag: "agent" },
+    when: { cmp: "lte", left: { stock: "exposure" }, right: 0 },
+    do: [{ adjust: { target: "health", by: -1 } }],
+  });
+
+  let report = engine.dryRunRule("exposure_hurts");
+  assert.ok(
+    !report.warnings.some((w) => w.includes("backwards")),
+    `expected no backwards-gate warning, got: ${JSON.stringify(report.warnings)}`,
+  );
+});
+
+// A compound gate (all/any/not) is left alone even when one branch is a
+// high-gated vital: a co-gate inside an "all" isn't necessarily the rule's
+// own trigger (see cold-stalls-recovery's shape, pre-split), and a false
+// alarm on a working rule costs more than a miss - the same doctrine as
+// every other check in this file.
+test("a compound gate on a high vital is not flagged", () => {
+  let engine = survival();
+  engine.setStockDefault("morale", { value: 0, role: "vital", icon: "sun" });
+  engine.addAgent("Ada");
+  engine.addRule({
+    id: "reckless_when_confident",
+    phase: "threshold",
+    each: { tag: "agent" },
+    when: {
+      all: [
+        { cmp: "gte", left: { stock: "morale" }, right: 80 },
+        { cmp: "gte", left: { stock: "energy" }, right: 50 },
+      ],
+    },
+    do: [{ adjust: { target: "health", by: -1 } }],
+  });
+
+  let report = engine.dryRunRule("reckless_when_confident");
+  assert.ok(
+    !report.warnings.some((w) => w.includes("backwards")),
+    `expected no backwards-gate warning on a compound condition, got: ${JSON.stringify(report.warnings)}`,
+  );
 });

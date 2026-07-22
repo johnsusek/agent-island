@@ -69,7 +69,6 @@
         "icon": "health",
         "color": "#e56b6f",
         "label": "Health",
-        "tone": "up",
         "role": "vital"
       },
       "satiation": {
@@ -77,7 +76,6 @@
         "icon": "food",
         "color": "#e0453f",
         "label": "Satiation",
-        "tone": "up",
         "role": "vital"
       },
       "morale": {
@@ -85,7 +83,6 @@
         "icon": "morale",
         "color": "#d2b45c",
         "label": "Morale",
-        "tone": "up",
         "role": "stat"
       }
     }

@@ -175,17 +175,17 @@ test("deposit refuses a vital gauge - a resource the ruleset never marked stockp
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   pileOn(world, ara);
-  // Hunger is carried like any stock and Ara has plenty of it, but it is not
-  // stockpilable, so deposit must not let it be dumped away for a free reset.
-  ara.stocks.hunger = stock(60, 0, 100);
+  // Satiation is carried like any stock and Ara has plenty of it, but it is
+  // not stockpilable, so deposit must not let it be dumped away for a free reset.
+  ara.stocks.satiation = stock(60, 0, 100);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "hunger" }, PLAINS)
+    commit(world, survivalRules, "ara", "deposit", { item: "satiation" }, PLAINS)
       .ok,
     false,
     "can't dump a gauge into the pile",
   );
-  assert.equal(ara.stocks.hunger.value, 60, "hunger untouched");
+  assert.equal(ara.stocks.satiation.value, 60, "satiation untouched");
 });
 
 test("withdraw takes the whole pile when it fits in the scenario", () => {

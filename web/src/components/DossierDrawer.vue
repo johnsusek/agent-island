@@ -26,14 +26,13 @@ function roleOf(name: string): StockRole {
   return props.display[name]?.role ?? "pack";
 }
 
-// Every meter fills toward safety. The number remains the authored stock value,
-// while tone tells the visual whether a higher or lower value is healthier.
+// Every meter fills toward safety - up is always healthier, so the raw
+// position on the gauge is the wellbeing.
 function conditionMeter(name: string, stock: Stock) {
   let hint = props.display[name] ?? {};
   let span = stock.max - stock.min;
   let position = span > 0 ? (stock.value - stock.min) / span : 0;
-  let boundedPosition = Math.min(1, Math.max(0, position));
-  let wellbeing = hint.tone === "down" ? 1 - boundedPosition : boundedPosition;
+  let wellbeing = Math.min(1, Math.max(0, position));
   let badness = 1 - wellbeing;
   return {
     name,

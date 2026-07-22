@@ -277,7 +277,6 @@
         "color": "#86b35a",
         "stockpilable": true,
         "label": "Wood",
-        "tone": "up",
         "role": "pack"
       },
       "food": {
@@ -287,15 +286,13 @@
         "color": "#e0453f",
         "stockpilable": true,
         "label": "Food",
-        "tone": "up",
         "role": "pack"
       },
-      "hunger": {
-        "value": 0,
+      "satiation": {
+        "value": 100,
         "icon": "food",
         "color": "#e0453f",
-        "label": "Hunger",
-        "tone": "down",
+        "label": "Satiation",
         "role": "vital"
       }
     }
