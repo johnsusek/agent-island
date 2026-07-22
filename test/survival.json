@@ -5,9 +5,158 @@
     "min": 1,
     "max": 8
   },
-  "include": ["metabolism"],
   "overlay": {
     "dynamicRules": [
+      {
+        "id": "hunger-rises",
+        "description": "Every character grows hungrier each tick; eating is what holds it back.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "hunger",
+        "rate": 0.1,
+        "channel": "hunger.rise"
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "When a character's hunger maxes out, their health starts draining.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "hunger"
+          },
+          "right": 100
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -1
+            }
+          }
+        ]
+      },
+      {
+        "id": "starving",
+        "description": "Fires once when a character first becomes starving — the hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "hunger"
+          },
+          "right": 100
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - eat from your pack now, or make getting food your only task"
+        }
+      },
+      {
+        "id": "critical",
+        "description": "Fires once when a character's health first drops to a critical level — the last-chance warning.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 25
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "critical",
+          "interrupt": "your health is critical - stop and see to your survival before anything else"
+        }
+      },
+      {
+        "id": "death",
+        "description": "When a character's health hits zero they die: untagged out of the living and left as a corpse.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "died"
+        }
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 2,
+        "description": "Eat food from your own pack to ease your hunger, gathered from a source or taken from a stockpile.",
+        "params": [],
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "food"
+          },
+          "right": 1
+        },
+        "requireReason": "must be carrying food to eat",
+        "do": [
+          {
+            "adjust": {
+              "target": "food",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "hunger",
+              "by": -40
+            }
+          }
+        ],
+        "emit": {
+          "type": "ate"
+        }
+      },
       {
         "id": "build_shelter",
         "kind": "action",
@@ -536,7 +685,9 @@
             "spawn": {
               "kind": "farm",
               "idPrefix": "plot",
-              "tags": ["food"],
+              "tags": [
+                "food"
+              ],
               "stocks": {
                 "food": {
                   "value": 2,
@@ -931,12 +1082,20 @@
             "move": {
               "dx": {
                 "round": {
-                  "rand": [-1, 1, "wx"]
+                  "rand": [
+                    -1,
+                    1,
+                    "wx"
+                  ]
                 }
               },
               "dy": {
                 "round": {
-                  "rand": [-1, 1, "wy"]
+                  "rand": [
+                    -1,
+                    1,
+                    "wy"
+                  ]
                 }
               }
             }
@@ -1705,6 +1864,23 @@
     ],
     "removedBaseIds": [],
     "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f"
+      },
+      "hunger": {
+        "value": 0,
+        "icon": "food",
+        "color": "#e0453f"
+      },
+      "food": {
+        "value": 0,
+        "max": 12,
+        "icon": "food",
+        "color": "#e0453f",
+        "stockpilable": true
+      },
       "thirst": {
         "value": 20,
         "icon": "water",
@@ -1742,19 +1918,35 @@
         "color": "#9fc7e6"
       }
     },
+    "fixtures": [
+      {
+        "kind": "ledger",
+        "id": "camp-ledger",
+        "tags": [],
+        "atSpawn": true,
+        "occupancy": "blocking"
+      }
+    ],
     "setup": [
       {
         "scatter": {
           "kind": "tree",
           "namePrefix": "tree",
-          "tags": ["wood"],
+          "tags": [
+            "wood"
+          ],
           "density": 1,
-          "onTerrain": ["plains"],
+          "onTerrain": [
+            "plains"
+          ],
           "minSpacing": 2,
           "spawnKeepout": 5,
           "stocks": {
             "wood": {
-              "value": [3, 5],
+              "value": [
+                3,
+                5
+              ],
               "min": 0
             }
           },
@@ -1767,14 +1959,22 @@
           "namePrefix": "berry-thicket",
           "tags": [],
           "density": 0.35,
-          "onTerrain": ["plains"],
+          "onTerrain": [
+            "plains"
+          ],
           "minSpacing": 2,
           "spawnKeepout": 5,
           "stocks": {
             "food": {
-              "value": [6, 12],
+              "value": [
+                6,
+                12
+              ],
               "min": 0,
-              "max": [13, 19]
+              "max": [
+                13,
+                19
+              ]
             }
           },
           "occupancy": "tile"
@@ -1799,26 +1999,15 @@
         }
       }
     ],
-    "defaultTerrain": "plains",
-    "terrainLayers": [
-      {
-        "terrain": "water",
-        "gen": {
-          "noise": {
-            "scale": 14,
-            "above": 0.66,
-            "octaves": 2
-          }
-        }
-      }
-    ],
-    "connect": true,
     "terrainSpecs": {
       "plains": {
         "moveCost": 1,
         "visual": {
           "sprite": {
-            "size": [16, 16],
+            "size": [
+              16,
+              16
+            ],
             "kind": "terrain",
             "palette": {
               ".": "none",
@@ -1853,7 +2042,10 @@
         "passable": false,
         "visual": {
           "sprite": {
-            "size": [16, 16],
+            "size": [
+              16,
+              16
+            ],
             "kind": "terrain",
             "palette": {
               ".": "none",
@@ -1885,10 +2077,119 @@
         }
       }
     },
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "water",
+        "gen": {
+          "noise": {
+            "scale": 14,
+            "above": 0.66,
+            "octaves": 2
+          }
+        }
+      }
+    ],
+    "connect": true,
     "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [
+            16,
+            32
+          ],
+          "kind": "token",
+          "mirror": "horizontal",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#ab947a",
+            "S": "#966c6c",
+            "h": "#4c3e24",
+            "t": "#4d65b4",
+            "T": "#323353",
+            "r": "#694f62",
+            "b": "#3e3546"
+          },
+          "grid": [
+            "........",
+            "........",
+            "........",
+            "......kk",
+            "....khhh",
+            "....khhh",
+            "....khhh",
+            "....khhh",
+            "....ksks",
+            "....ksss",
+            ".....kSs",
+            "......SS",
+            "...ktttt",
+            "...kTttt",
+            "...kTttt",
+            "...kTttt",
+            "...kTttt",
+            "...kTttt",
+            "...kTttt",
+            "...ksttt",
+            "...ktttt",
+            "....krrr",
+            "....krrk",
+            "....krrk",
+            "....krrk",
+            "....krrk",
+            "....krrk",
+            "....krrk",
+            "....kbbk",
+            "....kbbk",
+            "....kbbk",
+            "....kbbk"
+          ]
+        }
+      },
+      "dead": {
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "b": "#9babb2",
+            "w": "#c7dcd0"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            ".............kwk",
+            "............kwk.",
+            "...........kwk..",
+            "....kbbbk.kwk...",
+            "...kbwwwbbk.....",
+            "...kbwbbbbk.....",
+            "...kbkbbkbk.....",
+            "...kbbkkbbk.....",
+            "...kbwbbbbk.....",
+            "....kwbwbk......",
+            "................",
+            ".kwk......kwk...",
+            ".kwkbbbbbbkwk..."
+          ],
+          "mirror": "none"
+        },
+        "icon": "dead",
+        "color": "#9a8f7a",
+        "label": "remains"
+      },
       "food": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1924,7 +2225,10 @@
       },
       "water": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1959,7 +2263,10 @@
       },
       "predator": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -1996,7 +2303,10 @@
       },
       "wolf": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2031,7 +2341,10 @@
       },
       "carcass": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2066,7 +2379,10 @@
       },
       "forage": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2103,7 +2419,10 @@
       },
       "fire": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2139,7 +2458,10 @@
       },
       "item": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2174,7 +2496,10 @@
       },
       "stone": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2208,7 +2533,10 @@
       },
       "iron": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2243,7 +2571,10 @@
       },
       "metal": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2278,7 +2609,10 @@
       },
       "fish": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2313,7 +2647,10 @@
       },
       "tree": {
         "sprite": {
-          "size": [16, 32],
+          "size": [
+            16,
+            32
+          ],
           "kind": "token",
           "mirror": "none",
           "palette": {
@@ -2365,7 +2702,10 @@
       },
       "quarry": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2399,7 +2739,10 @@
       },
       "vein": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2435,7 +2778,10 @@
       },
       "farm": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2470,7 +2816,10 @@
       },
       "hearth": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -2508,7 +2857,10 @@
       },
       "smelter": {
         "sprite": {
-          "size": [16, 32],
+          "size": [
+            16,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -2560,7 +2912,10 @@
       },
       "forge": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "mirror": "none",
           "palette": {
@@ -2597,7 +2952,10 @@
       },
       "shelter": {
         "sprite": {
-          "size": [32, 32],
+          "size": [
+            32,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -2650,7 +3008,10 @@
       },
       "structure": {
         "sprite": {
-          "size": [32, 32],
+          "size": [
+            32,
+            32
+          ],
           "kind": "token",
           "mirror": "horizontal",
           "palette": {
@@ -2704,7 +3065,10 @@
       },
       "stockpile": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2740,7 +3104,10 @@
       },
       "storage": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2775,7 +3142,10 @@
       },
       "ledger": {
         "sprite": {
-          "size": [16, 16],
+          "size": [
+            16,
+            16
+          ],
           "kind": "token",
           "palette": {
             ".": "none",
@@ -2810,6 +3180,10 @@
       }
     },
     "describeEvent": {
+      "ate": "{{ ctx.name }} eats from their pack (hunger {{ ctx.stocks.hunger.value }}).",
+      "starving": "{{ ctx.name }} is starving.",
+      "critical": "{{ ctx.name }} is in critical condition (health {{ ctx.stocks.health.value }}).",
+      "died": "{{ ctx.name }} has died.",
       "shelter_complete": "{{ ctx.name }} builds the camp shelter.",
       "freezing": "{{ ctx.name }} is freezing.",
       "gathered": "{{ ctx.name }} gathers food into their pack (carrying {{ ctx.stocks.food.value }}).",
@@ -2905,15 +3279,6 @@
         "label": "Season",
         "scope": "world"
       }
-    },
-    "fixtures": [
-      {
-        "kind": "ledger",
-        "id": "camp-ledger",
-        "tags": [],
-        "atSpawn": true,
-        "occupancy": "blocking"
-      }
-    ]
+    }
   }
 }

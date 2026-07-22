@@ -118,8 +118,8 @@ test("the shipped packs mark their needs alarms as interrupting", () => {
     let parsed = JSON.parse(
       readFileSync(path.resolve(`test/${pack}.json`), "utf8"),
     );
-    // Resolve includes: the needs alarms (starving/critical) now ride the shared
-    // `metabolism` ruleset, so search the composed overlay, not just the inline rules.
+    // Resolve includes as the live loader does (the fixture is self-contained
+    // today, but the sweep shouldn't assume that).
     let overlay = resolveIncludes(
       parsed,
       rulesetsDirFor(path.resolve("config/scenarios")),

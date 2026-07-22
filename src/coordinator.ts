@@ -114,9 +114,6 @@ interface ColonyOptions {
   // addition to scenariosDir), so a saved scenario shadows a bundled one of the
   // same name. Defaults to scenariosDir when unset (single-dir behavior).
   scenariosSaveDir?: string | null;
-  // Where scenario `include` names resolve. Defaults to the scenarios dir's
-  // sibling rulesets dir (config/scenarios -> config/rulesets).
-  rulesetsDir?: string;
   // Optional file that remembers which custom scenarios are active.
   activeScenariosPath?: string | null;
   // Initial custom scenarios when no active-scenario state file exists.

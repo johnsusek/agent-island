@@ -44,11 +44,10 @@ import type { Scenario, StockSpec } from "../src/rules/scenario.js";
 // onto it - sweeping the whole directory would merge them into a
 // franken-world no deployment runs, so the scaffold pins the default active
 // set instead.
-// Resolve the scenario's `include`d rulesets exactly as the live loader does, so
-// the merged overlay carries the rules the scenario pulls in (survival includes
-// the shared `metabolism` ruleset) and not just the ones left inline in the file.
-// The survival scenario itself is a test fixture and lives here in test/, but
-// its includes still resolve against the repo's shared config/rulesets dir.
+// Resolve any `include`d rulesets exactly as the live loader does. The survival
+// fixture is self-contained today (its include list is empty), so this is a
+// straight read, but staying on the loader path keeps the scaffold honest if a
+// fixture ever pulls a ruleset in again.
 function readScenario(name: string): { overlay: RuleOverlay } {
   let parsed = JSON.parse(
     readFileSync(path.resolve(`test/${name}.json`), "utf8"),
@@ -62,12 +61,10 @@ function readScenario(name: string): { overlay: RuleOverlay } {
 }
 let scenarioNames = ["survival"];
 
-// Colony options that boot the survival fixture: the scenario file lives here
-// in test/, but its `include`d rulesets still resolve from config/rulesets.
+// Colony options that boot the survival fixture from this directory.
 export let survivalBoot = {
   scenarios: ["survival"],
   scenariosDir: path.resolve("test"),
-  rulesetsDir: path.resolve("config/rulesets"),
 };
 
 // Every scenario merged into one overlay exactly as the coordinator merges the
