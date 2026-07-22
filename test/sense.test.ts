@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
+import { survivalBoot } from "./helpers.js";
 import { describeSense, renderWake } from "../src/sense-prose.js";
 
 function withColony(fn: (colony: any) => void | Promise<void>) {
@@ -14,7 +15,7 @@ function withColony(fn: (colony: any) => void | Promise<void>) {
     statePath: null,
     rulesPath: null,
     waitTimeoutMs: 2000,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   colony.connect("s");

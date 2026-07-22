@@ -3,7 +3,7 @@ import test from "node:test";
 
 import type { WorldEngine } from "../src/rules/engine.js";
 import { createColony } from "../src/coordinator.js";
-import { makeSurvivalEngine } from "./helpers.js";
+import { makeSurvivalEngine, survivalBoot } from "./helpers.js";
 
 function survival(): WorldEngine {
   return makeSurvivalEngine();
@@ -192,7 +192,7 @@ test("dry-running leaves the live world untouched", () => {
 });
 
 test("add_rule and tweak_rule surface the dry-run report through the coordinator", () => {
-  let colony = createColony({ waitTimeoutMs: 500, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 500, ...survivalBoot });
   colony.connect("c1");
   colony.connect("gm");
   try {

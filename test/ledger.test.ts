@@ -9,14 +9,14 @@ import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
 import { describeSense } from "../src/sense-prose.js";
-import { makeSurvivalEngine } from "./helpers.js";
+import { makeSurvivalEngine, survivalBoot } from "./helpers.js";
 
 function withColony(fn: (colony: any) => void | Promise<void>) {
   let colony = createColony({
     statePath: null,
     rulesPath: null,
     waitTimeoutMs: 2000,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   colony.connect("a");

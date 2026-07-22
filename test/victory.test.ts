@@ -13,10 +13,14 @@ test("shipped victory scenarios expose agent-facing descriptions", () => {
   let expected = ["survival"];
   let actual: string[] = [];
 
-  for (let fileName of readdirSync("config/scenarios").sort()) {
-    let scenario = JSON.parse(
-      readFileSync(`config/scenarios/${fileName}`, "utf8"),
-    );
+  // The shipped scenarios live in config/scenarios; the survival fixture lives
+  // in test/. Sweep both, with includes always resolving from config/rulesets.
+  let files = [
+    ...readdirSync("config/scenarios").map((f) => `config/scenarios/${f}`),
+    "test/survival.json",
+  ].sort();
+  for (let filePath of files) {
+    let scenario = JSON.parse(readFileSync(filePath, "utf8"));
     // Resolve includes so a victory rule carried by an included ruleset is still
     // seen (today they ride the scenario, but the sweep shouldn't assume that).
     let victoryRules = (

@@ -107,6 +107,7 @@ npm test             # node --test over test/*.test.ts
 npm run typecheck && npm run typecheck:web
 ```
 
-The `survival` scenario is an engine test fixture, not a played world; played
+The `survival` scenario (test/survival.json) is an engine test fixture, not a
+played world; played
 worlds run `genesis` - a near-empty map with two clocks (hunger, thirst) and no
 remedies. Every remedy is for the characters to speculate into being.

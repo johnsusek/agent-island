@@ -12,6 +12,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
+import { survivalBoot } from "./helpers.js";
 
 test("a reset banks the outgoing world into runsDir instead of only deleting it", async () => {
   let dir = mkdtempSync(join(tmpdir(), "agent-island-archive-"));
@@ -25,7 +26,7 @@ test("a reset banks the outgoing world into runsDir instead of only deleting it"
     journalDir,
     runsDir,
     waitTimeoutMs: 500,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   try {
@@ -107,7 +108,7 @@ test("collectRunArtifacts banks extra files into the run before the wipe", async
     statePath: join(dir, "world.json"),
     runsDir,
     waitTimeoutMs: 500,
-    scenarios: ["survival"],
+    ...survivalBoot,
     collectRunArtifacts: (runDir) => {
       collected.push(runDir);
       writeFileSync(join(runDir, "memory-probe.md"), "# banked");
@@ -145,7 +146,7 @@ test("a throwing artifact collector does not block the reset", async () => {
     statePath: join(dir, "world.json"),
     runsDir: join(dir, "runs"),
     waitTimeoutMs: 500,
-    scenarios: ["survival"],
+    ...survivalBoot,
     collectRunArtifacts: () => {
       throw new Error("boom");
     },

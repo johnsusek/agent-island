@@ -116,7 +116,7 @@ test("the shipped packs mark their needs alarms as interrupting", () => {
   ];
   for (let [pack, ids] of packs) {
     let parsed = JSON.parse(
-      readFileSync(path.resolve(`config/scenarios/${pack}.json`), "utf8"),
+      readFileSync(path.resolve(`test/${pack}.json`), "utf8"),
     );
     // Resolve includes: the needs alarms (starving/critical) now ride the shared
     // `metabolism` ruleset, so search the composed overlay, not just the inline rules.

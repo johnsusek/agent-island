@@ -16,7 +16,7 @@ import test from "node:test";
 import { createColony } from "../src/coordinator.js";
 import { wipeCharacterMemories } from "../src/server.js";
 import { scenario } from "../src/rules/config.js";
-import { makeSurvivalEngine } from "./helpers.js";
+import { makeSurvivalEngine, survivalBoot } from "./helpers.js";
 
 // Production no longer hands a fresh character a known food source — it must
 // explore to find one. A blind sweep would starve the character first, so the
@@ -116,7 +116,7 @@ async function waitUntil(condition: () => boolean, timeoutMs = 500) {
 // world — it stands in for the backstop that bounds how long a turn may stall.
 
 test("a session joins by name, acts, and wait_for_change wakes on completion", async () => {
-  let colony = createColony({ waitTimeoutMs: 2000, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
   colony.connect("s1");
   try {
@@ -162,7 +162,7 @@ test("concurrent wait_for_change calls share one pending result", async () => {
 });
 
 test("durable orders run routine actions before waking for a decision", async () => {
-  let colony = createColony({ waitTimeoutMs: 2000, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
   colony.connect("session-one");
   try {
@@ -216,7 +216,7 @@ test("set_order_and_wait returns the completion observation", async () => {
 });
 
 test("another character is not woken by routine order progress", async () => {
-  let colony = createColony({ waitTimeoutMs: 30, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 30, ...survivalBoot });
   colony.start();
   colony.connect("session-one");
   colony.connect("session-two");
@@ -247,7 +247,7 @@ test("another character is not woken by routine order progress", async () => {
 });
 
 test("the world holds until every active player is waiting", async () => {
-  let colony = createColony({ waitTimeoutMs: 500, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 500, ...survivalBoot });
   colony.start();
   colony.connect("a");
   colony.connect("b");
@@ -276,7 +276,7 @@ test("minimum turn length paces all-parked turns", async () => {
   let colony = createColony({
     minTurnMs: 40,
     waitTimeoutMs: 500,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   colony.connect("a");
@@ -424,7 +424,7 @@ test("a live character can always be reclaimed, even while another session holds
 });
 
 test("a reincarnating character reclaims its body and is backfilled recent history", async () => {
-  let colony = createColony({ waitTimeoutMs: 2000, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
   colony.connect("a");
   try {
@@ -457,7 +457,7 @@ test("a reincarnating character reclaims its body and is backfilled recent histo
 });
 
 test("a reclaimed character receives only the last 10 ticks of history", async () => {
-  let colony = createColony({ waitTimeoutMs: 2000, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
   colony.connect("ara-session");
   colony.connect("bren-session");
@@ -486,7 +486,7 @@ test("a reclaimed character receives only the last 10 ticks of history", async (
 });
 
 test("witnessed activity is sight-scoped: a distant character does not see it", async () => {
-  let colony = createColony({ waitTimeoutMs: 2000, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
   colony.connect("a");
   try {
@@ -600,7 +600,7 @@ test("leave_game is controller bookkeeping, not an in-world departure", async ()
 });
 
 test("a join is hidden from characters; presence is learned at the camp ledger", async () => {
-  let colony = createColony({ waitTimeoutMs: 2000, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
   colony.connect("a");
   colony.connect("b");
@@ -868,7 +868,7 @@ test("a character driven by a standing order is spared while it runs", async () 
     waitTimeoutMs: 15,
     sessionTtlMs: 20,
     minTurnMs: 20,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   colony.connect("a");
@@ -936,7 +936,7 @@ test("world state persists across a restart and a character is reclaimed", async
     let first = createColony({
       statePath,
       waitTimeoutMs: 2000,
-      scenarios: ["survival"],
+      ...survivalBoot,
     });
     first.start();
     first.connect("s1");
@@ -952,7 +952,7 @@ test("world state persists across a restart and a character is reclaimed", async
     let second = createColony({
       statePath,
       waitTimeoutMs: 2000,
-      scenarios: ["survival"],
+      ...survivalBoot,
     });
     second.start();
     let payload = second.getAdminPayload();
@@ -978,7 +978,7 @@ test("active orders persist across a restart", () => {
     let first = createColony({
       statePath,
       waitTimeoutMs: 2000,
-      scenarios: ["survival"],
+      ...survivalBoot,
     });
     first.start();
     first.connect("session-one");
@@ -993,7 +993,7 @@ test("active orders persist across a restart", () => {
     let second = createColony({
       statePath,
       waitTimeoutMs: 2000,
-      scenarios: ["survival"],
+      ...survivalBoot,
     });
     second.start();
     let payload = second.getAdminPayload();
@@ -1054,7 +1054,7 @@ test("reset rejects invalid dimensions before replacing the world", async () => 
 });
 
 test("dead names are refused, not reincarnated", async () => {
-  let colony = createColony({ waitTimeoutMs: 2000, scenarios: ["survival"] });
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
   colony.connect("a");
   colony.connect("g");
@@ -1558,7 +1558,7 @@ test("dashboard payload keeps heavy map and observations out of the poll", () =>
   let colony = createColony({
     statePath: null,
     rulesPath: null,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   colony.connect("session");
@@ -1637,7 +1637,7 @@ test("fog revision advances when shared fog reveals new tiles", async () => {
   let colony = createColony({
     statePath: null,
     rulesPath: null,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   colony.connect("session");
@@ -1664,7 +1664,7 @@ test("GM inspection is a compact overview that drills down on demand", async () 
   let colony = createColony({
     statePath: null,
     rulesPath: null,
-    scenarios: ["survival"],
+    ...survivalBoot,
   });
   colony.start();
   colony.connect("gm");
@@ -1994,7 +1994,7 @@ test("a shutdown journal failure cannot prevent the latest state from restoring"
       engine: makeSurvivalEngine(),
       journalDir,
       statePath,
-      scenarios: ["survival"],
+      ...survivalBoot,
       waitTimeoutMs: 2000,
       journalStorage: {
         append(path, data) {
@@ -2022,7 +2022,7 @@ test("a shutdown journal failure cannot prevent the latest state from restoring"
       engine: makeSurvivalEngine(),
       journalDir,
       statePath,
-      scenarios: ["survival"],
+      ...survivalBoot,
     });
     try {
       assert.equal(
@@ -2043,7 +2043,7 @@ test("reset() deletes the journal and boots a fresh one for the new world", asyn
   try {
     let colony = createColony({
       journalDir,
-      scenarios: ["survival"],
+      ...survivalBoot,
       waitTimeoutMs: 2000,
     });
     colony.start();

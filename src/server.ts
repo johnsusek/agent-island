@@ -136,7 +136,7 @@ export function createAgentIslandServer(options: ServerOptions = {}) {
       // GM rule edits persist to their own file so they can be reused across
       // world resets, separate from the disposable world snapshot.
       rulesPath: process.env.AGENT_ISLAND_RULES ?? homePath("rules.json"),
-      // The bundled starter scenarios (blank/genesis/survival) are tracked repo
+      // The bundled starter scenarios (blank/genesis) are tracked repo
       // content, so they are READ from config/scenarios; GM-saved scenarios are
       // runtime data and land in scenariosSaveDir below, out of the repo.
       scenariosDir:

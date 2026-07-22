@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
+import { survivalBoot } from "./helpers.js";
 
 // The real-time clock is the one place the world advances on wall-clock rather
 // than on the turn barrier, so these tests use real timers and short waits. They
@@ -12,7 +13,7 @@ import { createColony } from "../src/coordinator.js";
 let sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test("the real-time clock advances the world while an agent never parks", async () => {
-  let colony = createColony({ realTimeMs: 40, scenarios: ["survival"] });
+  let colony = createColony({ realTimeMs: 40, ...survivalBoot });
   colony.start();
   colony.connect("a");
   try {
@@ -32,7 +33,7 @@ test("the real-time clock advances the world while an agent never parks", async 
 });
 
 test("setPaused freezes the real-time clock and resuming lets it run again", async () => {
-  let colony = createColony({ realTimeMs: 40, scenarios: ["survival"] });
+  let colony = createColony({ realTimeMs: 40, ...survivalBoot });
   colony.start();
   colony.connect("a");
   try {
@@ -68,7 +69,7 @@ test("setPaused freezes the real-time clock and resuming lets it run again", asy
 });
 
 test("setRealTime toggles between lockstep and real-time at runtime", async () => {
-  let colony = createColony({ scenarios: ["survival"] }); // default off
+  let colony = createColony({ ...survivalBoot }); // default off
   colony.start();
   colony.connect("a");
   try {

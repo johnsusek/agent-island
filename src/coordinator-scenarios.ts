@@ -19,6 +19,10 @@ import {
 export interface ScenarioBootOptions {
   scenariosDir?: string | null;
   scenariosSaveDir?: string | null;
+  // Where `include` names resolve. Defaults to the scenarios dir's sibling
+  // rulesets dir; tests point scenariosDir elsewhere and pin this to the
+  // repo's config/rulesets.
+  rulesetsDir?: string;
   activeScenariosPath?: string | null;
   scenarios?: string[];
 }
@@ -126,7 +130,11 @@ export function createScenarioBoot(options: ScenarioBootOptions): ScenarioBoot {
       ? resolve("config/scenarios")
       : options.scenariosDir;
   let scenarioStore = scenariosDir
-    ? createScenarioStore(scenariosDir, options.scenariosSaveDir ?? scenariosDir)
+    ? createScenarioStore(
+        scenariosDir,
+        options.scenariosSaveDir ?? scenariosDir,
+        options.rulesetsDir,
+      )
     : null;
   let activeScenariosPath = options.activeScenariosPath ?? null;
   let activeScenarios = new Set(
