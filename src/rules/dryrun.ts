@@ -27,7 +27,7 @@ import {
   type KernelWorld,
   type Rule,
 } from "./kernel.js";
-import type { DisplayHint } from "./scenario.js";
+import type { StockDisplay } from "./scenario.js";
 
 export interface DryRunReport {
   // Simulated ticks actually run: 0 for an action rule, whose body only runs
@@ -45,7 +45,11 @@ export interface DryRunOptions {
   agents: string[];
   // The scenario's display hints, so the body lint can tell a gauge that falls
   // as a benefit (thirst) from a resource that falls as a cost (wood).
-  display?: Record<string, DisplayHint>;
+  display?: Record<string, StockDisplay>;
+  // Every stock name this ruleset has legitimately declared (see engine.ts
+  // knownStockNames), for the unknown-stock-write lint below. Omitted, that
+  // lint is skipped rather than flagging everything as unknown.
+  knownStocks?: string[];
   ticks?: number;
 }
 
@@ -123,7 +127,7 @@ function sweepAction(
 // price. Anything whose size is an expression rather than a literal number, or
 // whose target is a dynamic reference, is left alone - the sign is not knowable
 // from the shape, and a false alarm on a working rule costs more than a miss.
-function isPrice(eff: unknown, display: Record<string, DisplayHint>): boolean {
+function isPrice(eff: unknown, display: Record<string, StockDisplay>): boolean {
   let adjust = (eff as { adjust?: Record<string, unknown> })?.adjust;
   if (!adjust || adjust.of !== undefined) return false;
   if (typeof adjust.by !== "number" || adjust.by >= 0) return false;
@@ -134,10 +138,80 @@ function isPrice(eff: unknown, display: Record<string, DisplayHint>): boolean {
 // Everything that is not a price is a payoff: a spawn, a transfer, a tag, a
 // move, a relief. forEach is transparent - it pays off if any of its branches
 // does.
-function isPayoff(eff: unknown, display: Record<string, DisplayHint>): boolean {
+function isPayoff(
+  eff: unknown,
+  display: Record<string, StockDisplay>,
+): boolean {
   let each = (eff as { forEach?: { do?: unknown[] } })?.forEach;
   if (each) return (each.do ?? []).some((e) => isPayoff(e, display));
   return !isPrice(eff, display);
+}
+
+// Every stock name a literal adjust/set/transfer effect writes, collected
+// recursively through forEach - the shape a rule author typo's ("self" meant
+// "of":"self") independent of whether simulation ever exercises that branch,
+// which matters most for an action rule (whose body never runs in
+// simulation at all) or a rule gated behind a condition simulation might not
+// trip within its tick budget. `{arg}` targets are skipped: the name isn't
+// knowable from the shape alone, the same doctrine as isPrice.
+function literalWriteTargets(effects: unknown[]): string[] {
+  let names: string[] = [];
+  for (let eff of effects) {
+    if (!eff || typeof eff !== "object") continue;
+    let e = eff as Record<string, any>;
+    if (e.adjust && typeof e.adjust.target === "string")
+      names.push(e.adjust.target);
+    if (e.set && typeof e.set.target === "string") names.push(e.set.target);
+    if (e.transfer) {
+      if (typeof e.transfer.from?.stock === "string")
+        names.push(e.transfer.from.stock);
+      if (typeof e.transfer.to?.stock === "string")
+        names.push(e.transfer.to.stock);
+    }
+    if (e.forEach?.do) names.push(...literalWriteTargets(e.forEach.do));
+  }
+  return names;
+}
+
+// A stock this same rule declares for itself, via a spawn in its own body -
+// so a rule that mints a crate and then tops it up later in the same body
+// isn't flagged for a name only its own authoring just introduced (the live
+// registry only catches up once the rule is actually added; see engine.ts
+// addRule's syncKnownStocks).
+function selfDeclaredStocks(effects: unknown[]): string[] {
+  let names: string[] = [];
+  for (let eff of effects) {
+    if (!eff || typeof eff !== "object") continue;
+    let e = eff as Record<string, any>;
+    if (e.spawn?.stocks) names.push(...Object.keys(e.spawn.stocks));
+    if (e.forEach?.do) names.push(...selfDeclaredStocks(e.forEach.do));
+  }
+  return names;
+}
+
+// Flags a rule effect writing to a stock nothing has declared - the closed
+// namespace's static counterpart to the simulation's rule_error warnings,
+// catching an action rule (never simulated) or a rarely-gated rule the
+// simulation's tick budget doesn't happen to trip. Skipped entirely when the
+// caller didn't thread a registry (opts.knownStocks), rather than treating
+// "no registry given" as "everything is unknown".
+function lintUnknownStockWrites(
+  rule: { id: string; do?: unknown; phase?: string; target?: unknown },
+  known: string[] | undefined,
+  warnings: string[],
+) {
+  if (!known) return;
+  let body = Array.isArray(rule.do) ? rule.do : [];
+  let targets = literalWriteTargets(body);
+  // A flow rule's write target lives at the top level (target/rate), not in
+  // a `do` array.
+  if (rule.phase === "flow" && typeof rule.target === "string")
+    targets.push(rule.target);
+  let allowed = new Set([...known, ...selfDeclaredStocks(body)]);
+  for (let name of [...new Set(targets)].filter((n) => !allowed.has(n)))
+    warnings.push(
+      `"${rule.id}" writes to "${name}", which nothing has declared - it will error the moment the rule fires. If "${name}" is meant to name an entity (e.g. "self"), it belongs in "of", not "target"; otherwise declare the resource first (set_stock_default, a spawn's stocks).`,
+    );
 }
 
 // An action's body never runs in simulation, so its shape is all we can check.
@@ -157,7 +231,7 @@ function isPayoff(eff: unknown, display: Record<string, DisplayHint>): boolean {
 // kernel pretends to understand.
 function lintActionBody(
   rule: { id: string; do?: unknown },
-  display: Record<string, DisplayHint>,
+  display: Record<string, StockDisplay>,
   warnings: string[],
 ) {
   let body = Array.isArray(rule.do) ? rule.do : [];
@@ -171,6 +245,170 @@ function lintActionBody(
     warnings.push(
       `action "${rule.id}" only spends - every effect in its body subtracts from the actor and nothing is produced, moved, or placed. Characters will pay the cost, be told the action completed, and find the world unchanged. If this verb makes a thing, spawn that thing here; if it relieves something, adjust the gauge it relieves.`,
     );
+}
+
+// Literal stock names a Cond compares against - walks all/any/not, only
+// collecting a name where `{stock: "X"}` appears as a literal string. An
+// `{arg}`/`{nameOf}` reference isn't knowable from shape alone and is
+// skipped, the same doctrine as isPrice.
+// Every spawn effect in a rule body, walking forEach fan-outs the way the other
+// body lints do.
+function spawnSpecs(effects: unknown[]): Record<string, unknown>[] {
+  let out: Record<string, unknown>[] = [];
+  for (let eff of (effects ?? []) as any[]) {
+    if (!eff || typeof eff !== "object") continue;
+    if (eff.spawn && typeof eff.spawn === "object") out.push(eff.spawn);
+    if (eff.forEach?.do) out.push(...spawnSpecs(eff.forEach.do));
+  }
+  return out;
+}
+
+// Two ways a build action's spawn goes wrong that are visible from shape alone,
+// both learned from genesis run cc3d1956.
+//
+// A constant id makes the structure a global singleton: the first build takes
+// the name and every later one throws "already exists" *after* the requires
+// have passed and the materials are spent, so the second builder pays and gets
+// an error. `{{self}}`/`{{tick}}` render now (see kernel `spawnId`), and
+// omitting `id` auto-numbers - either is fine, a bare constant is not.
+//
+// The occupancy note is the other half of that run's shelter story: a structure
+// spawned at `self` takes the builder's tile, and one tile holds one token, so
+// a *second* structure can never be raised on the same square. The Oracle kept
+// authoring toward "a fire inside the shelter" (Tobias asked for exactly that)
+// without anything telling it that the world cannot hold both. A note rather
+// than a warning - building on open ground is the normal case and works fine.
+function lintSpawnIds(
+  rule: { id: string; do?: unknown },
+  warnings: string[],
+  notes: string[],
+) {
+  let specs = spawnSpecs(Array.isArray(rule.do) ? rule.do : []);
+  for (let spec of specs) {
+    let id = spec.id;
+    if (typeof id === "string" && !id.includes("{{"))
+      warnings.push(
+        `action "${rule.id}" spawns with the fixed id "${id}", so only one can ever exist - the next build passes its requires, spends the materials, then throws "already exists". Use "${id}-{{self}}-{{tick}}" for one per builder per tick, or drop \`id\` for an auto-numbered one.`,
+      );
+    if (
+      spec.occupancy !== undefined &&
+      (spec.at === undefined || spec.at === "self")
+    )
+      notes.push(
+        `"${rule.id}" puts something that holds ground on the builder's own tile. A tile carries one token, so nothing else can be built there afterwards - if this is meant to be combined with another structure (a fire inside a shelter), the two need adjacent tiles, not one.`,
+      );
+  }
+}
+
+function literalCondStocks(cond: unknown): string[] {
+  if (!cond || typeof cond !== "object") return [];
+  let c = cond as Record<string, unknown>;
+  if ("cmp" in c) {
+    let names: string[] = [];
+    for (let side of [c.left, c.right])
+      if (
+        side &&
+        typeof side === "object" &&
+        typeof (side as { stock?: unknown }).stock === "string"
+      )
+        names.push((side as { stock: string }).stock);
+    return names;
+  }
+  if ("all" in c && Array.isArray(c.all))
+    return c.all.flatMap(literalCondStocks);
+  if ("any" in c && Array.isArray(c.any))
+    return c.any.flatMap(literalCondStocks);
+  if ("not" in c) return literalCondStocks(c.not);
+  return [];
+}
+
+// Whether a literal adjust effect moves a vital stock in the harmful
+// direction, judged from shape plus the vital's own tone - never from its
+// name. Ambiguous shapes (a dynamic by/target, no tone on record) are left
+// alone: a false alarm on a working rule costs more than a miss, the same
+// doctrine as isPrice/isPayoff.
+function harmsVital(
+  eff: unknown,
+  display: Record<string, StockDisplay>,
+): string | null {
+  let adjust = (eff as { adjust?: Record<string, unknown> })?.adjust;
+  if (!adjust || adjust.of !== undefined) return null;
+  if (typeof adjust.by !== "number" || typeof adjust.target !== "string")
+    return null;
+  let hint = display[adjust.target];
+  if (hint?.role !== "vital") return null;
+  // Mirrors isPrice's convention: tone "down" means harm lies toward the
+  // ceiling (hunger rising), so a positive adjust is what harms it; any other
+  // tone (including undefined) means harm lies toward the floor (health
+  // falling), so a negative adjust harms it.
+  let harmful = hint.tone === "down" ? adjust.by > 0 : adjust.by < 0;
+  return harmful ? adjust.target : null;
+}
+
+// The name of a vital this rule harms, if any - its own `do` body (including
+// one level of forEach), or a flow's desugared target/rate.
+function ruleHarmsVital(
+  rule: {
+    do?: unknown;
+    phase?: string;
+    target?: unknown;
+    rate?: unknown;
+  },
+  display: Record<string, StockDisplay>,
+): string | null {
+  for (let eff of Array.isArray(rule.do) ? rule.do : []) {
+    let hit = harmsVital(eff, display);
+    if (hit) return hit;
+    let each = (eff as { forEach?: { do?: unknown[] } })?.forEach;
+    for (let inner of each?.do ?? []) {
+      let innerHit = harmsVital(inner, display);
+      if (innerHit) return innerHit;
+    }
+  }
+  if (
+    rule.phase === "flow" &&
+    typeof rule.target === "string" &&
+    typeof rule.rate === "number"
+  ) {
+    let hint = display[rule.target];
+    if (hint?.role === "vital") {
+      let harmful = hint.tone === "down" ? rule.rate > 0 : rule.rate < 0;
+      if (harmful) return rule.target;
+    }
+  }
+  return null;
+}
+
+// Flags a rule that harms a vital gauge while gating on a stock nothing has
+// marked vital - the gate is exactly what a character would need alarmed to
+// see the harm coming, and telegraphing is the Oracle's own doctrine
+// (docs/speculative-physics.md's "every yes creates a no", made checkable).
+// Literal-only, like every other dry-run shape check: a `{arg}` gate or a
+// computed `by` is left alone rather than risk a false alarm on a working
+// rule.
+function lintLethalUnmarkedGate(
+  rule: {
+    id: string;
+    when?: unknown;
+    do?: unknown;
+    phase?: string;
+    target?: unknown;
+    rate?: unknown;
+  },
+  display: Record<string, StockDisplay>,
+  warnings: string[],
+) {
+  let harmedVital = ruleHarmsVital(rule, display);
+  if (!harmedVital) return;
+  let gateNames = new Set(
+    literalCondStocks(rule.when).filter((n) => n !== harmedVital),
+  );
+  for (let name of gateNames) {
+    if (display[name]?.role === "vital") continue;
+    warnings.push(
+      `"${rule.id}" harms "${harmedVital}" gated on "${name}", which is not marked vital - characters get no alarm as "${name}" slides toward triggering this. set_stock_default "${name}" with role:"vital" and bands if it should warn them.`,
+    );
+  }
 }
 
 // Lint one rule by simulation. `rules` is the full candidate set and must
@@ -191,6 +429,9 @@ export function dryRunRule(
   let ticks = opts.ticks ?? DEFAULT_TICKS;
   let warnings: string[] = [];
   let notes: string[] = [];
+
+  lintUnknownStockWrites(rule, opts.knownStocks, warnings);
+  lintLethalUnmarkedGate(rule, opts.display ?? {}, warnings);
 
   // A selector that matches nothing is almost always a typo'd tag/kind - but
   // it is also the legitimate shape of a rule awaiting entities the GM spawns
@@ -217,6 +458,7 @@ export function dryRunRule(
 
   if ("kind" in rule && rule.kind === "action") {
     lintActionBody(rule, opts.display ?? {}, warnings);
+    lintSpawnIds(rule, warnings, notes);
     sweepAction(world, rules, ruleId, opts, notes);
     return { ticks: 0, warnings, notes };
   }

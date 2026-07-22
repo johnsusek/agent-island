@@ -749,6 +749,42 @@ function registerGmTools(
           .describe(
             "Optional CSS hex tint for the resource's icon, e.g. '#e6b84a'; omit for a neutral auto tint",
           ),
+        role: schema
+          .enum(["vital", "stat", "pack"])
+          .optional()
+          .describe(
+            'What this stock IS to a character: "vital" (a pressure that can hurt or kill - band-alarmed prose, never a figure, never givable), "stat" (a personal dimension worth a mention only when notable - never givable), or "pack" (a fungible carried quantity - "Carrying:" figures, the only role give/stockpile touch). Omit to default to "pack".',
+          ),
+        stockpilable: schema
+          .boolean()
+          .optional()
+          .describe(
+            'Whether characters can haul this into a stockpile via deposit/withdraw. Only valid on a "pack"-role resource (explicit or defaulted) - rejected on a vital or stat.',
+          ),
+        label: schema
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            "Friendly label for prose and the dashboard (e.g. 'warmth'); defaults to the stock name",
+          ),
+        tone: schema
+          .enum(["up", "down"])
+          .optional()
+          .describe(
+            'Which direction is bad: "up" (more is worse, e.g. hunger) or "down" (less is worse, e.g. health). Drives band alarms on a vital and bar coloring everywhere.',
+          ),
+        bands: schema
+          .object({
+            pressing: schema.string().trim().min(1).optional(),
+            serious: schema.string().trim().min(1).optional(),
+            critical: schema.string().trim().min(1).optional(),
+          })
+          .optional()
+          .describe(
+            'What the world tells a character at each band of trouble (vital) or notability (stat) - e.g. {critical:"You are starving."}. Any band left unwritten gets a serviceable default built from the label.',
+          ),
       },
       annotations: {
         destructiveHint: true,
@@ -756,13 +792,18 @@ function registerGmTools(
         openWorldHint: false,
       },
     },
-    async ({ stock, value, min, max, icon, color }) =>
+    async ({ stock, value, min, max, icon, color, role, stockpilable, label, tone, bands }) =>
       coordinator.gmSetStockDefault(sessionId, stock, {
         value,
         min,
         max,
         icon,
         color,
+        role,
+        stockpilable,
+        label,
+        tone,
+        bands,
       }),
   );
 

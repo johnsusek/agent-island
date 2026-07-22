@@ -19,6 +19,7 @@ import type {
   Effect,
   EntitySel,
   ColocatedSel,
+  HeldSel,
   ColocatedPick,
   NameRef,
   TagRef,
@@ -95,6 +96,10 @@ const CondSchema: z.ZodType<Cond> = z.lazy(() =>
     // Object form ONLY - this is the asymmetry with EntitySelSchema below.
     z.object({ colocated: ColocatedSelSchema }),
     z.object({
+      holds: z.union([TagRefSchema, HeldSelSchema]),
+      of: EntitySelSchema.optional(),
+    }),
+    z.object({
       nearTerrain: z.object({
         type: z.union([z.string(), z.array(z.string())]),
         range: z.number().optional(),
@@ -119,6 +124,8 @@ const EntitySelSchema: z.ZodType<EntitySel> = z.lazy(() =>
     z.object({ arg: z.string() }),
     // Bare-tag shorthand allowed HERE, unlike CondSchema's colocated.
     z.object({ colocated: z.union([TagRefSchema, ColocatedSelSchema]) }),
+    // Bare-tag shorthand allowed HERE too, unlike CondSchema's holds.
+    z.object({ held: z.union([TagRefSchema, HeldSelSchema]) }),
   ]),
 );
 
@@ -137,6 +144,16 @@ const ColocatedSelSchema: z.ZodType<ColocatedSel> = z.lazy(() =>
       range: z.number().optional(),
       other: z.boolean().optional(),
       pick: ColocatedPickSchema.optional(),
+    })
+    .refine(needsTagOrKind, { message: 'needs a "tag" or a "kind"' }),
+);
+
+const HeldSelSchema: z.ZodType<HeldSel> = z.lazy(() =>
+  z
+    .object({
+      tag: TagRefSchema.optional(),
+      kind: TagRefSchema.optional(),
+      where: CondSchema.optional(),
     })
     .refine(needsTagOrKind, { message: 'needs a "tag" or a "kind"' }),
 );
@@ -225,6 +242,7 @@ const SpawnSpecSchema: z.ZodType<SpawnSpec> = z.lazy(() =>
       ])
       .optional(),
     text: z.string().optional(),
+    heldBy: EntitySelSchema.optional(),
   }),
 );
 
@@ -278,6 +296,19 @@ const EffectSchema: z.ZodType<Effect> = z.lazy(() =>
     z.object({ clearAction: z.object({ of: EntitySelSchema.optional() }) }),
     z.object({ spawn: SpawnSpecSchema }),
     z.object({ destroy: z.object({ of: EntitySelSchema.optional() }) }),
+    z.object({
+      take: z.object({
+        item: EntitySelSchema,
+        by: EntitySelSchema.optional(),
+      }),
+    }),
+    z.object({
+      release: z.object({
+        item: EntitySelSchema,
+        by: EntitySelSchema.optional(),
+        at: EntitySelSchema.optional(),
+      }),
+    }),
     z.object({
       move: z.object({
         of: EntitySelSchema.optional(),
@@ -366,7 +397,7 @@ const ActionParamSchema: z.ZodType<ActionParam> = z.union([
     description: z.string().optional(),
     type: z.literal("enum"),
     values: z.array(z.string()).optional(),
-    from: z.literal("stockpilable").optional(),
+    from: z.enum(["stockpilable", "pack"]).optional(),
   }),
   z.object({
     name: z.string(),

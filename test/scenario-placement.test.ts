@@ -70,7 +70,6 @@ test("a runtime scenario replacement refreshes identity and derived baselines", 
       tags: ["agent", "traveler"],
       stocks: { stamina: { value: 12, min: 0, max: 12 } },
     },
-    display: { stamina: { label: "Stamina", tone: "up", scope: "agent" } },
   };
 
   engine.reset({ scenario: nextScenario });
@@ -82,11 +81,10 @@ test("a runtime scenario replacement refreshes identity and derived baselines", 
   assert.deepEqual(engine.getRuleMeta().baselineIds, ["wait"]);
   assert.ok(hasTag(engine.getEntities().ada, "traveler"));
   assert.equal(engine.getEntities().ada.stocks.stamina.value, 12);
-  assert.deepEqual(engine.getAdminState().scenario.display.stamina, {
-    label: "Stamina",
-    tone: "up",
-    scope: "agent",
-  });
+  // stamina is declared only by the agent template, not by a stock registry,
+  // so the projection has nothing to say about it - an undeclared stock reads
+  // as a plain pack count wherever role is asked for.
+  assert.equal(engine.getAdminState().scenario.display.stamina, undefined);
   assert.equal(engine.restore(oldSnapshot), false);
 });
 

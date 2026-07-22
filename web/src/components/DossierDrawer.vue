@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { nameTint } from "../glyphs";
-import type { AgentView, DisplayHint, Stock } from "../types";
+import type { AgentView, Stock, StockDisplay, StockRole } from "../types";
 import type {
   ChatItem,
   FeedItem,
@@ -11,37 +11,63 @@ import type {
 
 const props = defineProps<{
   agent: AgentView;
-  display: Record<string, DisplayHint>;
+  display: Record<string, StockDisplay>;
   chat: ChatItem[];
   feed: FeedItem[];
   laws: LawCard[];
   speculations: SpeculationCard[];
 }>();
 
-defineEmits<{ (e: "close"): void }>();
+defineEmits<{ (event: "close"): void }>();
 
-// A stock bar's fill and tone. For a "down" stock (hunger) full is bad; for an
-// "up" stock (health) empty is bad.
-function stockBar(name: string, stock: Stock) {
+// A stock's role, straight off the server's projection - an undeclared stock
+// reads as pack, exactly as it does there.
+function roleOf(name: string): StockRole {
+  return props.display[name]?.role ?? "pack";
+}
+
+// Every meter fills toward safety. The number remains the authored stock value,
+// while tone tells the visual whether a higher or lower value is healthier.
+function conditionMeter(name: string, stock: Stock) {
   let hint = props.display[name] ?? {};
   let span = stock.max - stock.min;
-  let fill = span > 0 ? (stock.value - stock.min) / span : 0;
-  let badness = hint.tone === "down" ? fill : 1 - fill;
+  let position = span > 0 ? (stock.value - stock.min) / span : 0;
+  let boundedPosition = Math.min(1, Math.max(0, position));
+  let wellbeing = hint.tone === "down" ? 1 - boundedPosition : boundedPosition;
+  let badness = 1 - wellbeing;
   return {
-    fill: Math.round(fill * 100),
+    name,
+    stock,
+    fill: Math.round(wellbeing * 100),
     tone: badness > 0.85 ? "danger" : badness > 0.6 ? "warn" : "ok",
     label: hint.label ?? name,
-    vital: hint.vital ?? false,
   };
 }
 
-let stocks = computed(() =>
-  Object.entries(props.agent.stocks).map(([name, stock]) => ({
-    name,
-    stock,
-    ...stockBar(name, stock),
-  })),
+// Vitals and stats show as bars (a gauge in a band); pack shows as compact
+// name/value rows (a carried quantity). Grouping key is the server-projected
+// role, so the dashboard reads the same taxonomy as the character's prose.
+let vitals = computed(() =>
+  Object.entries(props.agent.stocks)
+    .filter(([name]) => roleOf(name) === "vital")
+    .map(([name, stock]) => conditionMeter(name, stock)),
 );
+let stats = computed(() =>
+  Object.entries(props.agent.stocks)
+    .filter(([name]) => roleOf(name) === "stat")
+    .map(([name, stock]) => conditionMeter(name, stock)),
+);
+let pack = computed(() =>
+  Object.entries(props.agent.stocks)
+    .filter(([name]) => roleOf(name) === "pack")
+    .filter(([, stock]) => stock.value !== 0)
+    .map(([name, stock]) => ({
+      name,
+      label: props.display[name]?.label ?? name,
+      value: Math.round(stock.value * 10) / 10,
+    })),
+);
+let held = computed(() => props.agent.held ?? []);
 
 // This character's own speculations: standing ones plus the laws their speculating
 // helped mint.
@@ -54,56 +80,89 @@ let myLaws = computed(() =>
   props.laws.filter((law) => law.speculators.includes(props.agent.name)),
 );
 
-let lastWords = computed(() =>
+let recentTalk = computed(() =>
   props.chat.filter((item) => item.speakerId === props.agent.id).slice(-6),
 );
 
-let doing = computed(() => {
+let activity = computed(() => {
   let action = props.agent.action;
   let order = props.agent.order;
-  if (order && order.status === "running")
-    return `${order.summary} (${order.kind}, since t${order.startedTick})`;
+  if (order && order.status === "running") return order.summary;
   if (action) return action.goal ?? action.type;
-  return "idle";
+  return "Idle";
 });
 </script>
 
 <template>
   <aside class="dossier">
     <header class="dossier__head">
-      <h2 class="dossier__name" :style="{ color: nameTint(agent.name) }">
-        {{ agent.name }}
-      </h2>
+      <div class="dossier__identity">
+        <h2 class="dossier__name" :style="{ color: nameTint(agent.name) }">
+          {{ agent.name }}
+        </h2>
+        <p class="dossier__activity" :title="activity">{{ activity }}</p>
+      </div>
       <span v-if="!agent.alive" class="dossier__dead">dead</span>
-      <span class="dossier__pos"
-        >{{ agent.position.x }},{{ agent.position.y }}</span
+      <button
+        class="dossier__close"
+        aria-label="Close dossier"
+        @click="$emit('close')"
       >
-      <button class="tip__close" @click="$emit('close')">x</button>
+        ×
+      </button>
     </header>
 
     <div class="dossier__scroll">
-      <section class="dossier__section">
-        <h3 class="ledger__heading">doing</h3>
-        <p class="dossier__doing">{{ doing }}</p>
-      </section>
-
-      <section class="dossier__section">
-        <h3 class="ledger__heading">condition</h3>
-        <div v-for="s in stocks" :key="s.name" class="bar">
-          <span class="bar__label">{{ s.label }}</span>
+      <section v-if="vitals.length" class="dossier__section">
+        <h3 class="ledger__heading">Condition</h3>
+        <div v-for="meter in vitals" :key="meter.name" class="bar">
+          <span class="bar__label">{{ meter.label }}</span>
           <span class="bar__track">
             <span
               class="bar__fill"
-              :class="`bar__fill--${s.tone}`"
-              :style="{ width: `${s.fill}%` }"
+              :class="`bar__fill--${meter.tone}`"
+              :style="{ width: `${meter.fill}%` }"
             ></span>
           </span>
-          <span class="bar__value">{{ Math.round(s.stock.value) }}</span>
+          <span class="bar__value">{{ Math.round(meter.stock.value) }}</span>
+        </div>
+      </section>
+
+      <section v-if="stats.length" class="dossier__section">
+        <h3 class="ledger__heading">Disposition</h3>
+        <div v-for="meter in stats" :key="meter.name" class="bar bar--muted">
+          <span class="bar__label">{{ meter.label }}</span>
+          <span class="bar__track">
+            <span
+              class="bar__fill"
+              :class="`bar__fill--${meter.tone}`"
+              :style="{ width: `${meter.fill}%` }"
+            ></span>
+          </span>
+          <span class="bar__value">{{ Math.round(meter.stock.value) }}</span>
+        </div>
+      </section>
+
+      <section v-if="held.length || pack.length" class="dossier__section">
+        <h3 class="ledger__heading">Carrying</h3>
+        <div v-for="item in held" :key="item.id" class="dossier__item">
+          <span class="row__verb">{{ item.kind ?? item.id }}</span>
+          <span v-if="item.text" class="dossier__item-note"
+            >"{{ item.text }}"</span
+          >
+        </div>
+        <div
+          v-for="packItem in pack"
+          :key="packItem.name"
+          class="dossier__pack"
+        >
+          <span class="dossier__pack-name">{{ packItem.label }}</span>
+          <span class="dossier__pack-value">{{ packItem.value }}</span>
         </div>
       </section>
 
       <section v-if="mySpeculations.length" class="dossier__section">
-        <h3 class="ledger__heading">still speculating</h3>
+        <h3 class="ledger__heading">Speculating</h3>
         <div
           v-for="spec in mySpeculations"
           :key="spec.verb"
@@ -117,18 +176,17 @@ let doing = computed(() => {
       </section>
 
       <section v-if="myLaws.length" class="dossier__section">
-        <h3 class="ledger__heading">speculated into law</h3>
+        <h3 class="ledger__heading">Made real</h3>
         <div v-for="law in myLaws" :key="law.id" class="dossier__spec">
           <b class="row__verb">{{ law.id }}</b>
-          <span v-if="law.latency != null" class="law__latency">
-            {{ law.latency }}t</span
-          >
         </div>
       </section>
 
-      <section v-if="lastWords.length" class="dossier__section">
-        <h3 class="ledger__heading">last words</h3>
-        <div v-for="item in lastWords" :key="item.key" class="dossier__quote">
+      <section v-if="recentTalk.length" class="dossier__section">
+        <h3 class="ledger__heading">
+          {{ agent.alive ? "Recent talk" : "Last words" }}
+        </h3>
+        <div v-for="item in recentTalk" :key="item.key" class="dossier__quote">
           <span class="row__tick">t{{ item.tick }}</span>
           <span :class="{ row__whisper: item.whisper }">{{
             item.message

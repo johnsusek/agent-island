@@ -9,6 +9,7 @@ import test from "node:test";
 import { createColony } from "../src/coordinator.js";
 import { createWorld } from "../src/rules/engine.js";
 import type { Scenario } from "../src/rules/scenario.js";
+import { declareProgress } from "./helpers.js";
 
 // Progress ticks up each turn; at `killAt` a transition rule removes every
 // agent (destroying an agent's entity is how death happens mechanically).
@@ -35,7 +36,7 @@ function pulseScenario(killAt: number): Scenario {
 }
 
 test("pulse counts deaths, stock trends, chat, and GM actions", () => {
-  let engine = createWorld(pulseScenario(4));
+  let engine = declareProgress(createWorld(pulseScenario(4)));
   engine.addAgent("Ara");
   engine.addAgent("Bel");
 
@@ -76,7 +77,7 @@ test("pulse counts deaths, stock trends, chat, and GM actions", () => {
 });
 
 test("ticksSinceLastDecisionEvent tracks the flatline", () => {
-  let engine = createWorld(pulseScenario(1000));
+  let engine = declareProgress(createWorld(pulseScenario(1000)));
   engine.addAgent("Ara");
   engine.speak("ara", "a decision-worthy word");
   engine.tick();
@@ -92,7 +93,9 @@ test("ticksSinceLastDecisionEvent tracks the flatline", () => {
 });
 
 test("inspect_world exposes the pulse as an include section", () => {
-  let colony = createColony({ engine: createWorld(pulseScenario(1000)) });
+  let colony = createColony({
+    engine: declareProgress(createWorld(pulseScenario(1000))),
+  });
   colony.start();
   colony.connect("gm");
   try {

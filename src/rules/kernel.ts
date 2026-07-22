@@ -70,6 +70,13 @@ export interface Entity {
   // can read it, so words stay communication rather than incantation. Capped
   // at MAX_INSCRIPTION wherever it is written.
   text?: string;
+  // The id of the entity holding this one, if any - a discrete item's
+  // containment relation (an axe in a character's hand), as opposed to a
+  // stock's fungible count. A held entity is off-grid by construction: it
+  // carries no `pos` and no `occupancy` (see the `take`/`release` effects),
+  // so it is invisible to the map/sight/colocation the same way any other
+  // positionless entity is, and reachable only through `held`/`holds`.
+  heldBy?: string;
 }
 
 // The longest inscription an entity can carry. Long enough for a warning, a
@@ -141,7 +148,28 @@ export type EntitySel =
   // the object form adds a range (chebyshev radius) and a `where` predicate so a
   // rule can bind to "another agent within 1 tile whose infection > 0" and then
   // read or adjust *that* entity's stocks via `of`.
-  | { colocated: TagRef | ColocatedSel };
+  | { colocated: TagRef | ColocatedSel }
+  // The entity self is holding that matches `tag`/`kind`/`where` - the
+  // containment counterpart to `colocated`, for an item with no position of
+  // its own (see Entity.heldBy). The bare-tag form `{held:"axe"}` is shorthand
+  // for `{held:{tag:"axe"}}`; a candidate is tested with itself as "self",
+  // exactly like colocated's `where`. Throws when nothing held matches -
+  // reading through an empty hand is a real error, the same as an empty
+  // `colocated` match.
+  | { held: TagRef | HeldSel };
+
+// A match against entities self is holding (heldBy === self.id). `tag` is
+// loose (kind or tags); `kind` is strict; give both and a candidate must
+// satisfy both. With more than one match, the first in entity-iteration order
+// wins - deterministic, so a snapshot still replays the same pick. No `range`
+// or `pick` (unlike ColocatedSel): a hand isn't a neighbourhood to search or
+// rank by distance, and multiple held items of the same kind are rare enough
+// that "the first one" is a fine default until a real use forces more.
+export interface HeldSel {
+  tag?: TagRef;
+  kind?: TagRef;
+  where?: Cond;
+}
 
 // A spatial match against other entities. `tag` matches the name in either
 // slot (kind or tags); `kind` matches identity strictly; give both and a
@@ -293,6 +321,11 @@ export type Cond =
   // entity carrying `tag` - the spatial gate behind "must stand on a food
   // source" and, with `where`, "an adjacent agent who is infected".
   | { colocated: ColocatedSel }
+  // The entity named by `of` (default self) is holding something matching
+  // `tag`/`kind`/`where` - the containment gate behind "you must be holding
+  // an axe to chop" or "requires a lit torch". `of` resolves against the
+  // *evaluating* self, exactly like `tag`'s `of`.
+  | { holds: TagRef | HeldSel; of?: EntitySel }
   // self stands on (range 0) or within `range` tiles (chebyshev) of a map tile
   // whose terrain is one of `type` - the gate behind "drink beside water". The
   // host must install a terrain lookup for the kernel call (see TerrainLookup);
@@ -417,6 +450,13 @@ export interface EntityTargetMatch {
   range?: number;
   visible?: boolean;
   includeSelf?: boolean;
+  // Restrict the candidates to items the actor is holding (heldBy === actor).
+  // Held items have no position, so a `heldBySelf` match skips the range and
+  // visibility checks entirely - a hand isn't a place on the map. This is the
+  // `drop` action's target: "which of the things in my hand". Distinct from
+  // the DSL's `held` selector (that resolves one item inside a rule);
+  // this scopes an action's self-describing entity-param choices.
+  heldBySelf?: boolean;
 }
 
 interface ActionParamBase {
@@ -433,10 +473,12 @@ export type ActionParam =
       type: "enum";
       values?: readonly string[];
       // Instead of a fixed `values` list, draw the choices from a ruleset
-      // registry at read time. "stockpilable" offers every resource flagged
-      // stockpilable, so the whitelist has one source (the stock's flag) rather
-      // than being restated on every action.
-      from?: "stockpilable";
+      // registry at read time, so the whitelist has one source rather than
+      // being restated on every action. "stockpilable" offers the narrower,
+      // deposit/withdraw-specific opt-in subset of pack resources; "pack"
+      // offers every givable resource (the role give's own `item` param
+      // draws from) - see scenario.ts StockRole.
+      from?: "stockpilable" | "pack";
     })
   | (ActionParamBase & { type: "entity"; match?: EntityTargetMatch });
 
@@ -555,6 +597,14 @@ export interface SpawnSpec {
   // GM seeds a pre-written sign. Plain string, not a TagRef/Expr: the DSL can
   // place writing but never compose or read it.
   text?: string;
+  // Spawn this entity directly into another entity's hand (see Entity.heldBy)
+  // rather than onto the grid - the "craft an axe" idiom, as opposed to
+  // "build a shelter" which wants `occupancy`. Mutually exclusive with `at`:
+  // a held spawn is off-grid by construction, so `at`/`occupancy` are ignored
+  // when this is set. Resolves against the acting self like any EntitySel
+  // (`heldBy:"self"` is the common case - the actor crafts it into their own
+  // hand).
+  heldBy?: EntitySel;
 }
 
 export type Effect =
@@ -598,6 +648,19 @@ export type Effect =
   // transition) phases, never buffered into the continuous delta pass.
   | { spawn: SpawnSpec }
   | { destroy: { of?: EntitySel } }
+  // Move an item into a hand - the pick-up idiom, and what a `spawn.heldBy`
+  // desugars past for an ALREADY-existing entity (a corpse's dropped axe
+  // picked back up). Clears `item`'s `pos`/`occupancy` (so it stops rendering
+  // on the map: see space.ts syncTokens, which only ever projects a
+  // pos+occupancy entity) and sets `heldBy` to the resolved holder (default
+  // self). Structural: immediate phases only.
+  | { take: { item: EntitySel; by?: EntitySel } }
+  // The inverse of `take` - drop a held item at a tile, giving it back
+  // `pos`/`occupancy:"tile"` so it re-enters the grid. `at` defaults to the
+  // resolved holder's own tile (default self). An `at` that is itself
+  // positionless leaves the item positionless too rather than inventing a
+  // coordinate for it (see releaseHeld). Structural: immediate phases only.
+  | { release: { item: EntitySel; by?: EntitySel; at?: EntitySel } }
   // Step an entity across the grid by a signed (dx, dy) - the structural effect
   // behind a roaming predator or a drifting hazard. Movement is otherwise owned
   // by the space subsystem (agents following committed travel/explore paths);
@@ -908,6 +971,38 @@ function colocatedWith(
     : candidates.reduce((best, e) => (value(e) > value(best) ? e : best));
 }
 
+// Normalize the held-selector shorthand: a bare tag (`{held:"axe"}`), an
+// arg-ref, or a nameOf-ref all mean "match this tag among what self holds";
+// the object form is passed through unchanged. Mirrors asColocatedSel.
+function asHeldSel(c: TagRef | HeldSel): HeldSel {
+  return typeof c === "string" || "arg" in c || "nameOf" in c ? { tag: c } : c;
+}
+
+// Every entity `holder` is holding (heldBy === holder.id) that matches
+// `sel.tag`/`sel.kind`/`sel.where`, in entity-insertion order - the
+// containment analog of colocatedCandidates. A candidate is bound as "self"
+// while `where` is tested, exactly like colocated's.
+function heldCandidates(
+  world: KernelWorld,
+  holder: Entity,
+  sel: HeldSel,
+  args: Args,
+): Entity[] {
+  if (sel.tag === undefined && sel.kind === undefined)
+    throw new Error(`held needs a "tag" or a "kind" to match`);
+  let tag =
+    sel.tag !== undefined ? tagName(sel.tag, world, holder, args) : undefined;
+  let kind =
+    sel.kind !== undefined ? tagName(sel.kind, world, holder, args) : undefined;
+  return Object.values(world.entities).filter((e) => {
+    if (e.heldBy !== holder.id) return false;
+    if (tag !== undefined && !hasTag(e, tag)) return false;
+    if (kind !== undefined && e.kind !== kind) return false;
+    if (sel.where && !evalCond(sel.where, world, e, args)) return false;
+    return true;
+  });
+}
+
 function resolve(
   world: KernelWorld,
   self: Entity,
@@ -923,6 +1018,22 @@ function resolve(
       if (!targetEntity)
         throw new Error(`rule references unknown entity from arg "${sel.arg}"`);
       return targetEntity;
+    }
+    if ("held" in sel) {
+      let hsel = asHeldSel(sel.held);
+      let e = heldCandidates(world, self, hsel, args)[0];
+      if (!e) {
+        let wanted = [
+          ...(hsel.tag !== undefined
+            ? [`tagged "${tagName(hsel.tag, world, self, args)}"`]
+            : []),
+          ...(hsel.kind !== undefined
+            ? [`of kind "${tagName(hsel.kind, world, self, args)}"`]
+            : []),
+        ].join(" ");
+        throw new Error(`"${self.id}" is not holding anything ${wanted}`);
+      }
+      return e;
     }
     let csel = asColocatedSel(sel.colocated);
     let e = colocatedWith(world, self, csel, args);
@@ -946,6 +1057,55 @@ function resolve(
 
 function name(ref: NameRef, args: Args): string {
   return typeof ref === "string" ? ref : String(args[ref.arg]);
+}
+
+// The placeholders a spawn id may carry. Deliberately tiny: these two are the
+// only things that make a built thing unique - who built it, and when - and an
+// id is a key, not prose, so the general template vocabulary has no business
+// here.
+const SPAWN_ID_PLACEHOLDERS = ["self", "tick"];
+
+// Unrendered `{{...}}` placeholders in a spawn id, for the authoring-time
+// check. Returns the unknown ones; an empty list means every placeholder in the
+// string is one spawnId can render.
+export function unknownSpawnIdPlaceholders(id: string): string[] {
+  let bad: string[] = [];
+  for (let m of id.matchAll(/\{\{\s*([^}]*?)\s*\}\}/g))
+    if (!SPAWN_ID_PLACEHOLDERS.includes(m[1]) && !bad.includes(m[1]))
+      bad.push(m[1]);
+  return bad;
+}
+
+// A spawn's id, with `{{self}}`/`{{tick}}` rendered. This is the one NameRef
+// site that interpolates, and it exists because the alternative is silent
+// corruption: `name()` hands back a string ref verbatim, so genesis run
+// cc3d1956 spawned an entity literally called "shelter-{{self}}-{{tick}}".
+// That made every structure a global singleton (the second build threw
+// "already exists" after charging the builder), leaked raw braces into
+// character-facing prose, and taught both characters to navigate to the broken
+// name as if it were a landmark.
+//
+// The Oracle reaches for this syntax unprompted because `{{ ... }}` renders
+// everywhere else in the system (descriptions, signs, refusal text), so the
+// fix is to make the reflex work rather than to train it away. An unknown
+// placeholder still throws - a typo'd `{{owner}}` would otherwise bake itself
+// into a key that nothing can address.
+function spawnId(
+  ref: NameRef,
+  world: KernelWorld,
+  self: Entity,
+  args: Args,
+): string {
+  let raw = name(ref, args);
+  if (!raw.includes("{{")) return raw;
+  let unknown = unknownSpawnIdPlaceholders(raw);
+  if (unknown.length)
+    throw new Error(
+      `spawn: id "${raw}" uses unknown placeholder${unknown.length === 1 ? "" : "s"} ${unknown.map((u) => `{{${u}}}`).join(", ")} - only ${SPAWN_ID_PLACEHOLDERS.map((p) => `{{${p}}}`).join(" and ")} render in an id. Omit \`id\` entirely for an auto-numbered one.`,
+    );
+  return raw.replace(/\{\{\s*([^}]*?)\s*\}\}/g, (_, key: string) =>
+    key === "self" ? self.id : String(world.tick),
+  );
 }
 
 // One axis of an entity's tile, for the posX/posY expressions. A positionless
@@ -1069,6 +1229,24 @@ let stockpilableStocks: ReadonlySet<string> = new Set();
 
 export function setStockpilable(names: Iterable<string>): void {
   stockpilableStocks = new Set(names);
+}
+
+// The set of stock names a legitimate path has introduced somewhere in this
+// ruleset (a scenario/agent template default, a GM's set_stock_default, a
+// spawn spec's declared stocks, ...). This is what closes the stock
+// namespace: a rule effect may only *write* a name already known here, so a
+// typo'd target ("self" meant "of":"self") errors at the point it would
+// otherwise have minted a phantom stock, instead of silently doing so. Kept
+// separate from stockpilableStocks (a much narrower "may be hauled" flag) -
+// this is the full vocabulary, that is a subset of it that opts into hauling.
+// Undefined (the default, and every bare-kernel caller that never installs
+// one) means "no registry configured" - lenient, today's auto-vivify
+// behavior - so a host-less test world isn't forced to declare every stock
+// up front. The engine always installs one (see syncKnownStocks).
+let knownStocks: ReadonlySet<string> | undefined;
+
+export function setKnownStocks(names: Iterable<string> | undefined): void {
+  knownStocks = names ? new Set(names) : undefined;
 }
 
 function withTerrain<T>(terrain: TerrainLookup | undefined, fn: () => T): T {
@@ -1330,6 +1508,12 @@ function evalCond(
     );
   if ("colocated" in cond)
     return colocatedWith(world, self, cond.colocated, args) !== undefined;
+  if ("holds" in cond) {
+    let holder = resolve(world, self, cond.of, args);
+    return (
+      heldCandidates(world, holder, asHeldSel(cond.holds), args).length > 0
+    );
+  }
   if ("nearTerrain" in cond) {
     if (!self.pos) return false;
     if (!terrainLookup)
@@ -1479,13 +1663,38 @@ function writeStock(entity: Entity, stockName: string, value: number) {
 // round-trips cleanly through JSON.
 const UNBOUNDED = Number.MAX_SAFE_INTEGER;
 
-// Ensure a *destination* stock exists before we add to it, so a character can
-// receive an item type its template never declared (pick up berries it has never
-// held) and a freshly spawned crate can be filled. Only increment targets
-// auto-vivify; reads and the source side of a transfer still throw on a missing
-// stock, because taking what isn't there is a real error, not an empty pocket.
-function ensureStock(entity: Entity, stockName: string, max = UNBOUNDED) {
-  if (!entity.stocks[stockName]) entity.stocks[stockName] = stock(0, 0, max);
+// Ensure a *transfer destination* stock exists before we add to it, so a
+// character can receive an item type its template never declared (pick up
+// berries it has never held) and a freshly spawned crate can be filled. Gated
+// on the known-stocks registry (see setKnownStocks) when one is installed: a
+// transfer may only mint a destination for a name the ruleset actually
+// declared somewhere, so "gather clay" doesn't quietly invent a resource
+// nobody registered - it throws instead, the same as any other unknown-stock
+// write. `adjust`/`set` never call this: an increment/assignment names an
+// exact target the rule author chose, so a typo there (`target:"self"`) is
+// exactly the phantom-stock bug this registry exists to catch, and
+// requireStock below rejects it. Reads and the source side of a transfer
+// still throw on a missing stock regardless of the registry, because taking
+// what isn't there is a real error, not an empty pocket.
+function ensureStock(entity: Entity, stockName: string, max = UNBOUNDED): void {
+  if (entity.stocks[stockName]) return;
+  if (knownStocks && !knownStocks.has(stockName))
+    throw new Error(
+      `transfer: "${stockName}" is not a known resource - declare it (set_stock_default, a spawn's stocks) before rules can mint it`,
+    );
+  entity.stocks[stockName] = stock(0, 0, max);
+}
+
+// The write-side counterpart to readStock: a stock effect (adjust, set, or a
+// transfer's source) may only touch a stock the target entity already
+// carries. Unlike ensureStock this never vivifies - an increment or
+// assignment names an exact, chosen target, so a name that isn't there is an
+// authoring error (most often an entity id typo'd into a stock name, as
+// "self" once was) and should surface exactly like reading a missing stock
+// does, not mint a new one silently.
+function requireStock(entity: Entity, stockName: string): void {
+  if (!entity.stocks[stockName])
+    throw new Error(`entity "${entity.id}" has no stock "${stockName}"`);
 }
 
 // Instantiate a spawn's declared stocks. Mirrors the host's template
@@ -1529,6 +1738,8 @@ function isStructuralEffect(effect: Effect): boolean {
     "clearAction" in effect ||
     "spawn" in effect ||
     "destroy" in effect ||
+    "take" in effect ||
+    "release" in effect ||
     "move" in effect ||
     "moveToward" in effect ||
     "moveTo" in effect ||
@@ -1658,7 +1869,7 @@ export function validateRule(rule: Rule): void {
   for (let eff of effects)
     if (isStructuralEffect(eff))
       throw new Error(
-        `rule "${rule.id}": structural effects (tag/clearAction/spawn/destroy/move/moveToward/moveTo/regenerate/growWorld/setTerrain/reveal) cannot run in a buffered "threshold" phase — use phase "transition" instead`,
+        `rule "${rule.id}": structural effects (tag/clearAction/spawn/destroy/take/release/move/moveToward/moveTo/regenerate/growWorld/setTerrain/reveal) cannot run in a buffered "threshold" phase — use phase "transition" instead`,
       );
 }
 
@@ -1697,7 +1908,7 @@ function bufferEffect(
   if (numeric !== null) return;
   if (isStructuralEffect(effect))
     throw new Error(
-      "structural effects (tag/clearAction/spawn/destroy/move/moveToward/moveTo/regenerate/growWorld/setTerrain/reveal) belong to an action, event, or transition phase, not a buffered one",
+      "structural effects (tag/clearAction/spawn/destroy/take/release/move/moveToward/moveTo/regenerate/growWorld/setTerrain/reveal) belong to an action, event, or transition phase, not a buffered one",
     );
 }
 
@@ -1726,7 +1937,7 @@ function applyNumericEffect(
       modifiers,
       world,
     );
-    ensureStock(entity, stockName);
+    requireStock(entity, stockName);
     writer.add(entity, stockName, amount);
     return 0;
   }
@@ -1734,7 +1945,7 @@ function applyNumericEffect(
     let { target, of, to } = effect.set;
     let entity = resolve(world, self, of, args);
     let stockName = name(target, args);
-    ensureStock(entity, stockName);
+    requireStock(entity, stockName);
     writer.set(entity, stockName, evalExpr(to, world, self, args));
     return 0;
   }
@@ -1748,9 +1959,38 @@ function applyNumericEffect(
   if (to.as && captures) captures[to.as] = destination.id;
   let sourceName = name(from.stock, args);
   let destinationName = name(to.stock, args);
+  requireStock(source, sourceName);
   ensureStock(destination, destinationName, to.maxIfMissing);
   writer.add(source, sourceName, -quantity);
   return writer.add(destination, destinationName, quantity);
+}
+
+// Drop a held item back onto the grid: clears heldBy and gives it the
+// vacating tile with occupancy:"tile", so it becomes a visible, reachable
+// token again (see space.ts syncTokens). When there is no tile to land on
+// (a positionless holder was destroyed), the item stays positionless too
+// rather than inventing a coordinate - it simply becomes an ownerless,
+// off-grid entity, matchable only through its own `held`/`holds` (which will
+// no longer find it, since nothing holds it) or a direct id reference.
+// Every entity a holder is carrying, in a stable order (by id) - the plain
+// containment scan behind a character's inventory view, drop's candidate
+// list, and the drop-everything-on-death sweep. Sorted rather than left in
+// entity order so every reader agrees and a snapshot replays identically.
+export function heldBy(world: KernelWorld, holderId: string): Entity[] {
+  return Object.values(world.entities)
+    .filter((e) => e.heldBy === holderId)
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+export function releaseHeld(item: Entity, at?: { x: number; y: number }): void {
+  delete item.heldBy;
+  if (at) {
+    item.pos = { ...at };
+    item.occupancy = "tile";
+  } else {
+    item.pos = undefined;
+    delete item.occupancy;
+  }
 }
 
 // Immediate application - for discrete action completions, which resolve one
@@ -1827,10 +2067,28 @@ function applyEffectNow(
     // tags[0] fallback is legacy (pre-kind rulepacks) - cosmetic only, so it
     // stays lenient rather than breaking old spawns on boot.
     let id = spec.id
-      ? name(spec.id, args)
+      ? spawnId(spec.id, world, self, args)
       : freshId(world, spec.idPrefix ?? kind ?? tags[0] ?? "entity");
     if (world.entities[id])
       throw new Error(`spawn: entity "${id}" already exists`);
+    // A held spawn is off-grid by construction - it ignores `at` entirely and
+    // takes no ground, the same way a crafted axe lands in a hand, not on a
+    // tile.
+    if (spec.heldBy !== undefined) {
+      let holder = resolve(world, self, spec.heldBy, args);
+      world.entities[id] = {
+        id,
+        kind,
+        tags,
+        stocks: instantiateStocks(spec.stocks ?? {}),
+        heldBy: holder.id,
+        action: null,
+        ...(spec.text !== undefined
+          ? { text: validInscription(spec.text) }
+          : {}),
+      };
+      return 0;
+    }
     let pos: { x: number; y: number } | undefined;
     if (spawnAtCoords(spec.at)) {
       let x = Math.round(evalExpr(spec.at.x, world, self, args));
@@ -1896,7 +2154,48 @@ function applyEffectNow(
     let e = resolve(world, self, effect.destroy.of, args);
     if (e.id === "world")
       throw new Error("destroy: the world entity cannot be removed");
+    // Release whatever the destroyed entity was holding onto its tile first,
+    // rather than leaving a dangling heldBy pointing at an id that no longer
+    // exists - a corpse's axe should land beside it, not vanish with it.
+    for (let held of Object.values(world.entities))
+      if (held.heldBy === e.id) releaseHeld(held, e.pos);
     delete world.entities[e.id];
+    return 0;
+  }
+  if ("take" in effect) {
+    let item = resolve(world, self, effect.take.item, args);
+    let by = resolve(world, self, effect.take.by, args);
+    // Taking puts the item off-grid and reachable only through its holder, so
+    // three shapes have to be refused outright or they strand an entity where
+    // nothing can ever reach it again: the world singleton (everything reads
+    // its stocks), taking yourself, and a cycle (A holds B holds A - both go
+    // positionless, and destroy's release path has no tile to drop them on).
+    // A god-DSL authoring slip, not a player move, but silent and permanent.
+    if (item.id === "world")
+      throw new Error("take: the world entity cannot be held");
+    if (item.id === by.id)
+      throw new Error(`take: "${by.id}" cannot hold itself`);
+    for (let holder: Entity | undefined = by; holder;) {
+      if (holder.id === item.id)
+        throw new Error(
+          `take: "${by.id}" is already held (directly or not) by "${item.id}" - holding it back would strand both off the grid`,
+        );
+      holder = holder.heldBy ? world.entities[holder.heldBy] : undefined;
+    }
+    item.heldBy = by.id;
+    item.pos = undefined;
+    delete item.occupancy;
+    return 0;
+  }
+  if ("release" in effect) {
+    let item = resolve(world, self, effect.release.item, args);
+    let by = resolve(world, self, effect.release.by, args);
+    if (item.heldBy !== by.id)
+      throw new Error(`release: "${by.id}" is not holding "${item.id}"`);
+    let at = effect.release.at
+      ? resolve(world, self, effect.release.at, args)
+      : by;
+    releaseHeld(item, at.pos);
     return 0;
   }
   if ("move" in effect) {

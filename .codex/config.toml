@@ -1,0 +1,2 @@
+[mcp_servers.agent-island-gm]
+url = "http://127.0.0.1:3000/gm"

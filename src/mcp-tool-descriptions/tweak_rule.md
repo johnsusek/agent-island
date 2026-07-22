@@ -21,4 +21,4 @@ The merge is shallow (a nested field is replaced wholesale, not deep-merged) and
 
 Only `id` is locked; every other field including `phase`/`kind` can be changed, so a careless tweak can reshape the rule — the result is re-validated and rejected if its phase/kind becomes invalid.
 
-Like add_rule, every tweak is automatically dry-run against a copy of the world; read the result's `dryRun.warnings` to catch a patch that makes the rule throw.
+Like add_rule, every tweak is automatically dry-run against a copy of the world; read the result's `dryRun.warnings` to catch a patch that makes the rule throw. The same strict-write rule applies here too: an `adjust`/`set` target you patch in must already exist on the entities it will touch (see add_rule's "Stock writes are strict") — a tweak that repoints `target` at an undeclared name errors exactly like a fresh rule would.

@@ -45,7 +45,9 @@ function addTrackRule(engine: WorldEngine) {
         match: { tag: "predator" },
       },
     ],
-    do: [],
+    // The body is incidental here - these tests pin param handling, which runs
+    // before commit - but an action may not be bodyless, so it marks its quarry.
+    do: [{ tag: { add: "tracked", of: { arg: "target" } } }],
   };
   engine.addRule(track);
 }
@@ -56,7 +58,7 @@ function addLabelRule(engine: WorldEngine) {
     kind: "action",
     duration: 1,
     params: [{ name: "text", type: "string", required: true }],
-    do: [],
+    do: [{ tag: { add: "labelled" } }],
   };
   engine.addRule(label);
 }

@@ -280,3 +280,29 @@ export function assertSpeculative(result: unknown): asserts result is {
 export function spawnAgent(space: Space, id: string) {
   spawn(space, id, 0, { nearest: [{ tag: "food", count: 1 }] });
 }
+
+// Declare the world `progress` stock a bare test Scenario's flow rule writes
+// to. Every adjust target must already exist (see kernel.ts requireStock), and
+// a bare Scenario has no worldStocks field of its own - that's an overlay
+// concept - so the fixtures that drive a clock off `progress` declare it here
+// first. Without it those flow rules throw a rule_error every tick, progress
+// never advances, and a fast-forwarding test spins to its timeout.
+//
+// Poked straight into a snapshot rather than set through engine.setStock,
+// which would also record a "stock_set" GM action - pulse.test.ts asserts
+// ticksSinceLastGmAction against a precise sequence of its own recordGm calls,
+// so the scaffolding has to stay out of the GM log. The max is generous on
+// purpose: a watch rule may wait for a value well past the default 100
+// (omenScenario(1000) and friends).
+export function declareProgress<Engine extends ReturnType<typeof createWorld>>(
+  engine: Engine,
+): Engine {
+  let snap = engine.snapshot();
+  snap.world.entities.world.stocks.progress = {
+    value: 0,
+    min: 0,
+    max: 1_000_000,
+  };
+  engine.restore(snap);
+  return engine;
+}

@@ -1,6 +1,7 @@
 import type { Occupancy } from "./rules/kernel.js";
 import type { WorldEngine } from "./rules/engine.js";
 import type { SpriteSpec } from "./rules/sprite.js";
+import type { StockSpec } from "./rules/scenario.js";
 import {
   buildInspection,
   type InspectQuery,
@@ -55,10 +56,17 @@ export function createGmCommands(context: GmCommandContext) {
 
   // Speculative-physics feed (docs/speculative-physics.md): attempts at verbs
   // no rule defines yet, clustered by verb. This is the synthesis seat's raw
-  // material for deciding what to add_rule into existence.
+  // material for deciding what to add_rule into existence. `nouns` is the
+  // companion feed - THINGS characters reached for that don't exist yet
+  // (an unknown resource on a real verb, or an unknown arg on an unknown
+  // verb), clustered by noun - so the Oracle can mint a resource the same way
+  // it mints a verb.
   function gmSpeculativeAttempts(sessionId: string) {
     context.requireGm(sessionId);
-    return { clusters: context.engine.getSpeculativeAttempts() };
+    return {
+      clusters: context.engine.getSpeculativeAttempts(),
+      nouns: context.engine.getSpeculativeNouns(),
+    };
   }
 
   function tryDryRun(id: string) {
@@ -159,18 +167,7 @@ export function createGmCommands(context: GmCommandContext) {
     );
   }
 
-  function gmSetStockDefault(
-    sessionId: string,
-    stock: string,
-    spec: {
-      value: number;
-      min?: number;
-      max?: number;
-      icon?: string;
-      color?: string;
-      stockpilable?: boolean;
-    },
-  ) {
+  function gmSetStockDefault(sessionId: string, stock: string, spec: StockSpec) {
     context.requireGm(sessionId);
     let result = context.engine.setStockDefault(stock, spec);
     return finishGmEdit(

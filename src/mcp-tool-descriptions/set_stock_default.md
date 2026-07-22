@@ -13,3 +13,22 @@ set_stock_default({stock:"warmth", value:100, min:0, max:100, icon:"warmth", col
 ```
 
 then add a rule that drains warmth.
+
+This is the normal way to declare a resource BEFORE a rule writes to it: an `adjust`/`set` effect only ever touches a stock an entity already carries, and never auto-creates one — a stray `target` that names an entity instead of a stock ("self") is now a rule_error, not a phantom stock. Declare first (here, or on a spawn's own `stocks`), then write.
+
+**Role — what this stock IS to a character**
+
+Pass `role` to classify it, so prose and givability are right from the moment you mint it:
+
+- `"vital"` — a pressure that can hurt or kill (health, hunger, thirst, warmth...). Band-alarmed prose only ("You are starving."), never a bare figure, never givable. Pair it with `tone` (`"up"`: falling is bad, e.g. health; `"down"`: rising is bad, e.g. hunger) and `bands` (what the world says at `pressing`/`serious`/`critical` — any band you don't write gets a serviceable default built from `label`).
+- `"stat"` — a personal dimension worth a mention only when it's notable (courage, skill, reputation). Adjectival prose only when banded ("Your courage is low."), silent otherwise, never givable. Same `tone`/`bands` shape as vital, just milder.
+- `"pack"` (the default — omit `role` entirely for an ordinary carried resource) — a fungible quantity that shows as a figure ("Carrying: wood 12.") and is the only role `give` ever touches. Add `stockpilable:true` on top if it should also be haulable into a stockpile via deposit/withdraw (rejected on vital/stat — stockpilable is a pack-only subflag, not a second givability axis).
+
+**Example — a harm-coupled pressure, fully specified in one mint**
+
+```
+set_stock_default({stock:"warmth", value:100, min:0, max:100, icon:"warmth", color:"#e8843a",
+  role:"vital", tone:"up", bands:{pressing:"You feel the cold.", serious:"You are shivering badly.", critical:"You are freezing to death."}})
+```
+
+then add a rule that drains warmth — the alarm reaches the character with no second authoring step, because role/label/tone/bands live right here on the stock and ride the overlay, so a GM's edits persist and survive snapshot/restore.

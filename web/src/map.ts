@@ -37,44 +37,27 @@ import type {
 export interface TooltipStock {
   name: string;
   value: number;
-  max: number | null;
-  icon: string | null;
-  color: string;
 }
 
 export interface TooltipAgent {
   id: string;
   name: string;
   color: string;
-  stocks: TooltipStock[];
 }
 
 export interface TooltipEntity {
   id: string;
   label: string;
-  kind?: string;
-  // What is written on it, when it carries an inscription (a sign).
   text?: string;
-  // The kind tag that has no sprite authored, or null when art exists - the
-  // tooltip surfaces the gap so a missing checker on the map is explainable.
-  missingSprite: string | null;
-  color: string;
-  tags: string[];
   stocks: TooltipStock[];
 }
 
 export interface TileTooltip {
-  x: number;
-  y: number;
   terrain: string;
-  terrainColor: string;
   fogged: boolean;
   token: {
-    name: string;
-    kind?: string;
+    label: string;
     text?: string;
-    tags: string[];
-    missingSprite: string | null;
     stocks: TooltipStock[];
   } | null;
   agents: TooltipAgent[];
@@ -98,23 +81,16 @@ export interface TileInfoContext {
   fog: FogView | null;
   agents: Record<string, AgentView>;
   entities: Record<string, EntityView>;
-  terrainVisuals: Record<string, VisualSpec>;
   kindVisuals: Record<string, VisualSpec>;
   selectedAgentId: string | null;
 }
 
-// A stock reads with its central glyph (its StockSpec icon, resolved through
-// kindVisuals) or, lacking one, its name alone. A finite, sane cap shows as
-// "/max" (needs meters); open-ended world reserves just show the value.
 export function stockLines(stocks: Record<string, Stock>): TooltipStock[] {
   return Object.entries(stocks)
     .map(([name, stock]) => {
       return {
         name,
         value: Math.round(stock.value),
-        max: stock.max > 0 && stock.max < 1e6 ? Math.round(stock.max) : null,
-        icon: null,
-        color: "currentColor",
       };
     })
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -149,7 +125,6 @@ export function buildTileTooltip(
       id: agent.id,
       name: agent.name,
       color: nameTint(agent.name),
-      stocks: stockLines(agent.stocks),
     }));
 
   let entitiesHere = Object.values(ctx.entities).filter(
@@ -170,12 +145,11 @@ export function buildTileTooltip(
   );
   if (tokenHere) {
     let backing = ctx.entities[tokenHere.token.name];
+    let kind = tokenHere.token.kind;
     token = {
-      name: tokenHere.token.name,
-      kind: tokenHere.token.kind,
+      label:
+        (kind && ctx.kindVisuals[kind]?.label) ?? kind ?? tokenHere.token.name,
       text: backing?.text,
-      tags: tokenHere.token.tags,
-      missingSprite: missingSpriteKind(tokenHere.token, ctx.kindVisuals),
       stocks: backing ? stockLines(backing.stocks) : [],
     };
   }
@@ -188,20 +162,13 @@ export function buildTileTooltip(
       return {
         id: entity.id,
         label: (kind && ctx.kindVisuals[kind]?.label) ?? kind ?? entity.id,
-        kind,
         text: entity.text,
-        missingSprite: missingSpriteKind(entity, ctx.kindVisuals),
-        color: "#c8b88a",
-        tags: entity.tags,
         stocks: stockLines(entity.stocks),
       };
     });
 
   return {
-    x: tileX,
-    y: tileY,
     terrain,
-    terrainColor: terrainHex(terrain, ctx.terrainVisuals),
     fogged,
     token,
     agents: here,
@@ -270,15 +237,6 @@ function spriteFor(
     if (fallback) return fallback;
   }
   return undefined;
-}
-
-// The tooltip's "why is this a checker" note: the kind that should have art.
-function missingSpriteKind(
-  thing: Appearance,
-  kindVisuals: Record<string, VisualSpec>,
-): string | null {
-  if (spriteFor(thing, kindVisuals)) return null;
-  return thing.kind ?? "entity";
 }
 
 function isZone(thing: Appearance): boolean {
@@ -625,7 +583,6 @@ export async function createWorldViewportController(
         fog: fogView,
         agents,
         entities,
-        terrainVisuals,
         kindVisuals,
         selectedAgentId,
       },

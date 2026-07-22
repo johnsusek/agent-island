@@ -101,6 +101,18 @@ It is not decoration. A positioned spawn without `occupancy` is invisible on the
 
 A tile shows exactly one token, so taking ground also reserves it: an action that would raise a second occupant where one already stands is refused up front, before time or materials are spent.
 
+That reservation is permanent, and it is the thing most often authored past: **two structures can never share a square.** A shelter spawned `at:"self"` takes the builder's tile, so "and then a fire inside it" is not expressible — the fire needs the tile next door. If you mean a structure to be improvable, model the upgrade as one verb that replaces the token (`destroy` the old, `spawn` the new), not as a second building raised on top of the first.
+
+**Spawn ids**
+
+`{{self}}` and `{{tick}}` render inside a spawn's `id` — and they are the only placeholders that do. Anything else throws rather than baking an unaddressable key into the world.
+
+```
+{spawn:{kind:"shelter",id:"shelter-{{self}}-{{tick}}",occupancy:"tile",at:"self"}}
+```
+
+A **fixed** id makes the thing a singleton: the first build claims the name, and every later one passes its `requires`, spends the materials, and *then* throws "already exists" — the second builder pays for an error. Give a built thing `{{self}}`/`{{tick}}`, or omit `id` entirely and let it auto-number (`shelter-1`, `shelter-2`). Reserve a constant id for something there is genuinely only ever one of.
+
 Every matcher takes both forms: `tag:"wolf"` is loose (matches the name in either slot — kind or tags), `kind:"wolf"` is strict (the entity IS a wolf; a tag carrying the name doesn't count). Available at `each:{kind}`, conditions (`{kind:"wolf",of:...}` — one of tag/kind per cond, combine with `all`), `colocated:{kind,range,pick}`, aggregates (`{count:{kind:"wolf"}}`), and action target params. In colocated/aggregate/each, giving both tag and kind demands both; giving neither is rejected.
 
 **Spatial effects** (immediate phases only, like all structural effects)
@@ -199,6 +211,23 @@ A `spawn` puts an entity in the world; nothing consumes it unless another rule s
 Write the second rule with no `requires` and no `destroy` and the two are unrelated systems that merely look like a loop: the berries accumulate untouched forever and `eat_food` pays out hunger relief on demand, needing nothing. The dry-run cannot catch this — an unconditional rule is valid, just free.
 
 Read list_rules first to copy the shape of a working rule.
+
+**Held items — discrete things, not stock counts**
+
+A pack stock is a fungible count (wood 12); a held ITEM is a single entity a character carries in hand (a specific axe, a torch that burns down), with its own kind, stocks, and identity. Tag an item `portable` so the built-in `pick_up`/`drop` verbs work on it. The DSL for holding:
+
+- `spawn:{kind:"axe", tags:["portable"], heldBy:"self", stocks:{durability:{value:10,max:10}}}` — craft an item straight into the actor's hand (off-grid, ignores `at`/`occupancy`).
+- `{holds:{kind:"axe"}, of:"self"}` — a CONDITION: does the entity hold a matching item (gate a `requires` on it: "you need an axe to chop").
+- `{held:{kind:"axe"}}` — an entity SELECTOR (like `{colocated}`): resolves the held item so an effect can read or write ITS stocks, e.g. `{adjust:{target:"durability", of:{held:{kind:"axe"}}, by:-1}}`.
+- `{take:{item:<sel>}}` / `{release:{item:<sel>, at:<sel>}}` — structural effects (immediate phases) to move an item into a hand or drop it on a tile; `destroy` on a holder drops what it held first.
+
+A tool with no wear is a free wish that pays forever: pair the use rule (`requires` holding it) with a `durability` spend and a `destroy` at zero, exactly like spawn-and-consume below.
+
+**Stock writes are strict**
+
+An `adjust`/`set` effect's `target` must already exist on the entity it writes — declare it first (a per-agent default via `set_stock_default`, a world stock via `set_stock`, or a stock riding a `spawn`'s own `stocks`), then write it. Nothing auto-creates it for you, on purpose: `{adjust:{target:"self",by:-10}}` used to silently mint a stock literally named `self` when the author meant `{of:"self"}` — a real regression that cost characters hundreds of ticks debugging phantom inventory. If a `target` is meant to name an ENTITY rather than a stock, it belongs in `of`, not `target`.
+
+`transfer` is the one exception, and only on its destination side: moving a known resource into a stock an entity has never held (a character picking up a resource type its template never listed) still works without declaring it first, as long as that resource is declared somewhere in the ruleset already. The `transfer.from` side is always strict, like `adjust`/`set` — you cannot take from a stock that isn't there.
 
 **Validation**
 

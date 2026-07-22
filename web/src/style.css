@@ -4,17 +4,17 @@
 
 :root {
   --bg: #0b0e14;
-  --panel: #10141d;
-  --panel-2: #151a26;
-  --edge: #232a3a;
-  --ink: #dfe6f2;
-  --dim: #8b93a7;
-  --faint: #5b6273;
-  --law: #9ece6a;
-  --spec: #7aa2f7;
-  --oracle: #e8b34a;
-  --danger: #f7768e;
-  --warn: #e0af68;
+  --panel: #10141c;
+  --panel-2: #161b24;
+  --edge: #252c39;
+  --ink: #e3e7ee;
+  --dim: #9aa3b4;
+  --faint: #697386;
+  --law: #a6bf7c;
+  --spec: #88a6d8;
+  --oracle: #d9ad59;
+  --danger: #e2788b;
+  --warn: #d6a65f;
   --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
   --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -34,8 +34,10 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.4;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 button {
@@ -51,13 +53,13 @@ button {
 
 .observatory {
   display: grid;
-  grid-template-rows: 40px 1fr 200px;
+  grid-template-rows: 44px minmax(0, 1fr) var(--feed-height, 124px);
   height: 100%;
 }
 
 .observatory__main {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 25vw, 360px);
   min-height: 0;
 }
 
@@ -78,7 +80,7 @@ button {
 .clock {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   padding: 0 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--edge);
@@ -99,8 +101,7 @@ button {
 }
 
 .clock__world {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--faint);
 }
 
@@ -116,6 +117,7 @@ button {
 .clock__tick,
 .clock__stock {
   font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--dim);
   white-space: nowrap;
@@ -162,9 +164,9 @@ button {
   gap: 8px;
   width: 100%;
   text-align: left;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border-radius: 5px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .roster__row:hover {
@@ -173,13 +175,6 @@ button {
 
 .roster__name {
   font-weight: 600;
-}
-
-.roster__pos {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--faint);
 }
 
 .roster__dead {
@@ -199,12 +194,20 @@ button {
 }
 
 .clock__oracle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   color: var(--oracle);
-  border: 1px solid color-mix(in srgb, var(--oracle) 40%, transparent);
-  border-radius: 999px;
-  padding: 1px 8px;
   white-space: nowrap;
+}
+
+.clock__oracle::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
 }
 
 .clock__error {
@@ -223,7 +226,7 @@ button {
 /* ---- chips (filters, controls) ---- */
 
 .chip {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--dim);
   border: 1px solid var(--edge);
   border-radius: 999px;
@@ -301,53 +304,32 @@ button {
   background: var(--panel-2);
   border: 1px solid var(--edge);
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 12px;
+  padding: 9px 11px;
+  font-size: 13px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
 
 .tip--pinned {
+  padding-right: 34px;
   pointer-events: auto;
   border-color: var(--faint);
 }
 
-.tip__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.tip__terrain {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.tip__swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  display: inline-block;
-}
-
-.tip__pos {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--faint);
-  margin-left: auto;
-}
-
 .tip__close {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
   color: var(--faint);
-  font-family: var(--mono);
-  padding: 0 2px;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .tip__close:hover {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   color: var(--ink);
 }
 
@@ -358,8 +340,13 @@ button {
 }
 
 .tip__row {
+  padding: 2px 0;
+}
+
+.tip__row + .tip__row {
+  margin-top: 6px;
   border-top: 1px solid var(--edge);
-  padding: 5px 0 3px;
+  padding-top: 7px;
 }
 
 .tip__name {
@@ -367,21 +354,16 @@ button {
   margin-right: 6px;
 }
 
-.tip__tags {
-  color: var(--faint);
-  font-size: 10px;
-  margin-right: 6px;
-}
-
 .tip__stocks {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .tip__stock {
   font-family: var(--mono);
-  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
   color: var(--dim);
 }
 
@@ -391,10 +373,12 @@ button {
   font-style: italic;
 }
 
-.tip__missing {
-  margin-top: 3px;
-  color: var(--danger);
-  font-size: 10px;
+.tip__context {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid var(--edge);
+  color: var(--faint);
+  font-size: 11px;
 }
 
 /* ---- ledger rail ---- */
@@ -406,19 +390,19 @@ button {
   width: 100%;
   min-height: 0;
   background: var(--panel);
+  animation: rail-enter 140ms ease-out;
 }
 
 .ledger__head {
-  padding: 10px 12px 8px;
+  padding: 12px;
   border-bottom: 1px solid var(--edge);
 }
 
 .ledger__title {
-  margin: 0 0 6px;
-  font-size: 13px;
+  margin: 0;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--oracle);
 }
 
@@ -427,20 +411,19 @@ button {
   overflow-y: auto;
   min-height: 0;
   flex: 1;
-  padding: 8px 12px;
+  padding: 12px;
 }
 
 .ledger__section {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .ledger__heading {
-  margin: 0 0 6px;
-  font-size: 10px;
+  margin: 0 0 8px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--faint);
+  letter-spacing: 0.01em;
+  color: var(--dim);
 }
 
 .ledger__empty {
@@ -451,12 +434,11 @@ button {
 
 /* A law: a speculation that became physics. */
 .law {
-  border: 1px solid color-mix(in srgb, var(--law) 25%, var(--edge));
-  border-left: 3px solid var(--law);
-  border-radius: 6px;
-  background: var(--panel-2);
-  padding: 7px 9px;
-  margin-bottom: 8px;
+  padding: 8px 0 9px;
+}
+
+.law + .law {
+  border-top: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
 }
 
 .law__line {
@@ -476,35 +458,6 @@ button {
   color: var(--law);
 }
 
-.law__badge {
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  border-radius: 3px;
-  padding: 1px 5px;
-}
-
-.law__badge--gated {
-  color: var(--law);
-  border: 1px solid color-mix(in srgb, var(--law) 45%, transparent);
-}
-
-.law__badge--free {
-  color: var(--warn);
-  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
-}
-
-.law__latency {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--dim);
-}
-
-.law__latency--slow {
-  color: var(--danger);
-}
-
 .law__aliases {
   color: var(--faint);
 }
@@ -512,8 +465,8 @@ button {
 .law__desc {
   margin: 4px 0 0;
   color: var(--dim);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .law__who {
@@ -536,11 +489,11 @@ button {
 
 /* A standing speculation: tried, not yet real. */
 .spec {
-  border: 1px dashed color-mix(in srgb, var(--spec) 35%, var(--edge));
-  border-radius: 6px;
-  padding: 6px 9px;
-  margin-bottom: 6px;
-  opacity: 0.9;
+  padding: 8px 0 9px;
+}
+
+.spec + .spec {
+  border-top: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
 }
 
 .spec__line {
@@ -554,16 +507,11 @@ button {
 }
 
 .spec__count {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--dim);
-}
-
-.spec__ticks {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--dim);
 }
 
 .spec__who {
@@ -578,15 +526,15 @@ button {
   margin: 3px 0 0;
   color: var(--dim);
   font-style: italic;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.4;
   border: none;
   padding: 0;
 }
 
 .namelink {
   color: var(--dim);
-  font-size: 11px;
-  text-decoration: underline dotted;
+  font-size: 12px;
 }
 
 .namelink:hover {
@@ -597,15 +545,21 @@ button {
 
 .dossier__head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 10px;
-  padding: 10px 12px 8px;
+  padding: 12px;
   border-bottom: 1px solid var(--edge);
+}
+
+.dossier__identity {
+  flex: 1;
+  min-width: 0;
 }
 
 .dossier__name {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 .dossier__dead {
@@ -615,34 +569,43 @@ button {
   text-transform: uppercase;
 }
 
-.dossier__pos {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--faint);
-  margin-left: auto;
+.dossier__activity {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.dossier__head .tip__close {
-  pointer-events: auto;
+.dossier__close {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--faint);
+  font-size: 19px;
+  line-height: 1;
+}
+
+.dossier__close:hover {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
 }
 
 .dossier__section {
-  margin-bottom: 14px;
-}
-
-.dossier__doing {
-  margin: 0;
-  color: var(--dim);
-  font-size: 12px;
+  margin-bottom: 18px;
 }
 
 .dossier__spec {
-  font-size: 12px;
-  margin-bottom: 3px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 5px;
 }
 
 .dossier__quote {
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.4;
   color: var(--dim);
   margin-bottom: 3px;
   display: flex;
@@ -658,7 +621,7 @@ button {
 }
 
 .bar__label {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--dim);
   text-transform: capitalize;
   overflow: hidden;
@@ -667,8 +630,8 @@ button {
 }
 
 .bar__track {
-  height: 6px;
-  border-radius: 3px;
+  height: 7px;
+  border-radius: 4px;
   background: var(--edge);
   overflow: hidden;
 }
@@ -693,19 +656,121 @@ button {
 
 .bar__value {
   font-family: var(--mono);
-  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
   color: var(--faint);
   text-align: right;
+}
+
+/* A stat bar is a disposition, not a vital - dimmed so it never competes with
+   the needs above it for a glance. */
+.bar--muted {
+  opacity: 0.65;
+}
+
+/* A held item: named, no gauge (one axe is one axe). */
+.dossier__item {
+  font-size: 13px;
+  margin-bottom: 3px;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.dossier__item-note {
+  font-size: 13px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A pack line: a fungible count, name and figure. */
+.dossier__pack {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--dim);
+  margin-bottom: 2px;
+}
+
+.dossier__pack-name {
+  text-transform: capitalize;
+}
+
+.dossier__pack-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
 }
 
 /* ---- feed ---- */
 
 .feed {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-top: 1px solid var(--edge);
   background: var(--panel);
+}
+
+.feed__splitter {
+  position: absolute;
+  top: -5px;
+  left: 0;
+  z-index: 20;
+  width: 100%;
+  height: 10px;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.feed__splitter::before {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--edge);
+  content: "";
+  transition:
+    height 100ms ease,
+    background 100ms ease;
+}
+
+.feed__splitter::after {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 34px;
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
+  content: "";
+  transform: translateX(-50%);
+  transition: background 100ms ease;
+}
+
+.feed__splitter:hover::before,
+.feed__splitter:focus-visible::before,
+.feed-resizing .feed__splitter::before {
+  height: 2px;
+  background: color-mix(in srgb, var(--oracle) 70%, var(--edge));
+}
+
+.feed__splitter:hover::after,
+.feed__splitter:focus-visible::after,
+.feed-resizing .feed__splitter::after {
+  background: var(--oracle);
+}
+
+.feed__splitter:focus-visible {
+  outline: none;
+}
+
+.feed-resizing {
+  cursor: row-resize;
+  user-select: none;
 }
 
 .feed__head {
@@ -717,10 +782,9 @@ button {
 
 .feed__title {
   margin: 0;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--faint);
 }
 
@@ -734,8 +798,8 @@ button {
   min-height: 0;
   flex: 1;
   padding: 2px 12px 8px;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .row {
@@ -746,9 +810,10 @@ button {
 
 .row__tick {
   font-family: var(--mono);
-  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
   color: var(--faint);
-  min-width: 44px;
+  min-width: 40px;
   text-align: right;
 }
 
@@ -790,7 +855,26 @@ button {
 .row__whisper {
   font-style: italic;
   color: var(--faint);
-  font-size: 11px;
+  font-size: 12px;
+}
+
+@keyframes rail-enter {
+  from {
+    opacity: 0.55;
+    transform: translateX(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ledger,
+  .dossier {
+    animation: none;
+  }
+
+  .feed__splitter::before,
+  .feed__splitter::after {
+    transition: none;
+  }
 }
 
 /* ---- scrollbars ---- */

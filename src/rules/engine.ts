@@ -14,8 +14,11 @@ import {
   commit,
   freshId,
   hasTag,
+  heldBy,
+  releaseHeld,
   roundStock,
   runRulesForTick,
+  setKnownStocks,
   setStockpilable,
   stock,
   validateRule,
@@ -27,6 +30,7 @@ import {
   type MapEdge,
   type Occupancy,
   type Rule,
+  type SpawnSpec,
   type Stock,
 } from "./kernel.js";
 import { assertValidRule } from "./rule-schema.js";
@@ -76,9 +80,10 @@ import {
   assertValidTerrainSpec,
   assertValidVisual,
   renderTemplate,
-  type DisplayHint,
+  type StockDisplay,
   type EntityTemplate,
   type Scenario,
+  type StockRole,
   type StockSpec,
   type TerrainSpec,
   type Visual,
@@ -96,6 +101,7 @@ import {
   intentArgs,
   isMovementActionName,
   listAvailableActions as availableActionsFor,
+  UnknownChoiceError,
   validateActionArgs,
   type ActionInput,
   type ActionDescriptor,
@@ -145,6 +151,7 @@ export interface GameEvent {
   verbs?: string[]; // speculation_realized: every synonym this one wake settles
   expectation?: string; // speculative_attempt: what the actor said would happen
   args?: Record<string, string | number>; // speculative_attempt: the rest of the attempted args
+  noun?: string; // noun_attempt: a thing a character reached for that doesn't exist
 }
 
 export interface VisibleEventsOptions {
@@ -262,6 +269,7 @@ const SUBSTRATE_ACTOR_ONLY = new Set([
   "arrived",
   "scanned",
   "speculative_attempt",
+  "noun_attempt",
   "vitals_alarm",
   "speculation_realized",
   "order_note",
@@ -365,10 +373,6 @@ export interface RuleOverlay {
   // type ({{ ... }} templates rendered against the DescribeContext, exactly like
   // scenario.describeEvent). A scenario's rules and their prose travel together.
   describeEvent?: Record<string, string>;
-  // Dashboard hints for the stocks the overlay introduces (label, tone, world
-  // pill vs agent bar), keyed by stock name - the overlay's slice of
-  // scenario.display, so a scenario's stocks and their presentation travel together.
-  display?: Record<string, DisplayHint>;
 }
 
 export type SetupDirective = { scatter: TokenScatter };
@@ -394,7 +398,14 @@ export interface FixtureSpec {
   text?: string;
 }
 
-const SNAPSHOT_VERSION = 1;
+// Bumped when a change alters what a snapshot means rather than just its
+// shape - restore() below refuses a mismatched version outright (a fresh
+// world is safer than replaying old semantics under new code) rather than
+// migrating, since every world here is a per-run experiment, not durable
+// data. v2: the stock write namespace closed (adjust/set/transfer.source no
+// longer auto-vivify; transfer.destination vivifies only known names) -
+// physics that depended on the old silent-mint behavior would replay wrong.
+const SNAPSHOT_VERSION = 2;
 
 // How many recent ticks of world-stock history the engine retains for the
 // dashboard's trend charts. In-memory only (not snapshotted): it rebuilds as the
@@ -518,8 +529,9 @@ export function createWorld(scenario: Scenario) {
   // describeEvent plus whatever the applied overlay carries (a scenario's rules
   // and their prose travel together). enrich() renders event text from here.
   let describeTemplates: Record<string, string>;
-  // The live stock -> dashboard-hint registry, layered the same way.
-  let displayHints: Record<string, DisplayHint>;
+  // The global stocks an overlay declared, kept (not just applied) so their
+  // role and presentation can be projected on every read - see stockDisplay.
+  let worldStockSpecs: Record<string, StockSpec> = {};
   // The tick each action was introduced, for actions the GM conjured at runtime.
   // A character's observation flags an action newer than its last look so a fresh
   // capability (chop, once the GM adds wood) actually catches the eye instead of
@@ -621,7 +633,7 @@ export function createWorld(scenario: Scenario) {
     authoredKindVisuals = { ...baseKindVisuals };
     kindVisuals = { ...authoredKindVisuals };
     describeTemplates = { ...(scenario.describeEvent ?? {}) };
-    displayHints = { ...(scenario.display ?? {}) };
+    worldStockSpecs = {};
     baseTerrainSpecs = structuredClone(scenario.terrainSpecs ?? {});
     terrainSpecs = {};
     reapplyTerrainSpecs(baseTerrainSpecs);
@@ -921,12 +933,40 @@ export function createWorld(scenario: Scenario) {
     return structuredClone(log.slice(-limit));
   }
 
+  // Every verb the world has since learned to answer: the words already spent
+  // by a redemption, plus every name the current action registry responds to.
+  // Both halves are needed - a `speculation_realized` names the words it
+  // settled, but a verb minted before anyone tried it (or one whose redemption
+  // predates a later alias) is only visible in the registry.
+  function settledVerbs(): Set<string> {
+    let settled = new Set<string>();
+    for (let event of log) {
+      if (event.type !== "speculation_realized") continue;
+      if (event.verb) settled.add(event.verb);
+      for (let verb of event.verbs ?? []) settled.add(verb);
+    }
+    for (let action of actionRegistry()) {
+      settled.add(action.name);
+      for (let alias of action.aliases ?? []) settled.add(alias);
+    }
+    return settled;
+  }
+
   // Speculative-physics feed: every attempt at a verb no rule defines yet,
   // clustered by verb so a synthesis seat can see consensus at a glance
   // instead of wading through the general event log for it. Reads the same
   // `log` every other GM query draws from - no separate storage, and the
   // usual 50k trim bounds it like everything else here.
+  //
+  // Answered verbs drop out. The log is append-only, so without this filter a
+  // cluster survives its own ratification forever: genesis run cc3d1956 reached
+  // t187 with six minted rules and six "open" clusters that were exactly the
+  // aliases of those six rules - the Oracle had answered everything and was
+  // being told, every turn, that it had answered nothing. That is a standing
+  // invitation to re-mint a settled concept under a synonym, and it makes the
+  // open-speculation count useless as a health signal.
   function getSpeculativeAttempts() {
+    let settled = settledVerbs();
     let clusters = new Map<
       string,
       {
@@ -941,6 +981,7 @@ export function createWorld(scenario: Scenario) {
     >();
     for (let event of log) {
       if (event.type !== "speculative_attempt" || !event.verb) continue;
+      if (settled.has(event.verb)) continue;
       let cluster = clusters.get(event.verb);
       if (!cluster) {
         cluster = {
@@ -966,6 +1007,109 @@ export function createWorld(scenario: Scenario) {
         cluster.expectations.push(event.expectation);
       if (event.args && cluster.sampleArgs.length < 8)
         cluster.sampleArgs.push(event.args);
+    }
+    return [...clusters.values()].sort((a, b) => b.count - a.count);
+  }
+
+  // Every noun the world already answers to - what a "reached-for noun" is
+  // checked against so only genuinely-absent things surface. The union of
+  // every name a character could plausibly have meant: declared stocks, live
+  // entity kinds and ids (and their display names), the kinds rules spawn, and
+  // terrain. Lower-cased for a forgiving match, since a character types
+  // "Clay"/"clay" without knowing the registry's casing.
+  function knownNounSet(): Set<string> {
+    let names = new Set<string>();
+    let add = (n: string | undefined) => {
+      if (n) names.add(n.toLowerCase());
+    };
+    for (let n of knownStockNames()) add(n);
+    for (let t of Object.keys(terrainSpecs)) add(t);
+    for (let e of Object.values(world.entities)) {
+      add(e.id);
+      add(e.kind);
+      add(displayName(e.id));
+    }
+    for (let spec of liveSpawnSpecs())
+      if (typeof spec.kind === "string") add(spec.kind);
+    return names;
+  }
+
+  // The longest a reached-for noun can be and still plausibly name a THING the
+  // world could contain. An arg is free text, so an unknown verb carries prose
+  // as often as nouns ("the sky gods", "until it stops raining"); a name the
+  // Oracle could mint a resource for is one or two words. Anything longer is
+  // sentence fragment, not petition, and would only bury the real nouns.
+  const MAX_NOUN_WORDS = 2;
+  const MAX_NOUN_LENGTH = 32;
+
+  // Whether a string a character used as an arg names something the world does
+  // NOT have - the one gate both noun paths use, so the event a character sees
+  // and the feed the Oracle reads can never disagree about what is missing.
+  // Checked at journal time as well as at read time: telling someone "no such
+  // thing answers here" about a thing that plainly exists (a stock a verb
+  // refused for some other reason) is a lie the world should never tell.
+  function isUnknownNoun(value: string, known: Set<string>): boolean {
+    let trimmed = value.trim();
+    if (!trimmed || trimmed.length > MAX_NOUN_LENGTH) return false;
+    if (trimmed.split(/\s+/).length > MAX_NOUN_WORDS) return false;
+    return !known.has(trimmed.toLowerCase());
+  }
+
+  // The noun-level companion to getSpeculativeAttempts: things characters
+  // reached for that don't exist. Two sources, both already in the log - a
+  // `noun_attempt` (a known verb given an unknown noun arg, journaled at
+  // commit) and the string arg values riding a `speculative_attempt` (an
+  // unknown verb whose args named a nonexistent thing). Clustered by noun, so
+  // "clay" reached for via smelt, shape, and fire shows as one entry the
+  // Oracle can mint a resource for. Kept as its own function (not folded into
+  // getSpeculativeAttempts' array) so the verb-cluster shape the dashboard and
+  // redemption path depend on is untouched.
+  function getSpeculativeNouns() {
+    let known = knownNounSet();
+    let clusters = new Map<
+      string,
+      {
+        noun: string;
+        count: number;
+        verbs: string[];
+        distinctActors: string[];
+        firstTick: number;
+        lastTick: number;
+      }
+    >();
+    let record = (
+      noun: string,
+      verb: string | undefined,
+      actor: string | undefined,
+      tick: number,
+    ) => {
+      if (!isUnknownNoun(noun, known)) return;
+      let trimmed = noun.trim();
+      let cluster = clusters.get(trimmed.toLowerCase());
+      if (!cluster) {
+        cluster = {
+          noun: trimmed,
+          count: 0,
+          verbs: [],
+          distinctActors: [],
+          firstTick: tick,
+          lastTick: tick,
+        };
+        clusters.set(trimmed.toLowerCase(), cluster);
+      }
+      cluster.count += 1;
+      cluster.lastTick = tick;
+      if (verb && !cluster.verbs.includes(verb)) cluster.verbs.push(verb);
+      if (actor && !cluster.distinctActors.includes(actor))
+        cluster.distinctActors.push(actor);
+    };
+    for (let event of log) {
+      if (event.type === "noun_attempt" && event.noun)
+        record(event.noun, event.verb, event.agentId, event.tick);
+      else if (event.type === "speculative_attempt" && event.args)
+        for (let value of Object.values(event.args))
+          if (typeof value === "string")
+            record(value, event.verb, event.agentId, event.tick);
     }
     return [...clusters.values()].sort((a, b) => b.count - a.count);
   }
@@ -1322,10 +1466,26 @@ export function createWorld(scenario: Scenario) {
     // advance so an interrupted order commits nothing further this tick.
     for (let event of raw) applyEmittedInterrupt(event);
     // An agent that lost its "agent" tag this tick (a scenario death rule) is now
-    // gone from the living roster; stamp the moment for ticksLived.
+    // gone from the living roster; stamp the moment for ticksLived, and let
+    // whatever they were carrying fall to the ground where they died so it can
+    // be looted (a held item is off-grid - without this it would dangle on a
+    // corpse forever, reachable by nothing). The diedAt loop runs AFTER this
+    // tick's syncTokens, so re-project if anything actually dropped.
+    let droppedOnDeath = false;
     for (let id of agentIds()) {
       let m = meta.get(id)!;
-      if (m.diedAt === null && !isAlive(id)) m.diedAt = world.tick;
+      if (m.diedAt === null && !isAlive(id)) {
+        m.diedAt = world.tick;
+        let corpse = entity(id);
+        for (let item of heldBy(world, id)) {
+          releaseHeld(item, corpse.pos);
+          droppedOnDeath = true;
+        }
+      }
+    }
+    if (droppedOnDeath && syncTokens(space, world)) {
+      tokenRevision += 1;
+      replanRoutesForSolids(space, world);
     }
     // A rule this tick may have requested a world reroll (the `regenerate`
     // effect, deferred so every other effect settled against the old world
@@ -1359,6 +1519,11 @@ export function createWorld(scenario: Scenario) {
   // Every worsening crossing is decision-grade; recovery is silent, and a band
   // already announced never repeats until the gauge climbs back out of it.
   function raiseVitalAlarms() {
+    // Built once per tick, not per agent - a registry-declared vital (role:
+    // "vital", no scenario `display` entry at all) alarms through this same
+    // projection, so a GM-minted pressure telegraphs exactly like an
+    // authored one.
+    let display = stockDisplay();
     for (let id of agentIds()) {
       if (!isAlive(id)) {
         lastVitalBands.delete(id);
@@ -1368,7 +1533,8 @@ export function createWorld(scenario: Scenario) {
       let current: Record<string, VitalBand> = {};
       for (let { name, band } of bandedStocks(
         entity(id).stocks,
-        displayHints,
+        display,
+        "vital",
       )) {
         current[name] = band;
         // Lower index is worse: only a step DOWN the ladder is news.
@@ -1376,7 +1542,7 @@ export function createWorld(scenario: Scenario) {
           push({
             type: "vitals_alarm",
             agentId: id,
-            text: bandSentence(name, band, displayHints[name]),
+            text: bandSentence(name, band, display[name]),
             wake: "decision",
           });
       }
@@ -1476,9 +1642,46 @@ export function createWorld(scenario: Scenario) {
       {
         name: "item",
         type: "enum",
-        from: "stockpilable",
+        from: "pack",
         required: true,
         description: "which carried resource to hand over",
+      },
+    ],
+  };
+
+  // pick_up / drop are native verbs like give, moving a discrete ITEM entity
+  // between the ground and a character's hand (as opposed to give, which moves
+  // a fungible stock amount). An item is anything tagged "portable"; drop's
+  // candidates are whatever the actor is already holding.
+  const pickUpAction: ActionDescriptor = {
+    name: "pick_up",
+    kind: "pick_up",
+    description:
+      "Pick a portable item up off the ground into your hand, walking to it first if it is out of reach.",
+    aliases: ["take", "grab"],
+    params: [
+      {
+        name: "item",
+        type: "entity",
+        required: true,
+        description: "the item to pick up",
+        match: { tag: "portable", includeSelf: false },
+      },
+    ],
+  };
+
+  const dropAction: ActionDescriptor = {
+    name: "drop",
+    kind: "drop",
+    description:
+      "Drop an item you are holding onto the ground where you stand.",
+    params: [
+      {
+        name: "item",
+        type: "entity",
+        required: true,
+        description: "which held item to drop",
+        match: { heldBySelf: true },
       },
     ],
   };
@@ -1487,6 +1690,8 @@ export function createWorld(scenario: Scenario) {
     return [
       ...movementActions.map((m) => ({ ...m, kind: "movement" as const })),
       giveAction,
+      pickUpAction,
+      dropAction,
       ...actionRules(rules).map((r) => ({
         name: r.id,
         kind: "stock" as const,
@@ -1507,6 +1712,7 @@ export function createWorld(scenario: Scenario) {
       entity,
       displayName,
       stockpilableStockNames,
+      packStockNames,
       terrainAt,
     };
   }
@@ -1538,6 +1744,32 @@ export function createWorld(scenario: Scenario) {
     return (
       registry.find((a) => a.name === name) ??
       registry.find((a) => a.aliases?.includes(name))
+    );
+  }
+
+  // An action with an empty body is a lie the world tells: the character
+  // commits it, waits out its duration, is told the order completed, and
+  // nothing changed. That is strictly worse than a refusal, because a refusal
+  // is legible ("you need to be at the water's edge") and this is not - there
+  // is no way to tell "this verb does nothing" from "I did it wrong", so the
+  // character learns to distrust grants in general.
+  //
+  // Dry-run has always flagged this, but only as an advisory warning, and
+  // genesis run cc3d1956 shipped two of them on that basis: `enter-shelter` and
+  // `warm-by-fire`, both minted with `do: []` because a threshold rule already
+  // conferred the benefit on proximity, so "entering" had nothing left to do.
+  // Tobias walked to the shelter, entered it, was told it worked, and stayed
+  // cold. The right answer there was to refuse the petition and explain that
+  // standing there is already enough - so this is a throw, not a warning.
+  //
+  // Scoped to the GM mint path rather than kernel `validateRule` on purpose: a
+  // hand-authored scenario may legitimately carry a bare `wait` verb whose
+  // whole point is to burn duration, and that is a human's call to make.
+  function assertActionDoesSomething(rule: Rule) {
+    if (!("kind" in rule) || rule.kind !== "action") return;
+    if (Array.isArray(rule.do) && rule.do.length > 0) return;
+    throw new Error(
+      `Action "${rule.id}" has an empty body, so committing it would cost time and change nothing while telling the character it worked. If the benefit already comes from standing somewhere (a threshold rule keyed on proximity), this verb is not needed - refuse the speculation and say so. Otherwise give it the effect it promises.`,
     );
   }
 
@@ -1754,11 +1986,45 @@ export function createWorld(scenario: Scenario) {
 
     let prior = entity(id).action;
     let args = intentArgs(action);
-    validateActionArgs(actionContext(), id, spec, action);
+    try {
+      validateActionArgs(actionContext(), id, spec, action);
+    } catch (err) {
+      // A known verb reached for a noun the world does not have (an unknown
+      // enum value or entity target). The action still fails - the character
+      // still gets the refusal - but the reach is a noun-level speculation
+      // worth surfacing to the Oracle, exactly like an unknown verb is.
+      // Journal it, then rethrow so the order blocks as before.
+      //
+      // The isUnknownNoun gate is what keeps this honest: a verb refuses a
+      // valid choice for plenty of reasons that have nothing to do with the
+      // thing existing (giving away health, which is real but not givable),
+      // and telling a character "no such thing answers here" about a stock
+      // they can see on their own status line is a lie - and one that would
+      // then sit in the log forever, rescanned and re-discarded on every read.
+      if (
+        err instanceof UnknownChoiceError &&
+        isUnknownNoun(err.value, knownNounSet())
+      )
+        push({
+          type: "noun_attempt",
+          agentId: id,
+          verb: type,
+          noun: err.value,
+          text: `${displayName(id)} reaches for "${err.value}", but no such thing answers here... yet.`,
+          wake: "routine",
+        });
+      throw err;
+    }
     // give is a native hand-off, not a scenario stock rule: route it to its own
     // commit path, which transfers in arm's reach or walks to the recipient.
     if (spec.kind === "give")
       return commitGiveIntent(id, args, prior, wake, onAccepted);
+    // pick_up / drop move a discrete item entity, not a stock - their own
+    // commit paths (pick_up walks to the item like give; drop is instant).
+    if (spec.kind === "pick_up")
+      return commitPickUpIntent(id, args, prior, wake, onAccepted);
+    if (spec.kind === "drop")
+      return commitDropIntent(id, args, prior, wake, onAccepted);
     let result: { ok: boolean; error?: string; endsInTicks?: number };
     // When an implicit approach fires, the action we actually commit is a travel
     // toward the target; the caller (an order step) holds the original action
@@ -2003,7 +2269,7 @@ export function createWorld(scenario: Scenario) {
       throw new Error(`${displayName(target)} is no longer active.`);
 
     let resource = typeof stockName === "string" ? stockName.trim() : "";
-    if (!stockpilableStockNames().includes(resource))
+    if (!packStockNames().includes(resource))
       throw new Error(`${resource || "That stock"} cannot be transferred.`);
 
     let source = stocksOf(id)[resource];
@@ -2118,6 +2384,129 @@ export function createWorld(scenario: Scenario) {
     };
   }
 
+  // pick_up's commit path: takes a portable item off the ground into the
+  // actor's hand. Like give it walks there through the order-retry loop when
+  // out of reach, then takes it instantly (duration 0). Taking clears the
+  // item's pos/occupancy, so syncTokens retires its grid token the same tick.
+  function commitPickUpIntent(
+    id: string,
+    args: Args,
+    prior: Entity["action"],
+    wake: GameEvent["wake"],
+    onAccepted?: () => void,
+  ) {
+    let itemId = typeof args.item === "string" ? args.item : "";
+    let item = world.entities[itemId];
+    if (!item) throw new Error(`There is no "${itemId}" to pick up.`);
+    if (item.heldBy !== undefined)
+      throw new Error(`${displayName(itemId)} is already being carried.`);
+    if (!item.pos)
+      throw new Error(`${displayName(itemId)} is not on the ground.`);
+    if (!hasTag(item, "portable"))
+      throw new Error(`${displayName(itemId)} cannot be picked up.`);
+
+    let name = displayName(id);
+    let here = posOf(id);
+    if (chebyshev(here.x, here.y, item.pos.x, item.pos.y) > TOUCH_RANGE) {
+      let moved = commitMove(space, world, id, "travel", { location: itemId });
+      if (!moved.ok)
+        throw new Error(
+          `${displayName(itemId)} is too far away to reach, and no route gets there.`,
+        );
+      onAccepted?.();
+      if (prior)
+        push({
+          type: "action_abandoned",
+          agentId: id,
+          text: `${name} abandons ${prior.type} to travel.`,
+          wake,
+        });
+      push({
+        type: "action_started",
+        agentId: id,
+        text: `${name} sets out to pick up ${displayName(itemId)} (${moved.endsInTicks}s).`,
+        wake,
+      });
+      return {
+        accepted: true,
+        approaching: true,
+        action: { type: "travel", params: { location: itemId } },
+        duration: moved.endsInTicks!,
+        endTick: world.tick + moved.endsInTicks!,
+        endsInTicks: moved.endsInTicks!,
+      };
+    }
+
+    onAccepted?.();
+    item.heldBy = id;
+    item.pos = undefined;
+    delete item.occupancy;
+    // The item just left the grid - project the change so its token vanishes.
+    if (syncTokens(space, world)) tokenRevision += 1;
+    push({
+      type: "picked_up",
+      agentId: id,
+      audience: witnessAudience(id),
+      text: `${name} picks up ${displayName(itemId)}.`,
+      wake,
+    });
+    return {
+      accepted: true,
+      approaching: false,
+      action: { type: "pick_up", params: args },
+      duration: 0,
+      endTick: world.tick,
+      endsInTicks: 0,
+    };
+  }
+
+  // drop's commit path: puts a held item back on the ground where the actor
+  // stands. Instant (the item is already in hand) - it re-enters the grid with
+  // occupancy "tile", so syncTokens re-projects it as a discoverable token,
+  // unless the tile already shows one (then it stays off the grid but still
+  // exists, reachable by colocation - the accepted one-token-per-tile limit).
+  function commitDropIntent(
+    id: string,
+    args: Args,
+    prior: Entity["action"],
+    wake: GameEvent["wake"],
+    onAccepted?: () => void,
+  ) {
+    let itemId = typeof args.item === "string" ? args.item : "";
+    let item = world.entities[itemId];
+    if (!item || item.heldBy !== id)
+      throw new Error(`You are not holding "${itemId}".`);
+
+    onAccepted?.();
+    let name = displayName(id);
+    if (prior)
+      push({
+        type: "action_abandoned",
+        agentId: id,
+        text: `${name} abandons ${prior.type} to drop ${displayName(itemId)}.`,
+        wake,
+      });
+    delete item.heldBy;
+    item.pos = { ...posOf(id) };
+    item.occupancy = "tile";
+    if (syncTokens(space, world)) tokenRevision += 1;
+    push({
+      type: "dropped",
+      agentId: id,
+      audience: witnessAudience(id),
+      text: `${name} drops ${displayName(itemId)}.`,
+      wake,
+    });
+    return {
+      accepted: true,
+      approaching: false,
+      action: { type: "drop", params: args },
+      duration: 0,
+      endTick: world.tick,
+      endsInTicks: 0,
+    };
+  }
+
   // The GM's herald: a diegetic world voice with no body. Unlike speak it is not
   // tied to a tile - with no audience it reaches every character; addressed to
   // named characters it reaches only them. The text is delivered verbatim so the
@@ -2201,7 +2590,7 @@ export function createWorld(scenario: Scenario) {
         // Every payload that carries `you` carries this too: without it prose
         // cannot tell a vital from a pack slot, and reads a full health bar
         // as cargo.
-        display: displayHints,
+        display: stockDisplay(),
         others: visibleOthers(id),
         heard: recentlyHeard(id).slice(-3),
         colony: coordinationLedger(id),
@@ -2416,10 +2805,25 @@ export function createWorld(scenario: Scenario) {
       tags: [...entity(id).tags],
       alive: isAlive(id),
       stocks: roundedStocks(stocksOf(id)),
+      // Discrete items in hand (see Entity.heldBy) - distinct from stocks (a
+      // fungible count). Kind/text so prose and the dossier can name each one
+      // ("axe", or the inscription on a lettered blade).
+      held: heldItemsOf(id),
       ticksLived: ticksLived(id),
       action: actionView(id),
       order: engineOrderView(orderContext(), id),
     };
+  }
+
+  // The item entities a character is holding, as lightweight views: id, kind,
+  // and any inscription. Empty for most characters, so it costs a bare array
+  // on the common path.
+  function heldItemsOf(id: string) {
+    return heldBy(world, id).map((e) => ({
+      id: e.id,
+      ...(e.kind !== undefined ? { kind: e.kind } : {}),
+      ...(e.text !== undefined ? { text: e.text } : {}),
+    }));
   }
 
   // `sinceTick` is the tick the caller last delivered an observation to this
@@ -2441,7 +2845,7 @@ export function createWorld(scenario: Scenario) {
       // The scenario's own reading of its stocks - which way is bad ("down" for
       // a hunger that climbs, "up" for a health that falls). Prose needs it to
       // know which gauge is in trouble without knowing what any stock is called.
-      display: displayHints,
+      display: stockDisplay(),
       colony: coordinationLedger(id),
       world: { stocks: roundedStocks(worldStocks()) },
       known: {
@@ -2487,7 +2891,7 @@ export function createWorld(scenario: Scenario) {
       tick: world.tick,
       scenario: {
         name: scenario.name,
-        display: displayHints,
+        display: stockDisplay(),
         // The per-character stock defaults: the stocks (with bounds) every character
         // is stamped out with and future joiners inherit. Published so the dashboard
         // can show the authored character economy alongside the world stocks.
@@ -3043,12 +3447,16 @@ export function createWorld(scenario: Scenario) {
     validateRule(rule);
     assertValidRule(rule);
     assertActionNamesFree(rule);
+    assertActionDoesSomething(rule);
     rules.push(structuredClone(rule));
     dirtyRuleIds.add(rule.id);
     // Stamp a runtime-added action with the current tick so characters see it as
     // a newly available capability until each has looked past it once.
     if ("kind" in rule && rule.kind === "action")
       actionIntroTick.set(rule.id, world.tick);
+    // A fresh rule can carry its own spawn spec (a new build action's stocks),
+    // widening the known-stock vocabulary.
+    syncKnownStocks();
     recordGm(
       "rule_added",
       `added rule ${rule.id}${rule.description ? ` — ${rule.description}` : ""}`,
@@ -3075,6 +3483,7 @@ export function createWorld(scenario: Scenario) {
     dirtyRuleIds.add(id);
     // Forget its intro tick so a later re-add is flagged new again, not stale.
     actionIntroTick.delete(id);
+    syncKnownStocks();
     recordGm("rule_removed", `removed rule ${id}`, {
       target: id,
       detail: { rule: structuredClone(removed) },
@@ -3103,8 +3512,10 @@ export function createWorld(scenario: Scenario) {
     validateRule(merged);
     assertValidRule(merged);
     assertActionNamesFree(merged, id);
+    assertActionDoesSomething(merged);
     Object.assign(rule, structuredClone(fields));
     dirtyRuleIds.add(id);
+    syncKnownStocks();
     // Adding an alias is how a director catches stragglers - the words people
     // tried that the first mint missed - so a tweak redeems its attempts too.
     let redeemed = redeemSpeculativeAttempts(rule);
@@ -3136,7 +3547,8 @@ export function createWorld(scenario: Scenario) {
     let report = dryRunRule(world, live, id, {
       terrain: space.grid.tiles.map((row) => row.map((t) => t.terrain)),
       agents: livingIds(),
-      display: displayHints,
+      display: stockDisplay(),
+      knownStocks: [...knownStockNames()],
       ticks,
     });
     for (let kind of unillustratedSpawns(live.find((r) => r.id === id)))
@@ -3181,6 +3593,10 @@ export function createWorld(scenario: Scenario) {
       fixtures: structuredClone(spawnedFixtures),
       terrainSpecs: runtimeTerrainSpecs(),
       kindVisuals: runtimeKindVisuals(),
+      // The global stocks, specs and all: they carry their own role and
+      // presentation (see stockDisplay), so a captured overlay that dropped
+      // them would restore a world whose season pill had lost its name.
+      worldStocks: structuredClone(worldStockSpecs),
     };
   }
 
@@ -3208,7 +3624,7 @@ export function createWorld(scenario: Scenario) {
       authoredKindVisuals = { ...baseKindVisuals };
       kindVisuals = { ...authoredKindVisuals };
       describeTemplates = { ...(scenario.describeEvent ?? {}) };
-      displayHints = { ...(scenario.display ?? {}) };
+      worldStockSpecs = {};
       reapplyTerrainSpecs(baseTerrainSpecs);
       return;
     }
@@ -3248,7 +3664,6 @@ export function createWorld(scenario: Scenario) {
       ...(scenario.describeEvent ?? {}),
       ...(overlay.describeEvent ?? {}),
     };
-    displayHints = { ...(scenario.display ?? {}), ...(overlay.display ?? {}) };
     // A buildable's structure isn't on the map at world start, so its stock
     // look rides the spawning action's spec (see the init sweep). With all
     // rules arriving via overlays now, sweep the merged live rules too so a
@@ -3276,6 +3691,10 @@ export function createWorld(scenario: Scenario) {
     seedStockDefaults();
     appliedSetup = structuredClone(overlay.setup ?? []);
     applySetup(overlay.setup);
+    // Final resync: setup's scattered tokens land after seedStockDefaults'
+    // own sync, so the vocabulary isn't complete until everything above has
+    // run.
+    syncKnownStocks();
   }
 
   // Land the overlay's per-agent stock defaults on characters already alive,
@@ -3311,6 +3730,7 @@ export function createWorld(scenario: Scenario) {
         .filter(([, spec]) => spec.stockpilable)
         .map(([name]) => name),
     );
+    syncKnownStocks();
   }
 
   // The stockpilable resources, in stable declaration order - the choice list a
@@ -3321,12 +3741,109 @@ export function createWorld(scenario: Scenario) {
       .map(([name]) => name);
   }
 
+  // The role a stock has: whatever its stockDefaults entry declares, or "pack"
+  // for a stock nobody has classified. See scenario.ts StockRole.
+  function effectiveRole(name: string): StockRole {
+    return stockDefaults[name]?.role ?? "pack";
+  }
+
+  // The givable resources, in stable declaration order - the choice list a
+  // `from: "pack"` enum param offers (give's `item` param). Pack is the only
+  // role give ever touches; `stockpilable` narrows this further for
+  // deposit/withdraw only (see stockpilableStockNames above).
+  function packStockNames(): string[] {
+    return Object.keys(stockDefaults).filter(
+      (name) => effectiveRole(name) === "pack",
+    );
+  }
+
+  // The reader-facing view of every declared stock, rebuilt fresh on each read
+  // from the two registries that declare stocks: stockDefaults (per-character,
+  // scope "agent") and worldStockSpecs (global, scope "world"). Both persist -
+  // stockDefaults rides the overlay and set_stock_default writes it at runtime -
+  // so a GM-minted vital reads exactly like an authored one with no second
+  // registry to keep in step. Every entry states its role outright, so no
+  // reader has to know what an absent one would have meant.
+  function stockDisplay(): Record<string, StockDisplay> {
+    let projected: Record<string, StockDisplay> = {};
+    let project = (
+      name: string,
+      spec: StockSpec,
+      scope: StockDisplay["scope"],
+    ) => {
+      projected[name] = {
+        role: spec.role ?? "pack",
+        scope,
+        ...(spec.label !== undefined ? { label: spec.label } : {}),
+        ...(spec.tone !== undefined ? { tone: spec.tone } : {}),
+        ...(spec.bands !== undefined ? { bands: spec.bands } : {}),
+      };
+    };
+    for (let [name, spec] of Object.entries(worldStockSpecs))
+      project(name, spec, "world");
+    for (let [name, spec] of Object.entries(stockDefaults))
+      project(name, spec, "agent");
+    return projected;
+  }
+
+  // Every stock name a legitimate authoring path has introduced anywhere in
+  // this ruleset: a per-agent default, a world stock, the agent template's
+  // own stocks, a GM fixture, a setup scatter's per-token reserves, a spawn
+  // spec riding a live action rule, or - the broadest source - a stock any
+  // entity in the live world already carries right now (which covers a bare
+  // set_stock on some one-off entity, and every already-placed fixture/token,
+  // without needing its own bookkeeping). This is the full vocabulary the
+  // kernel's write guard checks a rule effect's target against (see
+  // rules/kernel.ts setKnownStocks) - it is what closes the stock namespace,
+  // catching a typo'd target ("self" meaning "of":"self") before it mints a
+  // phantom stock instead of after.
+  function knownStockNames(): Set<string> {
+    let names = new Set<string>(Object.keys(stockDefaults));
+    for (let n of Object.keys(agentTemplate.stocks)) names.add(n);
+    for (let fixture of spawnedFixtures)
+      for (let n of Object.keys(fixture.stocks ?? {})) names.add(n);
+    for (let directive of appliedSetup)
+      for (let n of Object.keys(directive.scatter.stocks ?? {})) names.add(n);
+    for (let spec of liveSpawnSpecs())
+      for (let n of Object.keys(spec.stocks ?? {})) names.add(n);
+    for (let e of Object.values(world.entities))
+      for (let n of Object.keys(e.stocks)) names.add(n);
+    return names;
+  }
+
+  // Every spawn spec any live rule can execute. Walks all rules whatever their
+  // phase - a transition or event rule may spawn just as legally as an action -
+  // and descends through forEach bodies, so a stock or kind introduced by a
+  // nested spawn is known before it first fires rather than only after.
+  function* liveSpawnSpecs(): Generator<SpawnSpec> {
+    function* walk(effects: unknown): Generator<SpawnSpec> {
+      if (!Array.isArray(effects)) return;
+      for (let effect of effects) {
+        if (!effect || typeof effect !== "object") continue;
+        let e = effect as { spawn?: SpawnSpec; forEach?: { do?: unknown } };
+        if (e.spawn) yield e.spawn;
+        if (e.forEach?.do) yield* walk(e.forEach.do);
+      }
+    }
+    for (let rule of rules) yield* walk((rule as { do?: unknown }).do);
+  }
+
+  // Publish the known-stock vocabulary to the kernel. Called wherever the
+  // vocabulary can grow: alongside syncStockpilable (stock defaults changing,
+  // on every overlay apply and setStockDefault), and after setStock, a
+  // fixture/setup placement, or a rule mutation - any of which can introduce a
+  // name nothing declared before.
+  function syncKnownStocks() {
+    setKnownStocks(knownStockNames());
+  }
+
   // Seed a scenario's global stocks onto the world singleton. Skip-if-present,
   // like the fixture replay: on a fresh or reset world every stock lands at its
   // authored value; on a snapshot restore the live values are already there and
   // this is a no-op. The spec's look registers the same way a
   // set_stock_default's would.
   function applyWorldStocks(specs: RuleOverlay["worldStocks"]) {
+    worldStockSpecs = structuredClone(specs ?? {});
     for (let [name, spec] of Object.entries(specs ?? {})) {
       if ((spec.icon || spec.color) && !authoredKindVisuals[name])
         registerStockVisual(name, spec.icon, spec.color);
@@ -3401,6 +3918,7 @@ export function createWorld(scenario: Scenario) {
     let prior = existing ? roundStock(existing.value) : null;
     e.stocks[stockName] = stock(clamp(value, min, max), min, max);
     let now = e.stocks[stockName].value;
+    if (!existing) syncKnownStocks(); // a brand-new name widens the vocabulary
     recordGm(
       "stock_set",
       prior === null
@@ -3422,12 +3940,33 @@ export function createWorld(scenario: Scenario) {
   // and a single missing stock fails the whole tick for everyone. The default
   // never overwrites a stock a character already has - re-running it, or setting a
   // default for a stock some already carry, only fills the gaps.
+  const STOCK_ROLES: StockRole[] = ["vital", "stat", "pack"];
+  const VITAL_BAND_NAMES = ["pressing", "serious", "critical"] as const;
+
+  function assertValidBands(
+    stockName: string,
+    bands: unknown,
+  ): asserts bands is StockSpec["bands"] {
+    if (!bands || typeof bands !== "object" || Array.isArray(bands))
+      throw new Error(`Stock "${stockName}" bands must be an object.`);
+    for (let [band, text] of Object.entries(bands)) {
+      if (!VITAL_BAND_NAMES.includes(band as (typeof VITAL_BAND_NAMES)[number]))
+        throw new Error(
+          `Stock "${stockName}" bands key "${band}" must be one of ${VITAL_BAND_NAMES.join("|")}.`,
+        );
+      if (typeof text !== "string" || !text.trim())
+        throw new Error(
+          `Stock "${stockName}" bands.${band} must be a non-empty string.`,
+        );
+    }
+  }
+
   function setStockDefault(
     stockName: string,
     spec: StockSpec,
   ): {
     stock: string;
-    spec: { value: number; min: number; max: number };
+    spec: StockSpec & { value: number; min: number; max: number };
     seeded: string[];
   } {
     if (typeof stockName !== "string" || !stockName.trim())
@@ -3438,15 +3977,36 @@ export function createWorld(scenario: Scenario) {
     let min = spec?.min ?? 0;
     let max = spec?.max ?? 100;
     if (min > max) throw new Error(`Stock "${stockName}" min exceeds max.`);
+    if (spec.role !== undefined && !STOCK_ROLES.includes(spec.role))
+      throw new Error(
+        `Stock "${stockName}" role must be one of ${STOCK_ROLES.join("|")}.`,
+      );
+    if (spec.tone !== undefined && spec.tone !== "up" && spec.tone !== "down")
+      throw new Error(`Stock "${stockName}" tone must be "up" or "down".`);
+    if (spec.bands !== undefined) assertValidBands(stockName, spec.bands);
+    // stockpilable is a pack-role subflag (see StockSpec.stockpilable), never
+    // a second givability axis - a vital or stat cannot opt into hauling no
+    // matter what a rule later gates on, since give/stockpile both key off
+    // role alone.
+    let role = spec.role ?? effectiveRole(stockName);
+    if (spec.stockpilable && role !== "pack")
+      throw new Error(
+        `Stock "${stockName}" is role "${role}" - stockpilable only applies to a pack-role resource.`,
+      );
     // Introducing a per-character resource registers its icon, just like
     // setStock; icon/color are presentation data, folded into the live
     // kindVisuals registry so every renderer uses the GM's choice.
     ensureIconFor(stockName, spec?.icon, spec?.color);
     let resolved = { value: clamp(value, min, max), min, max };
-    stockDefaults[stockName] = {
+    let full: StockSpec & { value: number; min: number; max: number } = {
       ...resolved,
       ...(spec.stockpilable ? { stockpilable: true } : {}),
+      ...(spec.role !== undefined ? { role: spec.role } : {}),
+      ...(spec.label !== undefined ? { label: spec.label } : {}),
+      ...(spec.tone !== undefined ? { tone: spec.tone } : {}),
+      ...(spec.bands !== undefined ? { bands: spec.bands } : {}),
     };
+    stockDefaults[stockName] = full;
     syncStockpilable();
     let seeded: string[] = [];
     for (let id of agentIds()) {
@@ -3458,10 +4018,10 @@ export function createWorld(scenario: Scenario) {
     }
     recordGm(
       "stock_default_set",
-      `default ${stockName} = ${resolved.value} [${resolved.min}..${resolved.max}] for all agents${seeded.length ? ` (seeded ${seeded.length})` : ""}`,
-      { detail: { stock: stockName, spec: resolved, seeded } },
+      `default ${stockName} = ${resolved.value} [${resolved.min}..${resolved.max}]${full.role ? ` (${full.role})` : ""} for all agents${seeded.length ? ` (seeded ${seeded.length})` : ""}`,
+      { detail: { stock: stockName, spec: full, seeded } },
     );
-    return { stock: stockName, spec: resolved, seeded };
+    return { stock: stockName, spec: full, seeded };
   }
 
   // Conjure a kernel entity: an id, tags the rules can bind to, optional stocks,
@@ -3564,6 +4124,10 @@ export function createWorld(scenario: Scenario) {
     };
     let onMap = placeFixture(fixture);
     spawnedFixtures.push(structuredClone(fixture));
+    // A spawn can introduce a resource name nothing declared before (a token
+    // seeded with a bespoke stock) - widen the vocabulary immediately so a
+    // rule can transfer into it this same tick.
+    syncKnownStocks();
     // An icon/color describes the entity's *kind*, not this one instance, so it
     // is folded into kindVisuals keyed by the entity's declared kind - the same
     // name the map draws with (see visualFor in web/src/icons.ts).
@@ -3735,6 +4299,7 @@ export function createWorld(scenario: Scenario) {
     spawnEntity,
     recentEvents,
     getSpeculativeAttempts,
+    getSpeculativeNouns,
     recordGm,
     recentGmEvents,
     gmEventsSince,

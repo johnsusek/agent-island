@@ -30,7 +30,6 @@ export function overlayCounts(overlay: RuleOverlay | undefined) {
     blobs: value.blobs?.length ?? 0,
     terrainLayers: value.terrainLayers?.length ?? 0,
     describeEvent: Object.keys(value.describeEvent ?? {}).length,
-    display: Object.keys(value.display ?? {}).length,
   };
 }
 
@@ -56,7 +55,6 @@ export function mergeOverlays(
   let connect: RuleOverlay["connect"];
   let kindVisuals: RuleOverlay["kindVisuals"] = {};
   let describeEvent: RuleOverlay["describeEvent"] = {};
-  let display: RuleOverlay["display"] = {};
 
   for (let overlay of overlays) {
     if (!overlay) continue;
@@ -86,7 +84,6 @@ export function mergeOverlays(
     if (overlay.connect !== undefined) connect = overlay.connect;
     Object.assign(kindVisuals, structuredClone(overlay.kindVisuals ?? {}));
     Object.assign(describeEvent, structuredClone(overlay.describeEvent ?? {}));
-    Object.assign(display, structuredClone(overlay.display ?? {}));
     for (let fixture of overlay.fixtures ?? [])
       fixtures.set(fixture.id, structuredClone(fixture));
     setup.push(...structuredClone(overlay.setup ?? []));
@@ -108,7 +105,6 @@ export function mergeOverlays(
     connect,
     kindVisuals,
     describeEvent,
-    display,
   });
 }
 
@@ -174,7 +170,6 @@ export function subtractOverlay(
       : value.connect,
     kindVisuals: subtractRecord(value.kindVisuals, baseline.kindVisuals),
     describeEvent: subtractRecord(value.describeEvent, baseline.describeEvent),
-    display: subtractRecord(value.display, baseline.display),
   });
 }
 
@@ -203,8 +198,6 @@ export function compactOverlay(overlay: RuleOverlay): RuleOverlay {
     compact.kindVisuals = overlay.kindVisuals;
   if (Object.keys(overlay.describeEvent ?? {}).length)
     compact.describeEvent = overlay.describeEvent;
-  if (Object.keys(overlay.display ?? {}).length)
-    compact.display = overlay.display;
 
   return compact;
 }

@@ -411,3 +411,40 @@ test("the tool-verb correction wakes the actor too", () => {
   assert.ok(note, "the correction was journaled");
   assert.equal(note!.wake, "decision");
 });
+
+// Genesis run cc3d1956 reached tick 187 with six minted rules and six "open"
+// clusters that were exactly the aliases of those six rules: the log is
+// append-only, so a cluster used to outlive its own ratification forever. The
+// Oracle had answered everything and was told, every turn, that it had answered
+// nothing - a standing invitation to re-mint a settled concept under a synonym.
+test("a ratified verb and its aliases drop out of the attempt feed", () => {
+  let engine = makeSurvivalEngine();
+  let ara = engine.addAgent("Ara").id;
+
+  engine.commitIntent(ara, { type: "quarry", expectation: "collect stone" });
+  engine.commitIntent(ara, { type: "hew", expectation: "collect stone" });
+  engine.commitIntent(ara, { type: "yodel" });
+
+  assert.deepEqual(
+    engine
+      .getSpeculativeAttempts()
+      .map((c) => c.verb)
+      .sort(),
+    ["hew", "quarry", "yodel"],
+  );
+
+  // One law answering both words settles both, not just the one it is named for.
+  engine.addRule({
+    id: "gather-stone",
+    kind: "action",
+    aliases: ["quarry", "hew"],
+    duration: 1,
+    do: [{ adjust: { target: "food", by: 1 } }],
+  });
+
+  assert.deepEqual(
+    engine.getSpeculativeAttempts().map((c) => c.verb),
+    ["yodel"],
+    "only the genuinely unanswered verb is still open work",
+  );
+});

@@ -58,6 +58,10 @@ happened. A large value there is the flatline signal.
 `register_kind_visual` (attach an inline sprite to a kind - every new kind of
 thing needs one, there is no fallback art), `announce`, `wait_for_world`.
 
+`set_stock_default` takes a `role` (`vital`/`stat`/`pack` - see its own
+description): classify a stock the moment you mint it and its prose, alarms,
+and givability follow automatically, with no separate authoring step.
+
 ## Operating principles
 
 - Start small and escalate; one change at a time. Telegraph before you strike —

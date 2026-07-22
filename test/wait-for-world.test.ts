@@ -10,6 +10,7 @@ import test from "node:test";
 import { createColony } from "../src/coordinator.js";
 import { createWorld } from "../src/rules/engine.js";
 import type { Scenario } from "../src/rules/scenario.js";
+import { declareProgress } from "./helpers.js";
 
 // A tiny scenario with a director tripwire: a world `progress` stock ticks up
 // by one, and a watch rule emits a global `omen` once it reaches `at` - the
@@ -36,7 +37,9 @@ function omenScenario(at: number): Scenario {
 }
 
 test("wait_for_world rejects before join_as_gm and without any trigger", () => {
-  let colony = createColony({ engine: createWorld(omenScenario(3)) });
+  let colony = createColony({
+    engine: declareProgress(createWorld(omenScenario(3))),
+  });
   colony.start();
   colony.connect("s1");
   colony.connect("gm");
@@ -54,7 +57,7 @@ test("wait_for_world rejects before join_as_gm and without any trigger", () => {
 
 test("a watch-rule tripwire wakes a parked director with the event and a pulse", async () => {
   let colony = createColony({
-    engine: createWorld(omenScenario(3)),
+    engine: declareProgress(createWorld(omenScenario(3))),
     waitTimeoutMs: 5000,
   });
   colony.start();
@@ -85,7 +88,7 @@ test("a watch-rule tripwire wakes a parked director with the event and a pulse",
 
 test("a GM edit in another session wakes a director parked on the audit stream", async () => {
   let colony = createColony({
-    engine: createWorld(omenScenario(50)),
+    engine: declareProgress(createWorld(omenScenario(50))),
     waitTimeoutMs: 5000,
   });
   colony.start();
@@ -117,7 +120,7 @@ test("a GM edit in another session wakes a director parked on the audit stream",
 
 test("everyTicks wakes on cadence and re-arming does not re-deliver", async () => {
   let colony = createColony({
-    engine: createWorld(omenScenario(1000)),
+    engine: declareProgress(createWorld(omenScenario(1000))),
     waitTimeoutMs: 5000,
   });
   colony.start();
@@ -148,7 +151,7 @@ test("everyTicks wakes on cadence and re-arming does not re-deliver", async () =
 
 test("consecutive waits deliver disjoint event sets", async () => {
   let colony = createColony({
-    engine: createWorld(omenScenario(1000)),
+    engine: declareProgress(createWorld(omenScenario(1000))),
     waitTimeoutMs: 5000,
   });
   colony.start();
@@ -192,7 +195,7 @@ test("consecutive waits deliver disjoint event sets", async () => {
 
 test("a timed-out wait returns idle and still carries the pulse", async () => {
   let colony = createColony({
-    engine: createWorld(omenScenario(1000)),
+    engine: declareProgress(createWorld(omenScenario(1000))),
     waitTimeoutMs: 100,
   });
   colony.start();
@@ -212,7 +215,7 @@ test("a timed-out wait returns idle and still carries the pulse", async () => {
 
 test("a parked director alone never advances the clock", async () => {
   let colony = createColony({
-    engine: createWorld(omenScenario(1000)),
+    engine: declareProgress(createWorld(omenScenario(1000))),
     waitTimeoutMs: 100,
   });
   colony.start();
@@ -233,22 +236,24 @@ test("a parked director alone never advances the clock", async () => {
 
 test("victory conclusion resolves a parked director with status ended", async () => {
   let colony = createColony({
-    engine: createWorld({
-      ...omenScenario(1000),
-      rules: [
-        { id: "progress", phase: "flow", target: "progress", rate: 1 },
-        {
-          id: "win",
-          phase: "watch",
-          when: {
-            cmp: "gte",
-            left: { stock: "progress", of: "world" },
-            right: 3,
+    engine: declareProgress(
+      createWorld({
+        ...omenScenario(1000),
+        rules: [
+          { id: "progress", phase: "flow", target: "progress", rate: 1 },
+          {
+            id: "win",
+            phase: "watch",
+            when: {
+              cmp: "gte",
+              left: { stock: "progress", of: "world" },
+              right: 3,
+            },
+            emit: { type: "victory", text: "Done.", global: true },
           },
-          emit: { type: "victory", text: "Done.", global: true },
-        },
-      ],
-    }),
+        ],
+      }),
+    ),
     victoryGraceTicks: 0,
     waitTimeoutMs: 5000,
   });

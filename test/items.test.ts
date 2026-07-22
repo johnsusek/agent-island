@@ -1,8 +1,15 @@
 // Items, containers, carrying, and "using" — proving the colony-sim fundamentals
-// fall out of the existing scalar-stock model once the kernel can (a) auto-create
-// a destination stock, so an entity can hold an item type it never declared, and
+// fall out of the existing scalar-stock model once the kernel can (a) transfer
+// into a destination stock an entity has never held, as long as the ruleset has
+// declared that resource somewhere (see setKnownStocks in kernel.ts - the
+// closed-namespace guard), so a character can receive a resource type its
+// template never listed without every fresh name being mistaken for a typo, and
 // (b) spawn/destroy entities, so a rule can drop a crate, raise a campfire, or
-// consume a one-shot. No per-instance item identity is involved: an item is a
+// consume a one-shot. `adjust`/`set` are strict everywhere, by contrast: an
+// increment or assignment names an exact target the rule author chose, so a
+// missing one is treated as the authoring error it almost always is (see
+// "adjust rejects a stock the entity was never given" below) rather than
+// silently minted. No per-instance item identity is involved: an item is a
 // count in a stock, an inventory is an entity's stocks, a container is just
 // another entity, and a recipe is a multi-effect action.
 
@@ -12,6 +19,7 @@ import test from "node:test";
 import {
   hasTag,
   commit,
+  setKnownStocks,
   step,
   stock,
   type Entity,
@@ -49,9 +57,14 @@ function freeTileBeside(
 }
 
 // A bare world: the required "world" singleton plus a character standing at the
-// origin with nothing in its (empty) inventory. Stocks an item lands in are
-// conjured on demand, so the template declares none.
+// origin with nothing in its (empty) inventory. No known-stock registry is
+// installed here (unlike a real engine, which always installs one - see
+// engine.ts syncKnownStocks) - reset to that same "no registry configured"
+// state on every call, regardless of what an earlier test in this same
+// process may have installed via a real engine, so a bare-kernel test's
+// leniency never depends on test order.
 function makeWorld(): KernelWorld {
+  setKnownStocks(undefined);
   let entities: Record<string, Entity> = {
     world: { id: "world", tags: ["world"], stocks: {} },
     ara: {
@@ -65,13 +78,13 @@ function makeWorld(): KernelWorld {
   return { tick: 0, entities };
 }
 
-// Drive a committed action to completion (every action below is duration 1).
+// Drive a committed action to completion (every action below is duration 1),
+// returning the tick's events so a caller can inspect a rule_error.
 function finish(world: KernelWorld, rules: Rule[]) {
-  step(world, rules);
+  return step(world, rules);
 }
 
-// forage: carry an item into your own inventory. "berries" exists on no
-// template — the adjust auto-vivifies it the first time Ara holds any.
+// forage: carry an item into your own inventory.
 const forage: Rule = {
   id: "forage",
   kind: "action",
@@ -79,9 +92,29 @@ const forage: Rule = {
   do: [{ adjust: { target: "berries", by: 5 } }],
 };
 
-test("carrying: an action fills an inventory stock the entity never declared", () => {
+test("carrying: adjust rejects a stock the entity was never given", () => {
   let world = makeWorld();
   assert.ok(!("berries" in world.entities.ara.stocks), "starts with none");
+
+  // Committing only checks `requires` (forage has none); the missing stock
+  // surfaces when the body actually runs, at completion.
+  assert.equal(commit(world, [forage], "ara", "forage").ok, true);
+  let events = finish(world, [forage]);
+
+  let err = events.find((e) => e.type === "rule_error");
+  assert.ok(err, "a rule_error was recorded instead of a silent mint");
+  assert.equal(
+    world.entities.ara.stocks.berries,
+    undefined,
+    "no phantom stock was created",
+  );
+});
+
+test("carrying: an action fills an inventory stock the entity already declares", () => {
+  let world = makeWorld();
+  // "berries" must already exist - see the strict-write doctrine above - so
+  // declare it (at zero) the way a real template or a prior spawn would.
+  world.entities.ara.stocks.berries = stock(0, 0, 9999);
 
   assert.equal(commit(world, [forage], "ara", "forage").ok, true);
   finish(world, [forage]);
@@ -89,8 +122,11 @@ test("carrying: an action fills an inventory stock the entity never declared", (
   assert.equal(world.entities.ara.stocks.berries.value, 5, "5 berries carried");
 });
 
-// store: move items from your inventory into a colocated container. The crate's
-// "berries" stock is conjured on first deposit, too.
+// store: move items from your inventory into a colocated container. The
+// crate's "berries" stock is conjured on first deposit - a transfer's
+// destination still vivifies (see kernel.ts ensureStock), gated on the
+// known-stock registry when one is installed; this bare-kernel world never
+// installs one (see makeWorld), so it stays lenient here.
 const store: Rule = {
   id: "store",
   kind: "action",
@@ -151,6 +187,9 @@ test("using items / recipes: a multi-effect action consumes inputs and yields an
   let world = makeWorld();
   world.entities.ara.stocks.berries = stock(5, 0, 9999);
   world.entities.ara.stocks.sugar = stock(1, 0, 9999);
+  // "jam" is an adjust target (strict, never vivifies) - declare it, the way
+  // a real recipe's output stock would already ride the character's template.
+  world.entities.ara.stocks.jam = stock(0, 0, 9999);
 
   assert.equal(
     commit(world, [cook], "ara", "cook").ok,

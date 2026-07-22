@@ -61,8 +61,11 @@ function handleHover(
   clientX: number,
   clientY: number,
 ) {
-  hover.value = info;
-  if (info) hoverPos.value = { x: clientX, y: clientY };
+  let inspectable =
+    info &&
+    (info.agents.length > 0 || info.token != null || info.entities.length > 0);
+  hover.value = inspectable ? info : null;
+  if (hover.value) hoverPos.value = { x: clientX, y: clientY };
 }
 
 function floatStyle(pos: { x: number; y: number }) {

@@ -79,7 +79,7 @@ function setCadence(ms: number) {
       <span class="clock__roster">
         <button
           class="clock__pop"
-          title="living population - click for the roster"
+          title="Show characters"
           @click="rosterOpen = !rosterOpen"
         >
           {{ population }} alive
@@ -95,9 +95,6 @@ function setCadence(ms: number) {
               {{ agent.name }}
             </span>
             <span v-if="!agent.alive" class="roster__dead">dead</span>
-            <span v-else class="roster__pos"
-              >{{ agent.position.x }},{{ agent.position.y }}</span
-            >
           </button>
           <p v-if="!roster.length" class="roster__empty">no agents yet</p>
         </div>
@@ -106,7 +103,7 @@ function setCadence(ms: number) {
         v-if="liveness.gmConnected"
         class="clock__oracle"
         title="A director holds the GM seat"
-        >oracle seated</span
+        >Oracle</span
       >
       <span v-for="s in worldStocks" :key="s.name" class="clock__stock">
         {{ s.name }} {{ s.value }}

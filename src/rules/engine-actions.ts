@@ -1,6 +1,7 @@
 import {
   checkAction,
   hasTag,
+  heldBy,
   type ActionCheck,
   type ActionParam,
   type Args,
@@ -29,7 +30,7 @@ export interface ActionInput {
 
 export interface ActionDescriptor {
   name: string;
-  kind: "movement" | "stock" | "give";
+  kind: "movement" | "stock" | "give" | "pick_up" | "drop";
   description: string;
   params: ActionParam[];
   // Extra names that resolve to this same action; see ActionRule.aliases.
@@ -92,7 +93,21 @@ export interface EngineActionContext {
   entity(id: string): Entity;
   displayName(id: string): string;
   stockpilableStockNames(): string[];
+  packStockNames(): string[];
   terrainAt(x: number, y: number): string | undefined;
+}
+
+// The resource-name list an enum param's `from` draws its choices from -
+// "pack" (every givable resource) or "stockpilable" (the narrower
+// deposit/withdraw subset); undefined (no registry source) falls back to the
+// param's own literal `values` at the call site.
+function namesForParamFrom(
+  context: EngineActionContext,
+  from: "stockpilable" | "pack" | undefined,
+): string[] | undefined {
+  if (from === "stockpilable") return context.stockpilableStockNames();
+  if (from === "pack") return context.packStockNames();
+  return undefined;
 }
 
 export function intentArgs(action: ActionInput): Args {
@@ -124,9 +139,29 @@ export function actionCanStart(
     if (spec.kind === "movement")
       return movementCanStart(context, actorId, action.type, args);
     if (spec.kind === "give") return giveCanStart(context, actorId, args);
+    if (spec.kind === "pick_up") return pickUpCanStart(context, args);
+    if (spec.kind === "drop") return dropCanStart(context, actorId, args);
     return stockActionCheck(context, actorId, spec.name, args).applicable;
   } catch {
     return false;
+  }
+}
+
+// A known verb was committed with an arg naming a noun that doesn't exist
+// (an enum value or entity id nothing answers to). Carries the param and
+// value so the commit site can journal it as a noun-level speculation - a
+// character reaching for "clay" on a real verb is a signal to the Oracle
+// exactly like reaching for a whole unknown verb is. The message is unchanged
+// from the plain Error it replaces, so existing callers/tests still match on
+// it; this is a strictly richer subtype the commit path can catch by type.
+export class UnknownChoiceError extends Error {
+  constructor(
+    public readonly param: string,
+    public readonly value: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "UnknownChoiceError";
   }
 }
 
@@ -153,11 +188,11 @@ export function validateActionArgs(
       if (typeof value !== "string")
         throw new Error(`${spec.name} ${param.name} must be text.`);
       let allowed =
-        param.from === "stockpilable"
-          ? context.stockpilableStockNames()
-          : (param.values ?? []);
+        namesForParamFrom(context, param.from) ?? param.values ?? [];
       if (!allowed.includes(value))
-        throw new Error(
+        throw new UnknownChoiceError(
+          param.name,
+          value,
           `${value} is not a valid ${param.name} for ${spec.name}.`,
         );
       continue;
@@ -169,7 +204,9 @@ export function validateActionArgs(
       (option) => option.id === value,
     );
     if (!valid)
-      throw new Error(
+      throw new UnknownChoiceError(
+        param.name,
+        value,
         `${value} is not a valid ${param.name} for ${spec.name}.`,
       );
   }
@@ -195,6 +232,13 @@ export function listAvailableActions(
       paramOptions = availability.paramOptions;
     } else if (spec.kind === "give") {
       let availability = giveActionAvailability(context, actorId, spec);
+      applicable = availability.applicable;
+      options = availability.options;
+      argOptions = availability.argOptions;
+      paramOptions = availability.paramOptions;
+      unavailableReason = availability.unavailableReason;
+    } else if (spec.kind === "pick_up" || spec.kind === "drop") {
+      let availability = itemActionAvailability(context, actorId, spec);
       applicable = availability.applicable;
       options = availability.options;
       argOptions = availability.argOptions;
@@ -309,7 +353,7 @@ function givableStocks(
   actorId: string,
 ): string[] {
   let stocks = context.entity(actorId).stocks;
-  return context.stockpilableStockNames().filter((name) => {
+  return context.packStockNames().filter((name) => {
     let stock = stocks[name];
     return stock !== undefined && stock.value - stock.min > 0;
   });
@@ -354,6 +398,76 @@ function giveActionAvailability(
   };
 }
 
+// The portable items an actor could pick up right now: entities matching the
+// action's item param that the actor can see and reach (range/visible ride on
+// the param's match, exactly like give's target). Nothing held is in range,
+// since a held item has no position - so this only ever surfaces items on the
+// ground.
+function reachableItems(
+  context: EngineActionContext,
+  actorId: string,
+  spec: ActionDescriptor,
+): EntityTargetOption[] {
+  let itemParam = spec.params.find(isEntityActionParam);
+  return itemParam ? entityTargetOptions(context, actorId, itemParam) : [];
+}
+
+// The items the actor is holding - drop's candidate list. Read straight off
+// the containment scan rather than through entityTargetOptions' positional
+// machinery, since a held item has no tile to sort or bear from.
+function heldItems(
+  context: EngineActionContext,
+  actorId: string,
+): EntityTargetOption[] {
+  return heldBy(context.world, actorId).map((e) => ({
+    id: e.id,
+    label: context.displayName(e.id),
+    tags: [...e.tags],
+  }));
+}
+
+function pickUpCanStart(context: EngineActionContext, args: Args): boolean {
+  let item = typeof args.item === "string" ? args.item : "";
+  let target = context.world.entities[item];
+  // The item must exist, be unheld, and be a portable thing on the ground.
+  // Like give, distance is fine - pick_up walks to it - but it must be a real,
+  // on-grid, portable entity, not a phantom id.
+  if (!target || target.heldBy !== undefined || !target.pos) return false;
+  return hasTag(target, "portable");
+}
+
+function dropCanStart(
+  context: EngineActionContext,
+  actorId: string,
+  args: Args,
+): boolean {
+  let item = typeof args.item === "string" ? args.item : "";
+  let target = context.world.entities[item];
+  return Boolean(target && target.heldBy === actorId);
+}
+
+function itemActionAvailability(
+  context: EngineActionContext,
+  actorId: string,
+  spec: ActionDescriptor,
+): ActionAvailability {
+  let items =
+    spec.kind === "drop"
+      ? heldItems(context, actorId)
+      : reachableItems(context, actorId, spec);
+  let applicable = items.length > 0;
+  let unavailableReason = applicable
+    ? undefined
+    : spec.kind === "drop"
+      ? "you are carrying nothing in hand to drop"
+      : "there is nothing here you can pick up";
+  return {
+    applicable,
+    paramOptions: { item: items },
+    unavailableReason,
+  };
+}
+
 function isEnumActionParam(param: ActionParam): param is EnumActionParam {
   return param.type === "enum";
 }
@@ -368,10 +482,7 @@ function choiceSetForParam(
   param: ActionParam,
 ): ActionChoiceSet | null {
   if (param.type === "enum") {
-    let values =
-      param.from === "stockpilable"
-        ? context.stockpilableStockNames()
-        : (param.values ?? []);
+    let values = namesForParamFrom(context, param.from) ?? param.values ?? [];
     return {
       name: param.name,
       required: param.required === true,
@@ -512,6 +623,12 @@ function matchesTargetQuery(
   let requiredTags = targetTags(match);
   if (requiredTags.some((tag) => !hasTag(target, tag))) return false;
   if (match.kind !== undefined && target.kind !== match.kind) return false;
+
+  // A held-item target lives in a hand, not on the map: it has no position, so
+  // the range/visibility checks below would reject every candidate. Match on
+  // ownership instead and return - "the things I'm carrying" is the whole
+  // query.
+  if (match.heldBySelf) return target.heldBy === actorId;
 
   let actorPos = context.entity(actorId).pos;
   if (match.range !== undefined) {

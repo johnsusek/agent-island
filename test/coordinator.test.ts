@@ -365,7 +365,7 @@ test("a GM-added action is flagged isNew until the character looks past it", asy
       kind: "action",
       duration: 1,
       description: "carve a marker post",
-      do: [],
+      do: [{ spawn: { kind: "marker", at: "self" } }],
     });
 
     // The character's next look flags the freshly conjured capability.

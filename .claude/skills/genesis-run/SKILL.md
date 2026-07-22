@@ -39,9 +39,21 @@ where only one half moved is a failed run, not a result.
 
 ## Monitor
 
-Check at widening intervals (~15m, 30m, then hourly), from /api/state - the
-observatory at http://localhost:3000 shows the same live (Ledger = laws +
-open speculations):
+Check **every 30-60 seconds**, from /api/state - the observatory at
+http://localhost:3000 shows the same live (Ledger = laws + open speculations).
+Report movement as it happens rather than going quiet between checks. Runs go
+wrong fast and quietly; an hour of unwatched ticks is an hour of tokens spent
+re-demonstrating a bug you could have caught at t50.
+
+A snapshot loop beats a sleep - one line per interval, so silence means the
+poller died rather than the world being calm:
+
+    while true; do curl -s localhost:3000/api/state | jq -r '"t\(.state.tick) actions=\([.rules[]|select(.kind=="action")]|length) spec=\(.speculative|length) chars=\(.liveness.activeCount) gm=\(.liveness.gmConnected)"'; sleep 45; done
+
+Note `.state.tick` - there is no top-level `tick`, and reading `.tick` returns
+`null` rather than erroring.
+
+What to watch:
 
 - **Mint rate** - are `kind:"action"` rules growing? `.speculative` clusters
   with no ratification for thousands of ticks means the Oracle is stuck or
@@ -50,17 +62,49 @@ open speculations):
   one concept? Thrash on a ratified concept means aliases were missed.
 - **Pricing** - a minted action with no `requires` is a free grant; free
   outrunning priced is the comfort ratchet. Note it.
+- **Unbounded yield** - a `requires` is not scarcity. An action that depletes
+  nothing (near-terrain check, +N food, infinite repeats) is a faucet that
+  passes the free/priced test. Check what each mint *spends*, not just what it
+  demands.
+- **Spawned artifacts** - open the `do` of any rule that spawns. A `spawn.id`
+  containing `{{` is not interpolated: it becomes a literal entity id, which
+  makes the structure a global singleton, leaks raw braces into character-facing
+  prose, and gets adopted by characters as a place name. Check the entity list
+  for ids that are obviously templates.
+- **No-op mints** - a `kind:"action"` rule with `do: []` grants a verb that
+  cannot act. Dry-run warns but does not block, so these ship. Worse than a
+  refusal: refusal is legible, a silent no-op teaches the character to distrust
+  grants. Grep new mints for empty `do`.
+- **Unbacked threats** - a `critical` emit that promises consequences ("your
+  health will fail") with no rule implementing them is theatre. Match each
+  threat to the rule that enforces it.
 - **Deaths** - any death is over-tuned risk. Say so in the retro.
 
 Interrupt John for: a restart storm, an Oracle that has ratified nothing after
 ~5,000 ticks, or a death.
 
+Stopping early is fine and often right. Once a bug has blocked a branch, further
+ticks re-demonstrate it rather than surfacing anything new - diagnose, then stop
+and write it up.
+
 ## Stop and retro
 
 `node scripts/crew.mjs stop` drains both crews early (the tick cap otherwise
 does it; `stop director` or `stop characters` drains one). Then write `results/<UTC stamp>-<worldId8>.md` from
-`data/journal/journal.jsonl`: attempt count, distinct verbs, laws minted (and
-from which clusters), the free/priced ratio, mint latency, redemption uptake,
-behavior shifts over time, and what to change next. Quote the characters -
-their speech and signs are the evidence. Never auto-start the next run; end by
-asking "ready?".
+`~/.agent-island/journal/journal.jsonl`: attempt count, distinct verbs, laws
+minted (and from which clusters), the free/priced ratio, mint latency,
+redemption uptake, behavior shifts over time, and what to change next. Quote the
+characters - their speech and signs are the evidence. Never auto-start the next
+run; end by asking "ready?".
+
+Journal records are one JSON object per command with the interesting bits nested
+under `.events[]`, so tally through that array:
+
+    jq -r '.events[]?|select(.type=="speculative_attempt")|"\(.verb)\t\(.agentId)\tt\(.tick)"' ~/.agent-island/journal/journal.jsonl
+
+Mint latency is the gap between an attempt and the matching "feels the world
+give" line in the server log - the journal alone will not give you it.
+
+Separate what the loop did from what the loop produced. A run can close every
+petition inside two ticks with perfect pricing and still ship nothing that works;
+grading the loop alone would score that run as a success.

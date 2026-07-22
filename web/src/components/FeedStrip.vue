@@ -1,18 +1,93 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { nameTint } from "../glyphs";
 import { useStickToBottom } from "../useStickToBottom";
 import type { ChatItem, FeedItem } from "../useWorldState";
 
-const props = defineProps<{
+let props = defineProps<{
   feed: FeedItem[];
   chat: ChatItem[];
+  height: number;
 }>();
 
-const emit = defineEmits<{ (e: "select", id: string): void }>();
+let emit = defineEmits<{
+  (event: "select", id: string): void;
+  (event: "resize", height: number): void;
+}>();
 
 type Filter = "all" | "speculations" | "talk" | "world";
 let filter = ref<Filter>("all");
+let resizeSession = ref<{
+  pointerId: number;
+  startHeight: number;
+  startY: number;
+} | null>(null);
+
+let minimumFeedHeight = 96;
+let maximumFeedHeight = computed(() =>
+  Math.round(Math.min(480, window.innerHeight * 0.55)),
+);
+
+function clampedFeedHeight(height: number) {
+  return Math.round(
+    Math.min(maximumFeedHeight.value, Math.max(minimumFeedHeight, height)),
+  );
+}
+
+function beginResize(event: PointerEvent) {
+  if (event.button !== 0) return;
+  resizeSession.value = {
+    pointerId: event.pointerId,
+    startHeight: props.height,
+    startY: event.clientY,
+  };
+  window.addEventListener("pointermove", continueResize);
+  window.addEventListener("pointerup", endResize);
+  window.addEventListener("pointercancel", endResize);
+  document.body.classList.add("feed-resizing");
+  event.preventDefault();
+}
+
+function continueResize(event: PointerEvent) {
+  let session = resizeSession.value;
+  if (!session || session.pointerId !== event.pointerId) return;
+  emit(
+    "resize",
+    clampedFeedHeight(session.startHeight + session.startY - event.clientY),
+  );
+}
+
+function endResize(event: PointerEvent) {
+  let session = resizeSession.value;
+  if (!session || session.pointerId !== event.pointerId) return;
+  stopResize();
+}
+
+function stopResize() {
+  resizeSession.value = null;
+  window.removeEventListener("pointermove", continueResize);
+  window.removeEventListener("pointerup", endResize);
+  window.removeEventListener("pointercancel", endResize);
+  document.body.classList.remove("feed-resizing");
+}
+
+function resizeWithKeyboard(event: KeyboardEvent) {
+  let step = event.shiftKey ? 48 : 16;
+  if (event.key === "ArrowUp") {
+    emit("resize", clampedFeedHeight(props.height + step));
+  } else if (event.key === "ArrowDown") {
+    emit("resize", clampedFeedHeight(props.height - step));
+  } else if (event.key === "Home") {
+    emit("resize", minimumFeedHeight);
+  } else if (event.key === "End") {
+    emit("resize", maximumFeedHeight.value);
+  } else {
+    return;
+  }
+  event.preventDefault();
+}
+
+onBeforeUnmount(stopResize);
 
 type Row = ({ rowKind: "feed" } & FeedItem) | ({ rowKind: "chat" } & ChatItem);
 
@@ -35,16 +110,28 @@ let rows = computed<Row[]>(() => {
 
 let { scrollHost } = useStickToBottom(() => rows.value.length);
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "all" },
-  { key: "speculations", label: "speculations" },
-  { key: "talk", label: "talk" },
-  { key: "world", label: "world" },
+let FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "speculations", label: "Speculations" },
+  { key: "talk", label: "Talk" },
+  { key: "world", label: "World" },
 ];
 </script>
 
 <template>
   <section class="feed">
+    <div
+      class="feed__splitter"
+      role="separator"
+      aria-label="Resize Feed"
+      aria-orientation="horizontal"
+      :aria-valuemin="minimumFeedHeight"
+      :aria-valuemax="maximumFeedHeight"
+      :aria-valuenow="height"
+      tabindex="0"
+      @pointerdown="beginResize"
+      @keydown="resizeWithKeyboard"
+    ></div>
     <header class="feed__head">
       <h2 class="feed__title">Feed</h2>
       <nav class="feed__filters">

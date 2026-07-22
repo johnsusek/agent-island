@@ -17,7 +17,11 @@ function wolfAt(pos: { x: number; y: number }): Entity {
     id: "wolf",
     kind: "predator",
     tags: [],
-    stocks: { health: stock(16, 0, 16) },
+    // "food" mirrors the real predator scatter spec (test/survival.json) -
+    // predator-dies `set`s it to 10 on death, which is now strict (see
+    // kernel.ts requireStock) and needs the stock declared up front, exactly
+    // like a worldgen-scattered wolf carries it from birth.
+    stocks: { health: stock(16, 0, 16), food: stock(0, 0, 9999) },
     pos: { ...pos },
     action: null,
   };

@@ -13,6 +13,9 @@ let world = useWorldState();
 // map's fog to their personal knowledge and opens their dossier over the
 // ledger; clicking empty ground (or the dossier's close) restores the wide view.
 let selectedAgentId = ref<string | null>(null);
+let feedHeight = ref(
+  Math.round(Math.min(136, Math.max(112, window.innerHeight * 0.17))),
+);
 
 let selectedAgent = computed(() => {
   let id = selectedAgentId.value;
@@ -28,7 +31,7 @@ function selectByName(name: string) {
 </script>
 
 <template>
-  <div class="observatory">
+  <div class="observatory" :style="{ '--feed-height': `${feedHeight}px` }">
     <ClockStrip
       :payload="world.payload.value"
       :liveness="world.liveness.value"
@@ -82,7 +85,9 @@ function selectByName(name: string) {
     <FeedStrip
       :feed="world.feed.value"
       :chat="world.chat.value"
+      :height="feedHeight"
       @select="(id) => (selectedAgentId = id)"
+      @resize="(height) => (feedHeight = height)"
     />
   </div>
 </template>

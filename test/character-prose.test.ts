@@ -236,7 +236,7 @@ test("the vitals alarm follows the scenario's tone, not a stock name", () => {
   assert.match(
     render(
       { hunger: { value: 96, min: 0, max: 100 } },
-      { hunger: { tone: "down", vital: true } },
+      { hunger: { role: "vital", tone: "down" } },
     ),
     /Your hunger is critical\./,
     'a "down"-toned stock near its max is dire',
@@ -244,7 +244,7 @@ test("the vitals alarm follows the scenario's tone, not a stock name", () => {
   assert.match(
     render(
       { integrity: { value: 8, min: 0, max: 100 } },
-      { integrity: { tone: "up", vital: true } },
+      { integrity: { role: "vital", tone: "up" } },
     ),
     /Your integrity is critical\./,
     "the alarm never depended on the stock being called health",
@@ -254,7 +254,7 @@ test("the vitals alarm follows the scenario's tone, not a stock name", () => {
   assert.match(
     render(
       { hunger: { value: 96, min: 0, max: 100 } },
-      { hunger: { vital: true } },
+      { hunger: { role: "vital" } },
     ),
     /You are well\./,
   );
@@ -276,9 +276,9 @@ test("vitals speak in bands while the pack still counts", () => {
       },
     },
     display: {
-      hunger: { tone: "down", vital: true },
-      food: { tone: "up" },
-      wood: { tone: "up" },
+      hunger: { role: "vital", tone: "down" },
+      food: { role: "pack", tone: "up" },
+      wood: { role: "pack", tone: "up" },
     },
   });
 
@@ -300,8 +300,8 @@ test("an authored band sentence wins over the generic one", () => {
     },
     display: {
       hunger: {
+        role: "vital",
         tone: "down",
-        vital: true,
         bands: { critical: "You are starving. Eat now." },
       },
     },
@@ -309,4 +309,64 @@ test("an authored band sentence wins over the generic one", () => {
 
   assert.match(text, /You are starving\. Eat now\./);
   assert.doesNotMatch(text, /is critical/);
+});
+
+// A stat (role: "stat") is the personal-dimension sibling of a vital: adjectival
+// prose only when it's in a band, silent otherwise, and - like a vital, unlike
+// pack - never a bare figure.
+test("a stat speaks adjectivally when banded, and never shows a figure", () => {
+  let text = renderCharacterResult({
+    sense: "situation",
+    tick: 3,
+    you: {
+      name: "Bex",
+      alive: true,
+      stocks: { courage: { value: 8, min: 0, max: 100 } },
+    },
+    display: {
+      courage: { tone: "up", role: "stat" },
+    },
+  });
+
+  assert.match(text, /Your courage is/);
+  assert.doesNotMatch(text, /\b8\b|\/100/, "a stat never shows a figure");
+});
+
+test("a stat stays silent when it's not in a band", () => {
+  let text = renderCharacterResult({
+    sense: "situation",
+    tick: 3,
+    you: {
+      name: "Bex",
+      alive: true,
+      stocks: { courage: { value: 90, min: 0, max: 100 } },
+    },
+    display: {
+      courage: { tone: "up", role: "stat" },
+    },
+  });
+
+  assert.doesNotMatch(text, /courage/i, "a fine stat earns no line at all");
+});
+
+test("a stat is excluded from the Carrying line even when it isn't banded", () => {
+  let text = renderCharacterResult({
+    sense: "situation",
+    tick: 3,
+    you: {
+      name: "Bex",
+      alive: true,
+      stocks: {
+        courage: { value: 90, min: 0, max: 100 },
+        wood: { value: 4, min: 0, max: 10 },
+      },
+    },
+    display: {
+      courage: { tone: "up", role: "stat" },
+      wood: { tone: "up", role: "pack" },
+    },
+  });
+
+  assert.match(text, /Carrying: wood 4\/10\./);
+  assert.doesNotMatch(text, /courage/i);
 });

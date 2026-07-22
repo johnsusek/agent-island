@@ -33,6 +33,7 @@ import { spawn, execFile } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { api, baseUrl } from "./world.mjs";
 
@@ -121,6 +122,18 @@ function planSpawn(engine, options) {
   return planCodex(options);
 }
 
+// The one shell command a director may run: the Illuminator commissioner. A
+// director needs art it cannot author cheaply itself, and commissioning is a
+// detached CLI rather than an MCP tool because the server knows nothing about
+// LLMs. Everything else stays blocked - a general shell would let a director
+// bypass the MCP surface entirely, and the persona's prohibitions have to stay
+// load-bearing - so Bash leaves the disallow list only for this seat and comes
+// back as a single narrowly-scoped allow rule.
+export const ILLUMINATE_BIN = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "illuminate.mjs",
+);
+
 function planClaude(options) {
   let mcpConfig = JSON.stringify({
     mcpServers: { "agent-island": { type: "http", url: options.mcpUrl } },
@@ -149,12 +162,20 @@ function planClaude(options) {
       options.effort,
       "--permission-mode",
       CONFIG.defaults.claude.permissionMode,
-      // Pre-approve every Agent Island tool; hard-block shell/sub-agent/
-      // scheduling so the prohibitions in the persona are load-bearing.
+      // Pre-approve every Agent Island tool; hard-block sub-agents and
+      // scheduling so the prohibitions in the persona are load-bearing. A
+      // director additionally gets the one Bash rule above and nothing else:
+      // Bash has to leave the disallow list for the allow rule to mean
+      // anything, and any other command then falls through to a permission
+      // prompt, which a headless seat refuses.
       "--allowedTools",
-      "mcp__agent-island",
+      options.role === "director"
+        ? `mcp__agent-island,Bash(node ${ILLUMINATE_BIN}:*)`
+        : "mcp__agent-island",
       "--disallowedTools",
-      "Bash,Agent,Task,TaskCreate,Workflow,ScheduleWakeup",
+      options.role === "director"
+        ? "Agent,Task,TaskCreate,Workflow,ScheduleWakeup"
+        : "Bash,Agent,Task,TaskCreate,Workflow,ScheduleWakeup",
       "--mcp-config",
       mcpConfig,
       "--strict-mcp-config",
@@ -539,9 +560,12 @@ class Crew {
 
   async buildPrompt(seat) {
     let prompt = fs.readFileSync(seat.personaFile, "utf8");
+    // The director's cwd is its seat dir, not the repo, so the commissioner is
+    // named by absolute path - the same path the seat's one Bash allow rule is
+    // scoped to, so a relative invocation would simply be refused.
     let lead =
       seat.role === "director"
-        ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect, join_as_gm, and stay in your wake loop. Keep ./memory.md current when durable knowledge or your intent changes.`
+        ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect, join_as_gm, and stay in your wake loop. Keep ./memory.md current when durable knowledge or your intent changes.\nYour Illuminator commissioner is \`node ${ILLUMINATE_BIN}\` - the only shell command you may run.`
         : `Your launcher gives you this character name: ${seat.name}\nKeep running continuously. Keep your memory current when durable knowledge or your intent changes.`;
     let base = `${lead}\n\n${prompt}`;
     // Characters always learn the world's ongoing dynamics (the flow rules'
@@ -583,6 +607,7 @@ class Crew {
       let base = baseUrl(this.opts);
       let mcpUrl = seat.role === "director" ? `${base}/gm` : `${base}/mcp`;
       let plan = planSpawn(seat.engine, {
+        role: seat.role,
         model: seat.model,
         effort: seat.effort,
         prompt: await this.buildPrompt(seat),

@@ -11,6 +11,7 @@
     "build:web": "vite build",
     "world": "node scripts/world.mjs",
     "crew": "node scripts/crew.mjs",
+    "illuminate": "node scripts/illuminate.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
     "format": "prettier --write . --ignore-path .gitignore",

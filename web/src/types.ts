@@ -17,21 +17,42 @@ export interface Stock {
   max: number;
 }
 
+// What a stock IS to a character (mirrors the engine's scenario.StockRole).
+export type StockRole = "vital" | "stat" | "pack";
+
 // How a per-character stock starts out (mirrors the engine's scenario.StockSpec).
-// `icon` is the game-icons slug it draws with.
+// `icon` is the game-icons slug it draws with. The overview payload strips the
+// prose fields (label/tone/bands) - they ride `display` instead - so most of
+// these are only present on the full section.
 export interface StockSpec {
   value: number;
   min?: number;
   max?: number;
   icon?: string;
   color?: string;
-}
-
-export interface DisplayHint {
+  stockpilable?: boolean;
+  role?: StockRole;
   label?: string;
   tone?: "up" | "down";
-  scope?: "world" | "agent";
-  vital?: boolean;
+  bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
+}
+
+// The reader-facing view of one stock (mirrors the server's StockDisplay,
+// built by its stockDisplay projection). `role` classifies the stock; `scope`
+// says which registry declared it.
+export interface StockDisplay {
+  role: StockRole;
+  scope: "world" | "agent";
+  label?: string;
+  tone?: "up" | "down";
+  bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
+}
+
+// A discrete item a character is holding (mirrors the server's agentView.held).
+export interface HeldItem {
+  id: string;
+  kind?: string;
+  text?: string;
 }
 
 // The inline sprite DSL (palette + character grid), mirroring the server's
@@ -111,6 +132,9 @@ export interface AgentView {
   tags: string[];
   alive: boolean;
   stocks: Record<string, Stock>;
+  // Discrete items the character is carrying (see the server's Entity.heldBy),
+  // distinct from the fungible counts in `stocks`.
+  held: HeldItem[];
   ticksLived: number;
   action: ActionView | null;
   order: OrderView | null;
@@ -198,6 +222,9 @@ export interface EntityView {
   stocks: Record<string, Stock>;
   pos?: Position;
   action?: unknown;
+  // The id of the entity holding this one, when it is a carried item (off-grid,
+  // so it never appears on the token layer).
+  heldBy?: string;
 }
 
 export interface WorldState {
@@ -205,7 +232,7 @@ export interface WorldState {
   population: number;
   scenario: {
     name: string;
-    display: Record<string, DisplayHint>;
+    display: Record<string, StockDisplay>;
     stockDefaults?: Record<string, StockSpec>;
     fixtures?: FixtureSpec[];
     setup?: SetupDirective[];
@@ -297,6 +324,17 @@ export interface SpeculativeCluster {
   sampleArgs: Record<string, string | number>[];
 }
 
+// One noun-cluster of the companion feed - a thing characters reached for that
+// doesn't exist yet, with the verbs it was reached for through.
+export interface SpeculativeNoun {
+  noun: string;
+  count: number;
+  verbs: string[];
+  distinctActors: string[];
+  firstTick: number;
+  lastTick: number;
+}
+
 // Wall-clock health of the logical clock (see coordinator.getAdminPayload).
 export interface Liveness {
   running: boolean;
@@ -329,6 +367,7 @@ export interface AdminPayload {
   rules: RuleView[];
   ruleMeta: RuleMeta;
   speculative: SpeculativeCluster[];
+  speculativeNouns: SpeculativeNoun[];
   liveness: Liveness;
 }
 

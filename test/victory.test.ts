@@ -8,6 +8,7 @@ import { createColony } from "../src/coordinator.js";
 import { createWorld } from "../src/rules/engine.js";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
 import type { Scenario } from "../src/rules/scenario.js";
+import { declareProgress } from "./helpers.js";
 
 test("shipped victory scenarios expose agent-facing descriptions", () => {
   let expected = ["survival"];
@@ -90,7 +91,7 @@ function victoryScenario(at: number): Scenario {
 
 test("a scenario's victory rule ends the run after a grace window", async () => {
   let colony = createColony({
-    engine: createWorld(victoryScenario(5)),
+    engine: declareProgress(createWorld(victoryScenario(5))),
     victoryGraceTicks: 3,
     waitTimeoutMs: 2000,
   });
@@ -139,7 +140,7 @@ test("a concluded world stays concluded across a restart", async () => {
   let statePath = join(dir, "state.json");
   try {
     let first = createColony({
-      engine: createWorld(victoryScenario(2)),
+      engine: declareProgress(createWorld(victoryScenario(2))),
       victoryGraceTicks: 0,
       waitTimeoutMs: 2000,
       statePath,
@@ -158,7 +159,7 @@ test("a concluded world stays concluded across a restart", async () => {
     // concluded - the edge-triggered watch will never re-fire, so a lost
     // `endedAt` would silently un-freeze a finished game.
     let second = createColony({
-      engine: createWorld(victoryScenario(2)),
+      engine: declareProgress(createWorld(victoryScenario(2))),
       victoryGraceTicks: 0,
       waitTimeoutMs: 500,
       statePath,

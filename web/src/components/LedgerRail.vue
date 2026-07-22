@@ -17,15 +17,21 @@ defineEmits<{ (e: "selectName", name: string): void }>();
 
     <div class="ledger__scroll">
       <section v-if="speculations.length" class="ledger__section">
-        <h3 class="ledger__heading">speculations</h3>
+        <h3 class="ledger__heading">Speculations</h3>
         <article v-for="spec in speculations" :key="spec.verb" class="spec">
           <div class="spec__line">
             <span class="spec__verb">{{ spec.verb }}</span>
-            <span class="spec__count">x{{ spec.count }}</span>
-            <span class="spec__ticks">t{{ spec.firstTick }}-{{ spec.lastTick }}</span>
+            <span v-if="spec.count > 1" class="spec__count">
+              ×{{ spec.count }}
+            </span>
           </div>
           <div class="spec__who">
-            <button v-for="name in spec.speculators" :key="name" class="namelink" @click="$emit('selectName', name)">
+            <button
+              v-for="name in spec.speculators"
+              :key="name"
+              class="namelink"
+              @click="$emit('selectName', name)"
+            >
               {{ name }}
             </button>
           </div>
@@ -36,7 +42,7 @@ defineEmits<{ (e: "selectName", name: string): void }>();
       </section>
 
       <section class="ledger__section">
-        <h3 class="ledger__heading">laws</h3>
+        <h3 class="ledger__heading">Laws</h3>
         <p v-if="!laws.length" class="ledger__empty">
           No physics has been speculated into being yet. When a character tries
           a verb the world doesn't know and the Oracle ratifies it, the law
@@ -44,10 +50,7 @@ defineEmits<{ (e: "selectName", name: string): void }>();
         </p>
         <article v-for="law in laws" :key="law.id" class="law">
           <div class="law__line">
-            <span>
-              <span class="law__verb">{{ law.id }}</span>
-            </span>
-            <span v-if="!law.speculators.length" class="law__badge law__badge--gated">unprompted</span>
+            <span class="law__verb">{{ law.id }}</span>
           </div>
 
           <p v-if="law.description" class="law__desc">{{ law.description }}</p>

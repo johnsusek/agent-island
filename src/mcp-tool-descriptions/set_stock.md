@@ -6,6 +6,8 @@ Introducing a resource the world has never seen requires an `icon` (a game-icons
 
 To seed a NEW per-agent stock across the whole world (and future joiners), use set_stock_default instead.
 
+Setting a stock here is also how you declare a resource name into existence for rule effects: a rule's `adjust`/`set` only ever writes a stock an entity already carries (see add_rule's "Stock writes are strict"), and a `transfer` can only mint a fresh destination for a name the ruleset has declared somewhere. This tool is one of the ways to do that declaring.
+
 **Examples**
 
 ```

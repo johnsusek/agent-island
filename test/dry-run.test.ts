@@ -102,20 +102,24 @@ test("an action rule gets an availability sweep instead of a tick simulation", (
 // there. An empty body is the one such failure the engine can see without
 // reading meaning into a verb's name; the rest is the director's judgment.
 
-test("an action with an empty body is warned about", () => {
+// Genesis run cc3d1956 shipped two of these on the strength of a warning alone
+// - `enter-shelter` and `warm-by-fire`, both `do: []` - so the empty body is now
+// refused at add time rather than reported after the fact. The dry-run lint
+// stays for rules that arrive by other doors (a scenario file), but the GM
+// cannot mint one.
+test("an action with an empty body is refused at add time", () => {
   let engine = survival();
   engine.addAgent("Ada");
-  engine.addRule({
-    id: "establish_settlement",
-    kind: "action",
-    duration: 5,
-    do: [],
-  });
 
-  assert.ok(
-    engine
-      .dryRunRule("establish_settlement")
-      .warnings.some((w) => w.includes("empty body")),
+  assert.throws(
+    () =>
+      engine.addRule({
+        id: "establish_settlement",
+        kind: "action",
+        duration: 5,
+        do: [],
+      }),
+    /empty body/,
   );
 });
 

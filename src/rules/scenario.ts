@@ -12,6 +12,15 @@ import type { Args, Rule, Stock } from "./kernel.js";
 import { assertValidMoveCost, type Position, type WorldGen } from "./space.js";
 import { assertValidSpriteSpec, type SpriteSpec } from "./sprite.js";
 
+// What a stock IS to a character, independent of its name: a pressure that
+// can hurt or kill (`vital`, band-alarmed prose, never a figure), a personal
+// dimension worth a mention only when it's notable (`stat`, adjectival prose,
+// silent otherwise), or a fungible quantity that gets carried and handed over
+// (`pack`, the "Carrying:" figures, the only role give/stockpile ever touch).
+// An unclassified stock is `pack`: the plain reading of a bare number nobody
+// has said anything else about.
+export type StockRole = "vital" | "stat" | "pack";
+
 // How a stock starts. An unset min/max takes the kernel stock() defaults (0,100).
 // `icon` is the game-icons.net slug that represents this resource everywhere
 // it's shown — the header pills, the character cards, the map. It rides on the
@@ -26,12 +35,40 @@ export interface StockSpec {
   max?: number;
   icon?: string;
   color?: string;
-  // Marks this resource as one characters can haul into a stockpile. It is a
-  // property of the resource, not of any one action: any rule can gate on it via
-  // the `stockpilable` condition, and the generic deposit/withdraw actions offer
-  // exactly the flagged resources as choices. Vital gauges (health, hunger,
-  // energy...) leave this unset so they can never be "deposited" away.
+  // Marks this resource as one characters can haul into a stockpile. Only
+  // meaningful on a `pack`-role resource (rejected on vital/stat at
+  // set_stock_default) - it is a narrower, deposit/withdraw-specific opt-in
+  // *within* pack, not a second givability axis: giving itself is gated on
+  // role alone (see engine.ts packStockNames), stockpilable only decides
+  // which pack resources the generic deposit/withdraw actions list.
   stockpilable?: boolean;
+  // What this stock IS - see StockRole. Omitted, the stock is pack.
+  role?: StockRole;
+  // How the stock reads to a character and on the dashboard. `label` names it
+  // in prose ("your warmth"); `tone` says which direction is bad ("up": less
+  // is worse, like health; "down": more is worse, like hunger); `bands` are
+  // what the world tells a vital/stat at each depth of trouble, with any band
+  // left unwritten getting a default built from the label. This is the ONLY
+  // home for a stock's presentation - a stock spec is both the declaration
+  // and the authoring, so a GM's set_stock_default carries it at runtime with
+  // no second registry to keep in step (see engine.ts stockDisplay).
+  label?: string;
+  tone?: "up" | "down";
+  bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
+}
+
+// The reader-facing view of one stock: what it is and how to say it. Built
+// fresh on every read (see engine.ts stockDisplay) from the registry that
+// declares the stock - stockDefaults for a per-character stock, worldStocks
+// for a global one - which is where `scope` comes from. Prose, alarms, the
+// dry-run lints, and the dashboard all read this one shape; nothing authors
+// it directly.
+export interface StockDisplay {
+  role: StockRole;
+  scope: "agent" | "world";
+  label?: string;
+  tone?: "up" | "down";
+  bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
 }
 
 // The kind, tags, and stocks an entity is stamped out with. An agent
@@ -101,26 +138,6 @@ function applyFilter(value: unknown, filter: string): unknown {
   return value;
 }
 
-// A per-stock hint for the dashboard: a friendly label, and whether "more is
-// better" (up) or "less is better" (down) so a bar can be coloured. The stock's
-// icon is NOT here — it lives on the resource itself (StockSpec.icon) so a
-// single source of truth drives the pills, the cards, and the map alike.
-export interface DisplayHint {
-  label?: string;
-  tone?: "up" | "down";
-  scope?: "world" | "agent"; // where it shows: a world pill or an agent bar
-  // Whether this gauge is a VITAL - a pressure that can hurt or kill, worth
-  // alarming a character about. Off by default, because most agent stocks are
-  // inventory: carried food sitting at 0 is an empty pack, not an emergency,
-  // and reading it as one buried every real alarm in noise.
-  vital?: boolean;
-  // What the world tells a character when this gauge enters each band of
-  // trouble - the scenario's own words for its own pressures ("You are
-  // starving."). Any band left unwritten gets a default built from the label.
-  // See rules/vitals.ts; unlisted bands are silent, as is a healthy gauge.
-  bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
-}
-
 // How a kind of thing appears. `sprite` is the world art, stored inline as the
 // sprite DSL (palette + character grid) and baked to a texture by the web map -
 // there are no external asset packs. color, icon, and label are semantic hints
@@ -186,8 +203,6 @@ export interface Scenario {
   // entry (or whose template renders empty) falls back to the rule's own emit
   // text, then to a generic "<name> <type>".
   describeEvent?: Record<string, string>;
-  // Per-stock dashboard hints, keyed by stock name.
-  display?: Record<string, DisplayHint>;
   // How each entity kind-tag draws on the map (icon + tint + legend label),
   // keyed by the kind-tag a token or entity carries ("wolf", "hearth"). Only
   // needed for tags that have no spec to ride: a stock's look belongs on its

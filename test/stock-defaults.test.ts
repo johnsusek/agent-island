@@ -19,8 +19,10 @@ function kindVisualsOf(engine: WorldEngine) {
   >;
 }
 
-// A flow that drains `mana` each tick. An `adjust` write auto-vivifies its
-// target, so a flow alone never throws on a missing stock — it just creates it.
+// A flow that drains `mana` each tick. A flow desugars to an `adjust`, which
+// is strict (see kernel.ts requireStock) - every use below adds this only
+// after setStockDefault("mana", ...) has already declared the stock, exactly
+// the sequencing this file's default feature exists to make safe.
 const COLD_FLOW = {
   id: "test-chill-drain",
   description: "test: mana drains each tick",

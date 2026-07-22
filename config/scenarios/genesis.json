@@ -463,62 +463,51 @@
         }
       }
     },
-    "display": {
-      "health": {
-        "label": "health",
-        "tone": "up",
-        "scope": "agent",
-        "bands": {
-          "pressing": "You are hurt.",
-          "serious": "You are badly hurt.",
-          "critical": "You are dying."
-        },
-        "vital": true
-      },
-      "hunger": {
-        "label": "hunger",
-        "tone": "down",
-        "scope": "agent",
-        "bands": {
-          "pressing": "You are getting hungry.",
-          "serious": "You are very hungry - find food soon.",
-          "critical": "You are starving. Eat now, or getting food is your only task."
-        },
-        "vital": true
-      },
-      "thirst": {
-        "label": "thirst",
-        "tone": "down",
-        "scope": "agent",
-        "bands": {
-          "pressing": "You are thirsty.",
-          "serious": "You are parched - find water soon.",
-          "critical": "You are dying of thirst. Drink now, or getting water is your only task."
-        },
-        "vital": true
-      }
-    },
     "stockDefaults": {
       "health": {
         "value": 100,
         "icon": "health",
         "color": "#e56b6f",
         "min": 0,
-        "max": 100
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "tone": "up",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
       },
       "hunger": {
         "value": 0,
         "icon": "food",
         "color": "#e0453f",
         "min": 0,
-        "max": 100
+        "max": 100,
+        "role": "vital",
+        "label": "hunger",
+        "tone": "down",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find food soon.",
+          "critical": "You are starving. Eat now, or getting food is your only task."
+        }
       },
       "thirst": {
         "value": 0,
         "icon": "water",
         "color": "#5c9fd4",
         "min": 0,
-        "max": 100
+        "max": 100,
+        "role": "vital",
+        "label": "thirst",
+        "tone": "down",
+        "bands": {
+          "pressing": "You are thirsty.",
+          "serious": "You are parched - find water soon.",
+          "critical": "You are dying of thirst. Drink now, or getting water is your only task."
+        }
       }
     }
   }

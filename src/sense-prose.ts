@@ -16,33 +16,46 @@ import { bandedStocks, bandSentence, carriedStocks } from "./rules/vitals.js";
 
 type Dict = Record<string, any>;
 
-// The vitals digest: only the gauges in trouble, in the scenario's own words,
-// worst first. A figure never appears - see rules/vitals.ts for why.
-//
-// Silence would be ambiguous ("nothing wrong? or nothing looked at?"), so a
-// character with nothing pressing is told so outright, in one short clause.
-function vitals(stocks: Dict | undefined, display?: Dict): string {
-  let banded = bandedStocks(stocks, display);
-  if (!banded.length) return stocks ? "You are well." : "";
-  return banded
+// The banded digest for one role: only the gauges in trouble, in the
+// scenario's own words, worst first. A figure never appears - see
+// rules/vitals.ts for why.
+function bandedLine(
+  stocks: Dict | undefined,
+  display: Dict | undefined,
+  role: "vital" | "stat",
+): string {
+  return bandedStocks(stocks, display, role)
     .map((entry) => bandSentence(entry.name, entry.band, display?.[entry.name]))
     .join(" ");
 }
 
-// What's in the pack, figures and all - see carriedStocks for why these keep
-// their numbers when vitals don't.
-function carriedLine(stocks: Dict | undefined, display?: Dict): string {
+// The vitals digest. Silence would be ambiguous ("nothing wrong? or nothing
+// looked at?"), so a character with nothing pressing is told so outright, in
+// one short clause - unlike stats, which stay silent when nothing is notable
+// (a stat is worth a mention only when it's low, never an ambient status
+// line the way health gets one).
+function vitals(stocks: Dict | undefined, display?: Dict): string {
+  let line = bandedLine(stocks, display, "vital");
+  if (line) return line;
+  return stocks ? "You are well." : "";
+}
+
+// What's in the pack, held items and pack figures together on one line - held
+// discrete items first (named, no figure - one axe is one axe), then fungible
+// pack stocks with their counts (see carriedStocks for why those keep numbers
+// when vitals don't). One "Carrying:" the character reads as their whole
+// inventory, though the two halves are different substrates underneath (an
+// item entity vs. a stock count).
+function carriedLine(you: Dict | undefined, display?: Dict): string {
+  let stocks = you?.stocks;
+  let parts: string[] = [];
+  for (let item of (you?.held ?? []) as Dict[])
+    parts.push(String(item.kind ?? item.id));
   let carried = carriedStocks(stocks, display);
-  if (!carried.length) return "";
-  return (
-    "Carrying: " +
-    carried
-      .map(
-        (c) => `${c.name} ${c.value}${c.max !== undefined ? `/${c.max}` : ""}`,
-      )
-      .join(", ") +
-    "."
-  );
+  for (let c of carried)
+    parts.push(`${c.name} ${c.value}${c.max !== undefined ? `/${c.max}` : ""}`);
+  if (!parts.length) return "";
+  return "Carrying: " + parts.join(", ") + ".";
 }
 
 // One order, read back to the player: what it does, how far it has got, and
@@ -101,7 +114,8 @@ function envelope(
   let lines = [
     `Tick ${tick}. You are ${you.name}${at}${terrain}${dead}.`,
     vitals(you.stocks, display),
-    carriedLine(you.stocks, display),
+    bandedLine(you.stocks, display, "stat"),
+    carriedLine(you, display),
     orderLine(you),
   ];
   return lines.filter(Boolean).join(" ");
@@ -247,8 +261,7 @@ function actionsBlock(actions: Dict[] | undefined): string[] {
 // action with no such narrowing is just its bare name.
 function actionPhrase(action: Dict): string {
   let paramOptions = action.paramOptions as
-    | Record<string, unknown[]>
-    | undefined;
+    Record<string, unknown[]> | undefined;
   if (!paramOptions) return action.name;
   let parts: string[] = [];
   for (let [param, opts] of Object.entries(paramOptions)) {
