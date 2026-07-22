@@ -22,17 +22,10 @@ defineEmits<{ (e: "selectName", name: string): void }>();
           <div class="spec__line">
             <span class="spec__verb">{{ spec.verb }}</span>
             <span class="spec__count">x{{ spec.count }}</span>
-            <span class="spec__ticks"
-              >t{{ spec.firstTick }}-{{ spec.lastTick }}</span
-            >
+            <span class="spec__ticks">t{{ spec.firstTick }}-{{ spec.lastTick }}</span>
           </div>
           <div class="spec__who">
-            <button
-              v-for="name in spec.speculators"
-              :key="name"
-              class="namelink"
-              @click="$emit('selectName', name)"
-            >
+            <button v-for="name in spec.speculators" :key="name" class="namelink" @click="$emit('selectName', name)">
               {{ name }}
             </button>
           </div>
@@ -51,47 +44,13 @@ defineEmits<{ (e: "selectName", name: string): void }>();
         </p>
         <article v-for="law in laws" :key="law.id" class="law">
           <div class="law__line">
-            <span class="law__verb">{{ law.id }}</span>
-            <span
-              v-if="law.gated"
-              class="law__badge law__badge--gated"
-              title="Has a requires gate - it can refuse"
-              >priced</span
-            >
-            <span
-              v-else
-              class="law__badge law__badge--free"
-              title="No requires gate - a free grant"
-              >free</span
-            >
-            <span
-              v-if="law.latency != null"
-              class="law__latency"
-              :class="{ 'law__latency--slow': law.latency > 100 }"
-              :title="`speculated t${law.firstSpeculationTick}, minted t${law.mintTick}`"
-            >
-              {{ law.latency }}t
+            <span>
+              <span class="law__verb">{{ law.id }}</span>
             </span>
+            <span v-if="!law.speculators.length" class="law__badge law__badge--gated">unprompted</span>
           </div>
-          <div v-if="law.aliases.length" class="law__aliases">
-            also answers: {{ law.aliases.join(", ") }}
-          </div>
+
           <p v-if="law.description" class="law__desc">{{ law.description }}</p>
-          <div v-if="law.speculators.length" class="law__who">
-            speculated by
-            <button
-              v-for="name in law.speculators"
-              :key="name"
-              class="namelink"
-              @click="$emit('selectName', name)"
-            >
-              {{ name }}
-            </button>
-            <span class="law__attempts">({{ law.attempts }} attempts)</span>
-          </div>
-          <div v-else class="law__who law__who--gm">
-            authored by the Oracle unprompted
-          </div>
         </article>
       </section>
     </div>

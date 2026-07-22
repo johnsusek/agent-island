@@ -463,12 +463,12 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-content: space-between;
 }
 
 .law__verb,
 .spec__verb,
 .row__verb {
-  font-family: var(--mono);
   font-weight: 700;
 }
 
@@ -507,8 +507,6 @@ button {
 
 .law__aliases {
   color: var(--faint);
-  font-size: 10px;
-  margin-top: 2px;
 }
 
 .law__desc {
