@@ -43,7 +43,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { parseDirectorCadenceTicks, parseMaxTicks, targetTick } from "./crew-policy.mjs";
+import {
+  parseDirectorCadenceTicks,
+  parseMaxTicks,
+  targetTick,
+} from "./crew-policy.mjs";
 import { api, baseUrl } from "./world.mjs";
 
 // Runtime home, mirrored from src/paths.ts (this script runs under plain node,
@@ -1354,7 +1358,7 @@ DEFAULTS
   characters: codex / gpt-5.4-mini / low, OCEAN on
   director:   codex / gpt-5.6-luna / medium, persona oracle
   both run for 2000 ticks after launch (--max-ticks off = unbounded)
-  director cadence: oracle event-woken; auditor/seeder 500; tuner 300`);
+  director cadence: oracle event-woken with a 50-tick heartbeat; all others heartbeat-driven`);
 }
 
 async function main() {

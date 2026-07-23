@@ -1,7 +1,47 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export function zeroUsage() {
+import { jsonlTailOffset, readJsonlAppend } from "./log-reader.js";
+import type { LogEntry, LogFile, LogView, Usage } from "./types.js";
+
+type EventRecord = Record<string, any>;
+type LogSummary = LogFile & {
+  completed: boolean;
+  effort: string | null;
+  model: string | null;
+  name: string | null;
+  role: string | null;
+  startedAt: number;
+  usage: Usage;
+};
+
+interface LogStoreOptions {
+  latestMaxViewBytes?: number;
+  maxViewBytes?: number | null;
+}
+
+interface UsageCacheState {
+  claudeMessages: Usage;
+  claudeResult: Usage | null;
+  completed: boolean;
+  mtime: number;
+  offset: number;
+  size: number;
+  summary: LogSummary;
+  usage: Usage;
+}
+
+interface ViewCacheState {
+  entries: LogEntry[];
+  mtime: number;
+  offset: number;
+  pending: Map<string, { label: string; since: number | null }>;
+  size: number;
+  startOffset: number;
+  view: LogView;
+}
+
+export function zeroUsage(): Usage {
   return {
     inputTokens: 0,
     cachedInputTokens: 0,
@@ -14,21 +54,28 @@ export function zeroUsage() {
   };
 }
 
-export function addUsage(target, source) {
-  for (let key of Object.keys(target)) target[key] += number(source?.[key]);
+export function addUsage(target: Usage, source: Partial<Usage> | null): Usage {
+  for (let key of Object.keys(target) as (keyof Usage)[])
+    target[key] += number(source?.[key]);
   return target;
 }
 
-export function createLogStore(options = {}) {
-  let usageCache = new Map();
-  let viewCache = new Map();
-  let maxViewBytes = options.maxViewBytes ?? 2_000_000;
+export function createLogStore(options: LogStoreOptions = {}) {
+  let usageCache = new Map<string, UsageCacheState>();
+  let latestViewCache = new Map<string, ViewCacheState>();
+  let historyViewCache = new Map<string, ViewCacheState>();
+  let historyBySeat = new Map<
+    string,
+    { signature: string; view: LogView | null }
+  >();
+  let maxViewBytes = options.maxViewBytes ?? null;
+  let latestMaxViewBytes = options.latestMaxViewBytes ?? 2_000_000;
 
-  function inspectSeat(seatDir, since = 0) {
+  function inspectSeat(seatDir: string, since = 0) {
     let logs = discoverLogs(path.join(seatDir, "logs"));
     let totalUsage = zeroUsage();
     let runUsage = zeroUsage();
-    let runs = [];
+    let runs: LogSummary[] = [];
 
     for (let log of logs) {
       let summary = usageSummary(log, usageCache);
@@ -38,15 +85,30 @@ export function createLogStore(options = {}) {
     }
 
     let latestLog = logs[0] ?? null;
-    let latest = latestLog ? logView(latestLog, viewCache, maxViewBytes) : null;
+    let latest = latestLog
+      ? logView(latestLog, latestViewCache, latestMaxViewBytes)
+      : null;
     return { logs, latest, runs, totalUsage, runUsage };
   }
 
-  return { inspectSeat };
+  function inspectView(seatDir: string): LogView | null {
+    let logs = discoverLogs(path.join(seatDir, "logs"));
+    let signature = logs
+      .map((log) => `${log.file}:${log.size}:${log.mtime}`)
+      .join("\n");
+    let existing = historyBySeat.get(seatDir);
+    if (signature === existing?.signature) return existing.view;
+    let views = logs.map((log) => logView(log, historyViewCache, maxViewBytes));
+    let view = combinedLogView(views);
+    historyBySeat.set(seatDir, { signature, view });
+    return view;
+  }
+
+  return { inspectSeat, inspectView };
 }
 
-export function discoverLogs(logsDir) {
-  let logs = [];
+export function discoverLogs(logsDir: string): LogFile[] {
+  let logs: LogFile[] = [];
   for (let engineEntry of safeDirectories(logsDir)) {
     let engineDir = path.join(logsDir, engineEntry.name);
     for (let fileEntry of safeFiles(engineDir)) {
@@ -69,85 +131,164 @@ export function discoverLogs(logsDir) {
   return logs.sort((left, right) => right.mtime - left.mtime);
 }
 
-function usageSummary(log, cache) {
-  let existing = cache.get(log.file);
-  if (existing?.size === log.size && existing?.mtime === log.mtime)
-    return existing;
-
-  let usage = zeroUsage();
-  let claudeMessages = zeroUsage();
-  let claudeResult = null;
-  let completed = false;
-  let raw = safeRead(log.file);
-  for (let line of raw.split("\n")) {
-    let event = parseLine(line);
-    if (!event) continue;
-    if (log.engine === "codex" && event.type === "turn.completed") {
-      addUsage(usage, codexUsage(event.usage));
-      usage.completedRuns += 1;
-      completed = true;
-      continue;
-    }
-    if (log.engine !== "claude") continue;
-    if (event.type === "assistant" && event.message?.usage)
-      addUsage(claudeMessages, claudeUsage(event.message.usage));
-    if (event.type !== "result") continue;
-    claudeResult = claudeUsage(event.usage);
-    claudeResult.costUsd = number(event.total_cost_usd);
-    claudeResult.durationMs = number(event.duration_ms);
-    claudeResult.completedRuns = 1;
-    completed = !event.is_error;
-  }
-  if (log.engine === "claude") usage = claudeResult ?? claudeMessages;
-
+function usageSummary(
+  log: LogFile,
+  cache: Map<string, UsageCacheState>,
+): LogSummary {
+  let state = cache.get(log.file);
+  if (
+    !state ||
+    log.size < state.size ||
+    (log.size === state.size && log.mtime !== state.mtime)
+  )
+    state = newUsageState(log);
+  let appended = readJsonlAppend(log.file, state.offset, log.size);
+  for (let record of appended.records)
+    applyUsageEvent(state, log.engine, record.event);
+  state.offset = appended.offset;
+  state.size = log.size;
+  state.mtime = log.mtime;
+  let usage =
+    log.engine === "claude"
+      ? (state.claudeResult ?? state.claudeMessages)
+      : state.usage;
   let metadata = readMetadata(log.file);
-  let summary = {
+  state.summary = {
     ...log,
-    usage,
-    completed,
+    usage: { ...usage },
+    completed: state.completed,
     name: metadata.name ?? null,
     role: metadata.role ?? null,
     model: metadata.model ?? null,
     effort: metadata.effort ?? null,
     startedAt: dateValue(metadata.startedAt) ?? log.mtime,
   };
-  cache.set(log.file, summary);
-  return summary;
+  cache.set(log.file, state);
+  return state.summary;
 }
 
-function logView(log, cache, maxBytes) {
-  let existing = cache.get(log.file);
-  if (existing?.size === log.size && existing?.mtime === log.mtime)
-    return existing;
-
-  let raw = readTail(log.file, maxBytes);
-  let entries = [];
-  let pending = new Map();
-  for (let line of raw.split("\n")) {
-    let event = parseLine(line);
-    if (!event) continue;
+function logView(
+  log: LogFile,
+  cache: Map<string, ViewCacheState>,
+  maxBytes: number | null,
+): LogView {
+  let state = cache.get(log.file);
+  if (
+    !state ||
+    log.size < state.size ||
+    (log.size === state.size && log.mtime !== state.mtime) ||
+    (maxBytes !== null && log.size - state.startOffset > maxBytes * 2)
+  )
+    state = newViewState(log, maxBytes);
+  let appended = readJsonlAppend(log.file, state.offset, log.size);
+  for (let record of appended.records) {
     let rendered =
       log.engine === "codex"
-        ? renderCodex(event, pending)
-        : renderClaude(event, pending);
-    for (let entry of rendered) entries.push({ ...entry, raw: line });
+        ? renderCodex(record.event, state.pending)
+        : renderClaude(record.event, state.pending);
+    for (let entry of rendered)
+      state.entries.push({ ...entry, raw: record.raw });
   }
-  if (entries.length > 1200) entries = entries.slice(-1200);
-
+  state.offset = appended.offset;
+  state.size = log.size;
+  state.mtime = log.mtime;
   let metadata = readMetadata(log.file);
-  let view = {
+  state.view = {
     ...log,
-    entries,
-    pending: [...pending.values()],
+    entries: state.entries,
+    pending: [...state.pending.values()],
     model: metadata.model ?? null,
     effort: metadata.effort ?? null,
     startedAt: dateValue(metadata.startedAt) ?? log.mtime,
   };
-  cache.set(log.file, view);
-  return view;
+  cache.set(log.file, state);
+  return state.view;
 }
 
-export function renderCodex(event, pending = new Map()) {
+function newUsageState(log: LogFile): UsageCacheState {
+  let usage = zeroUsage();
+  return {
+    claudeMessages: zeroUsage(),
+    claudeResult: null,
+    completed: false,
+    mtime: 0,
+    offset: 0,
+    size: 0,
+    summary: {
+      ...log,
+      completed: false,
+      effort: null,
+      model: null,
+      name: null,
+      role: null,
+      startedAt: log.mtime,
+      usage,
+    },
+    usage,
+  };
+}
+
+function applyUsageEvent(
+  state: UsageCacheState,
+  engine: string | undefined,
+  event: EventRecord,
+): void {
+  if (engine === "codex" && event.type === "turn.completed") {
+    addUsage(state.usage, codexUsage(event.usage));
+    state.usage.completedRuns += 1;
+    state.completed = true;
+    return;
+  }
+  if (engine !== "claude") return;
+  if (event.type === "assistant" && event.message?.usage)
+    addUsage(state.claudeMessages, claudeUsage(event.message.usage));
+  if (event.type !== "result") return;
+  state.claudeResult = claudeUsage(event.usage);
+  state.claudeResult.costUsd = number(event.total_cost_usd);
+  state.claudeResult.durationMs = number(event.duration_ms);
+  state.claudeResult.completedRuns = 1;
+  state.completed = !event.is_error;
+}
+
+function newViewState(log: LogFile, maxBytes: number | null): ViewCacheState {
+  let startOffset = jsonlTailOffset(log.file, log.size, maxBytes);
+  return {
+    entries: [],
+    mtime: 0,
+    offset: startOffset,
+    pending: new Map(),
+    size: 0,
+    startOffset,
+    view: {
+      ...log,
+      entries: [],
+      startedAt: log.mtime,
+    },
+  };
+}
+
+function combinedLogView(views: LogView[]): LogView | null {
+  let latest = views[0] ?? null;
+  if (!latest) return null;
+  let chronological = views
+    .slice()
+    .sort(
+      (left, right) =>
+        left.startedAt - right.startedAt ||
+        left.mtime - right.mtime ||
+        left.file.localeCompare(right.file),
+    );
+  return {
+    ...latest,
+    entries: chronological.flatMap((view) => view.entries),
+    logCount: views.length,
+  };
+}
+
+export function renderCodex(
+  event: EventRecord,
+  pending = new Map<string, { label: string; since: number | null }>(),
+): LogEntry[] {
   let item = event.item ?? {};
   let timestamp = dateValue(event.timestamp);
   if (event.type === "item.started") {
@@ -207,7 +348,10 @@ export function renderCodex(event, pending = new Map()) {
   return [];
 }
 
-export function renderClaude(event, pending = new Map()) {
+export function renderClaude(
+  event: EventRecord,
+  pending = new Map<string, { label: string; since: number | null }>(),
+): LogEntry[] {
   let timestamp = dateValue(event.timestamp);
   if (event.type === "result") {
     let status = event.is_error ? "error" : "complete";
@@ -221,7 +365,7 @@ export function renderClaude(event, pending = new Map()) {
     ];
   }
   if (event.type !== "assistant" && event.type !== "user") return [];
-  let entries = [];
+  let entries: LogEntry[] = [];
   for (let block of event.message?.content ?? []) {
     if (block.type === "thinking")
       entries.push({
@@ -261,7 +405,7 @@ export function renderClaude(event, pending = new Map()) {
   return entries;
 }
 
-function itemLabel(item) {
+function itemLabel(item: EventRecord): string | null {
   if (item.type === "mcp_tool_call") return item.tool ?? "MCP";
   if (item.type === "command_execution") return "shell";
   if (item.type === "file_change") return "file";
@@ -269,7 +413,7 @@ function itemLabel(item) {
   return null;
 }
 
-function itemInput(item) {
+function itemInput(item: EventRecord): string {
   if (item.type === "mcp_tool_call")
     return jsonText(item.arguments ?? item.input ?? {});
   if (item.type === "command_execution") return item.command ?? "";
@@ -277,22 +421,25 @@ function itemInput(item) {
   return item.query ?? "";
 }
 
-function fileChangeText(item) {
+function fileChangeText(item: EventRecord): string {
   return (item.changes ?? [])
-    .map((change) => `${change.kind ?? "change"} ${change.path ?? ""}`)
+    .map(
+      (change: EventRecord) =>
+        `${change.kind ?? "change"} ${change.path ?? ""}`,
+    )
     .join(", ");
 }
 
-function resultText(result) {
+function resultText(result: any): string {
   if (result === null || result === undefined) return "";
   if (typeof result === "string") return result;
   if (Array.isArray(result))
     return result
-      .map((part) => resultText(part))
+      .map((part: unknown) => resultText(part))
       .filter(Boolean)
       .join("\n");
   if (typeof result.text === "string") return result.text;
-  let contentText = resultText(result.content);
+  let contentText: string = resultText(result.content);
   if (contentText) return contentText;
   if (result.structured_content !== undefined)
     return jsonText(result.structured_content);
@@ -301,7 +448,7 @@ function resultText(result) {
   return jsonText(result);
 }
 
-function claudeResultText(event) {
+function claudeResultText(event: EventRecord): string {
   let details = [usageText(claudeUsage(event.usage))];
   if (number(event.duration_ms))
     details.push(`${Math.round(number(event.duration_ms) / 1000)}s`);
@@ -311,7 +458,7 @@ function claudeResultText(event) {
   return details.filter(Boolean).join(" · ");
 }
 
-function codexUsage(usageValue) {
+function codexUsage(usageValue: EventRecord | null | undefined): Usage {
   let inputTokens = number(usageValue?.input_tokens);
   let cachedInputTokens = number(usageValue?.cached_input_tokens);
   return {
@@ -324,7 +471,7 @@ function codexUsage(usageValue) {
   };
 }
 
-function claudeUsage(usageValue) {
+function claudeUsage(usageValue: EventRecord | null | undefined): Usage {
   let fresh = number(usageValue?.input_tokens);
   let cacheWrite = number(usageValue?.cache_creation_input_tokens);
   let cacheRead = number(usageValue?.cache_read_input_tokens);
@@ -337,17 +484,17 @@ function claudeUsage(usageValue) {
   };
 }
 
-function usageText(usage) {
+function usageText(usage: Usage): string {
   return `in ${compact(usage.inputTokens)} (${compact(usage.uncachedInputTokens)} fresh) · out ${compact(usage.outputTokens)}`;
 }
 
-function compact(value) {
+function compact(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return String(Math.round(value));
 }
 
-function readMetadata(file) {
+function readMetadata(file: string): EventRecord {
   try {
     return JSON.parse(fs.readFileSync(`${file}.meta`, "utf8"));
   } catch {
@@ -355,36 +502,7 @@ function readMetadata(file) {
   }
 }
 
-function readTail(file, maxBytes) {
-  let stat = statOr(file);
-  if (!stat?.size) return "";
-  let start = Math.max(0, stat.size - maxBytes);
-  let length = stat.size - start;
-  let descriptor;
-  try {
-    descriptor = fs.openSync(file, "r");
-    let buffer = Buffer.alloc(length);
-    fs.readSync(descriptor, buffer, 0, length, start);
-    let text = buffer.toString("utf8");
-    if (start > 0) text = text.slice(text.indexOf("\n") + 1);
-    return text;
-  } catch {
-    return "";
-  } finally {
-    if (descriptor !== undefined) fs.closeSync(descriptor);
-  }
-}
-
-function parseLine(line) {
-  if (!line.trim()) return null;
-  try {
-    return JSON.parse(line);
-  } catch {
-    return null;
-  }
-}
-
-function jsonText(value) {
+function jsonText(value: unknown): string {
   try {
     return JSON.stringify(value ?? {});
   } catch {
@@ -392,15 +510,7 @@ function jsonText(value) {
   }
 }
 
-function safeRead(file) {
-  try {
-    return fs.readFileSync(file, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function safeDirectories(directory) {
+function safeDirectories(directory: string): fs.Dirent[] {
   try {
     return fs
       .readdirSync(directory, { withFileTypes: true })
@@ -410,7 +520,7 @@ function safeDirectories(directory) {
   }
 }
 
-function safeFiles(directory) {
+function safeFiles(directory: string): fs.Dirent[] {
   try {
     return fs
       .readdirSync(directory, { withFileTypes: true })
@@ -420,7 +530,7 @@ function safeFiles(directory) {
   }
 }
 
-function statOr(file) {
+function statOr(file: string): fs.Stats | null {
   try {
     return fs.statSync(file);
   } catch {
@@ -428,12 +538,12 @@ function statOr(file) {
   }
 }
 
-function number(value) {
+function number(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function dateValue(value) {
+function dateValue(value: unknown): number | null {
   if (!value) return null;
-  let parsed = typeof value === "number" ? value : Date.parse(value);
+  let parsed = typeof value === "number" ? value : Date.parse(String(value));
   return Number.isFinite(parsed) ? parsed : null;
 }

@@ -1,0 +1,9 @@
+{
+  "default": 500,
+  "directors": {
+    "auditor": 600,
+    "oracle": 0,
+    "seeder": 400,
+    "tuner": 250
+  }
+}

@@ -1,18 +1,15 @@
 #!/usr/bin/env node
 
-import { createOperatorApp } from "./operator/app.mjs";
-import { setColorsEnabled } from "./operator/ansi.mjs";
-import { operatorHelp, operatorPaths, parseOperatorArgs } from "./operator/config.mjs";
-import { createRuntime, snapshotText } from "./operator/runtime.mjs";
+import { createOperatorApp } from "./app.js";
+import { operatorHelp, operatorPaths, parseOperatorArgs } from "./config.js";
+import { createRuntime, snapshotText } from "./runtime.js";
 
-async function main() {
+async function main(): Promise<void> {
   let options;
   try {
     options = parseOperatorArgs(process.argv.slice(2));
   } catch (error) {
-    process.stderr.write(
-      `operator: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
+    process.stderr.write(`operator: ${errorMessage(error)}\n`);
     process.exitCode = 1;
     return;
   }
@@ -35,13 +32,16 @@ async function main() {
     return;
   }
 
-  setColorsEnabled(!options.monochrome && process.env.NO_COLOR === undefined);
   let app = createOperatorApp(options, paths, runtime);
   try {
     await app.run();
   } finally {
     app.stop();
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 await main();

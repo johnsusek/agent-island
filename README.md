@@ -99,12 +99,13 @@ tail -q -n +1 -F ~/.agent-island/characters/*/logs/codex/play-*.jsonl \
   | jq --unbuffered -rf scripts/watch-log-codex.jq          # same, for codex seats
 ```
 
-The operator console combines the crew and world commands into one terminal
-surface. It reconciles supervisor PIDs, live MCP controllers, world state, and
-Claude/Codex JSONL logs and follows a selected agent across log rollover. Press
-`l` to launch, `x` to drain the selected crew batch, `w` for guarded world
-operations, `/` to filter, and `?` for all keys. Exiting the console does not
-stop running crews.
+The TypeScript operator console uses TerminalKit for keyboard and mouse focus,
+scrolling, forms, and windows. It reconciles supervisor PIDs, live MCP
+controllers, world state, and Claude/Codex JSONL logs and follows a selected
+agent across log rollover. Press `l` to launch, `x` to drain the selected crew
+batch, `w` for guarded world operations, `/` to find, and `?` for all keys.
+Exiting the console does not stop running crews. Press `m` to switch the
+selected agent between its combined activity and `memory.md`.
 
 The `DIRECTORS` roster and launch choices are discovered from every Markdown
 file in `agents/directors/`. Selecting a director before pressing `l` preselects

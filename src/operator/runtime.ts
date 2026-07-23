@@ -1,12 +1,48 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { addUsage, createLogStore, zeroUsage } from "./logs.mjs";
+import { addUsage, createLogStore, zeroUsage } from "./logs.js";
+import type {
+  LogView,
+  OperatorOptions,
+  OperatorPaths,
+  OperatorRuntime,
+  OperatorSnapshot,
+  RunSummary,
+  ScenarioSummary,
+  Seat,
+} from "./types.js";
 
-export function createRuntime(options, paths) {
+type DataRecord = Record<string, any>;
+type LogStore = ReturnType<typeof createLogStore>;
+
+interface RemoteData {
+  error: string | null;
+  runs: RunSummary[] | null;
+  scenarios: ScenarioSummary | null;
+  state: DataRecord | null;
+}
+
+interface StoredState {
+  payload: DataRecord;
+  scenario: string;
+  tick: number;
+  worldId: string;
+}
+
+interface BatchRecord extends DataRecord {
+  alive: boolean;
+  names: string[];
+  pid: number;
+}
+
+export function createRuntime(
+  options: OperatorOptions,
+  paths: OperatorPaths,
+): OperatorRuntime {
   let logStore = createLogStore();
 
-  async function refresh() {
+  async function refresh(): Promise<OperatorSnapshot> {
     let remote = await readRemote(options.url);
     let stored = remote.state ? null : readStoredState(paths.stateFile);
     let payload = remote.state ?? stored?.payload ?? emptyPayload();
@@ -34,7 +70,7 @@ export function createRuntime(options, paths) {
     let dead = characters.filter((seat) => seat.alive === false).length;
     let active = characters.filter((seat) => seat.controllerConnected).length;
     let openAttempts = (payload.speculative ?? []).filter(
-      (attempt) => !attempt.redeemed,
+      (attempt: DataRecord) => !attempt.redeemed,
     ).length;
     let elapsedMs = Math.max(0, Date.now() - runStartedAt);
     let tokenTotal = runUsage.inputTokens + runUsage.outputTokens;
@@ -73,15 +109,24 @@ export function createRuntime(options, paths) {
         usage: runUsage,
         tokensPerMinute: elapsedMs > 0 ? tokenTotal / (elapsedMs / 60_000) : 0,
       },
-      raw: payload,
+      raw: payload as Record<string, unknown>,
     };
   }
 
-  return { refresh };
+  function logView(seatDir: string): LogView | null {
+    return logStore.inspectView(seatDir);
+  }
+
+  return { refresh, logView };
 }
 
-async function readRemote(url) {
-  let result = { state: null, scenarios: null, runs: null, error: null };
+async function readRemote(url: string): Promise<RemoteData> {
+  let result: RemoteData = {
+    error: null,
+    runs: null,
+    scenarios: null,
+    state: null,
+  };
   let requests = await Promise.allSettled([
     fetchJson(`${url}/api/state`),
     fetchJson(`${url}/api/scenarios`),
@@ -89,15 +134,17 @@ async function readRemote(url) {
   ]);
   if (requests[0].status === "fulfilled") result.state = requests[0].value;
   else result.error = errorMessage(requests[0].reason);
-  if (requests[1].status === "fulfilled") result.scenarios = requests[1].value;
-  if (requests[2].status === "fulfilled") result.runs = requests[2].value;
+  if (requests[1].status === "fulfilled")
+    result.scenarios = requests[1].value as ScenarioSummary;
+  if (requests[2].status === "fulfilled")
+    result.runs = requests[2].value as unknown as RunSummary[];
   return result;
 }
 
-async function fetchJson(url) {
+async function fetchJson(url: string): Promise<DataRecord> {
   let response = await fetch(url, { signal: AbortSignal.timeout(900) });
   let text = await response.text();
-  let payload;
+  let payload: DataRecord;
   try {
     payload = text ? JSON.parse(text) : {};
   } catch {
@@ -107,12 +154,12 @@ async function fetchJson(url) {
   throw new Error(payload.error ?? `${response.status} ${response.statusText}`);
 }
 
-function readStoredState(file) {
+function readStoredState(file: string): StoredState | null {
   let stored = readJson(file);
   if (!stored?.engine?.world) return null;
   let entities = stored.engine.world.entities ?? {};
-  let agents = {};
-  for (let [id, entity] of Object.entries(entities)) {
+  let agents: DataRecord = {};
+  for (let [id, entity] of Object.entries(entities) as [string, DataRecord][]) {
     if (!entity.tags?.includes("agent")) continue;
     agents[id] = {
       ...entity,
@@ -142,9 +189,12 @@ function readStoredState(file) {
   };
 }
 
-function normalizeLiveAgents(payload) {
-  let agents = new Map();
-  for (let [id, agent] of Object.entries(payload.state?.agents ?? {})) {
+function normalizeLiveAgents(payload: DataRecord): Map<string, DataRecord> {
+  let agents = new Map<string, DataRecord>();
+  for (let [id, agent] of Object.entries(payload.state?.agents ?? {}) as [
+    string,
+    DataRecord,
+  ][]) {
     agents.set(id, {
       id,
       ...agent,
@@ -156,16 +206,16 @@ function normalizeLiveAgents(payload) {
 }
 
 function buildSeats(
-  paths,
-  liveAgents,
-  characterBatches,
-  directorBatches,
-  payload,
-  logStore,
-  runStartedAt,
-) {
-  let characterNames = new Set();
-  let directorNames = new Set(directoryNames(paths.directorsDir));
+  paths: OperatorPaths,
+  liveAgents: Map<string, DataRecord>,
+  characterBatches: BatchRecord[],
+  directorBatches: BatchRecord[],
+  payload: DataRecord,
+  logStore: LogStore,
+  runStartedAt: number,
+): Seat[] {
+  let characterNames = new Set<string>();
+  let directorNames = new Set<string>();
   let directorPersonas = new Map(
     markdownNames(paths.directorPersonasDir).map((persona) => [
       normalizeId(directorName(persona)),
@@ -180,15 +230,15 @@ function buildSeats(
   for (let batch of directorBatches)
     for (let name of batch.names) directorNames.add(name);
 
-  let characterBatchByName = new Map();
+  let characterBatchByName = new Map<string, BatchRecord>();
   for (let batch of characterBatches)
     for (let name of batch.names)
       characterBatchByName.set(normalizeId(name), batch);
-  let directorBatchByName = new Map();
+  let directorBatchByName = new Map<string, BatchRecord>();
   for (let batch of directorBatches)
     for (let name of batch.names)
       directorBatchByName.set(normalizeId(name), batch);
-  let seats = [];
+  let seats: Seat[] = [];
   let directorInputs = [...directorNames].map((name) => {
     let seatDir = path.join(paths.directorsDir, name);
     return {
@@ -206,7 +256,7 @@ function buildSeats(
         name: input.name,
         persona: input.batch?.persona ?? input.persona,
         role: "director",
-        pid: processRunning ? input.batch.pid : null,
+        pid: processRunning ? input.batch?.pid : null,
         processRunning,
         controllerConnected:
           input.batch?.state === "running" &&
@@ -238,7 +288,7 @@ function buildSeats(
       makeSeat({
         name: live?.name ?? name,
         role: "character",
-        pid: processRunning ? batch.pid : null,
+        pid: processRunning ? batch?.pid : null,
         processRunning,
         controllerConnected: Boolean(live?.controllerConnected),
         live,
@@ -251,7 +301,7 @@ function buildSeats(
   return seats.sort(compareSeats);
 }
 
-function makeSeat(input) {
+function makeSeat(input: DataRecord): Seat {
   let latest = input.logs.latest;
   let state = seatState(input);
   let pending = latest?.pending?.[0]?.label ?? null;
@@ -286,6 +336,7 @@ function makeSeat(input) {
     startedAt: latest?.startedAt ?? null,
     updatedAt: latest?.mtime ?? null,
     seatDir: input.seatDir,
+    memory: readText(path.join(input.seatDir, "memory.md")),
     log: latest,
     logCount: input.logs.logs.length,
     usage: { total: input.logs.totalUsage, run: input.logs.runUsage },
@@ -293,7 +344,7 @@ function makeSeat(input) {
   };
 }
 
-function seatState(input) {
+function seatState(input: DataRecord): string {
   if (input.role === "director") {
     if (input.processRunning && input.supervisorState === "scheduled")
       return "scheduled";
@@ -316,9 +367,9 @@ function seatState(input) {
   return "stopped";
 }
 
-function compareSeats(left, right) {
+function compareSeats(left: Seat, right: Seat): number {
   if (left.role !== right.role) return left.role === "director" ? -1 : 1;
-  let rank = {
+  let rank: Record<string, number> = {
     running: 0,
     working: 0,
     waiting: 1,
@@ -336,11 +387,12 @@ function compareSeats(left, right) {
   return left.name.localeCompare(right.name);
 }
 
-function readBatches(directory) {
-  let batches = [];
+function readBatches(directory: string): BatchRecord[] {
+  let batches: BatchRecord[] = [];
   for (let entry of safeEntries(directory)) {
     if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
     let parsed = readJson(path.join(directory, entry.name));
+    if (!parsed) continue;
     let pid = number(parsed?.pid);
     if (!pid) continue;
     batches.push({
@@ -353,8 +405,8 @@ function readBatches(directory) {
   return batches;
 }
 
-function readRuns(directory) {
-  let runs = [];
+function readRuns(directory: string): RunSummary[] {
+  let runs: RunSummary[] = [];
   for (let name of directoryNames(directory)) {
     let meta = readJson(path.join(directory, name, "meta.json"));
     if (meta) runs.push({ ...meta, runId: meta.runId ?? name });
@@ -364,8 +416,11 @@ function readRuns(directory) {
   );
 }
 
-function readScenarios(directory, activeName) {
-  let scenarios = [];
+function readScenarios(
+  directory: string,
+  activeName: string | undefined,
+): ScenarioSummary {
+  let scenarios: NonNullable<ScenarioSummary["scenarios"]> = [];
   for (let entry of safeEntries(directory)) {
     if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
     let data = readJson(path.join(directory, entry.name));
@@ -379,7 +434,7 @@ function readScenarios(directory, activeName) {
   return { active: activeName ? [activeName] : [], scenarios, gm: {} };
 }
 
-function inferRunStart(runs, stateFile) {
+function inferRunStart(runs: RunSummary[], stateFile: string): number {
   let newestArchive = Math.max(0, ...runs.map((run) => number(run.archivedAt)));
   if (newestArchive) return newestArchive;
   try {
@@ -389,7 +444,7 @@ function inferRunStart(runs, stateFile) {
   }
 }
 
-function processAlive(pid) {
+function processAlive(pid: number): boolean {
   if (!pid) return false;
   try {
     process.kill(pid, 0);
@@ -399,7 +454,7 @@ function processAlive(pid) {
   }
 }
 
-function readJson(file) {
+function readJson(file: string): DataRecord | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
   } catch {
@@ -407,7 +462,15 @@ function readJson(file) {
   }
 }
 
-function safeEntries(directory) {
+function readText(file: string): string | null {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function safeEntries(directory: string): fs.Dirent[] {
   try {
     return fs.readdirSync(directory, { withFileTypes: true });
   } catch {
@@ -415,28 +478,28 @@ function safeEntries(directory) {
   }
 }
 
-function directoryNames(directory) {
+function directoryNames(directory: string): string[] {
   return safeEntries(directory)
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
     .map((entry) => entry.name);
 }
 
-function markdownNames(directory) {
+function markdownNames(directory: string): string[] {
   return safeEntries(directory)
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => path.basename(entry.name, ".md"))
     .sort();
 }
 
-function directorName(persona) {
+function directorName(persona: string): string {
   return `${persona.charAt(0).toUpperCase()}${persona.slice(1)}`;
 }
 
-function normalizeId(name) {
+function normalizeId(name: string): string {
   return String(name).trim().toLowerCase().replace(/\s+/g, "-");
 }
 
-function displayName(id) {
+function displayName(id: string): string {
   return String(id)
     .split("-")
     .filter(Boolean)
@@ -444,15 +507,15 @@ function displayName(id) {
     .join(" ");
 }
 
-function number(value) {
+function number(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function errorMessage(error) {
+function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function emptyPayload() {
+function emptyPayload(): DataRecord {
   return {
     state: { tick: 0, agents: {} },
     controllers: {},
@@ -464,7 +527,7 @@ function emptyPayload() {
   };
 }
 
-export function snapshotText(snapshot) {
+export function snapshotText(snapshot: OperatorSnapshot): string {
   let world = snapshot.world;
   let state = world.ended
     ? "ENDED"

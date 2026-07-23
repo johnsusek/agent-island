@@ -11,7 +11,7 @@
     "build:web": "vite build",
     "world": "node scripts/world.mjs",
     "crew": "node scripts/crew.mjs",
-    "operator": "node scripts/operator.mjs",
+    "operator": "node --import tsx src/operator/main.ts",
     "illuminate": "node scripts/illuminate.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
@@ -22,6 +22,7 @@
     "@modelcontextprotocol/sdk": "1.29.0",
     "express": "^5.1.0",
     "pixi.js": "^8.19.0",
+    "terminal-kit": "^3.1.4",
     "vue": "^3.5.0",
     "zod": "^4.4.3"
   },
