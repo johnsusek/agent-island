@@ -52,7 +52,7 @@ right.
 
 ## Who owns it
 
-Two directors ship, so the Oracle owns this by default: same wake loop, one more feed.
+Two directors ship, so the Oracle owns this by default: same wake cycle, one more feed.
 A separate frontier/cartographer director is the alternative if the Oracle's attention
 starts splitting — decide from a run, not in advance.
 

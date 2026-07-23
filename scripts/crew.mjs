@@ -6,14 +6,20 @@
 // restart-storm guard, and the token report on drain.
 //
 // Usage:
-//   node scripts/crew.mjs director   [--max-ticks N] [seat options]
+//   node scripts/crew.mjs director   [--cadence-ticks N] [--max-ticks N] [seat options]
 //   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
-//   node scripts/crew.mjs stop [director|characters]   SIGTERM crew(s)
-//   node scripts/crew.mjs status                       Show running crews
+//   node scripts/crew.mjs stop [director|characters [name]]   SIGTERM crew(s)
+//   node scripts/crew.mjs status                              Show running crews
 //
-// The director and characters are always launched as SEPARATE crews with
-// separate pidfiles, so seat options never bleed across roles. World setup
-// (scenario, reset, clock, pause/resume) lives in scripts/world.mjs.
+// Directors and characters are launched as separate, additive crews, so seat
+// options never bleed across roles and each director can keep its own cadence.
+// World setup (scenario, reset, clock, pause/resume) lives in scripts/world.mjs.
+//
+// A director runs one pass per LLM process and exits. The lightweight crew
+// supervisor waits for that director's next launch tick, then starts a fresh
+// process. A cadence of 0 is event-woken: the process parks once in
+// wait_for_world, exits after acting, and is relaunched after a short gap.
+// Continuity lives only in the director's memory file.
 //
 // Seat options:
 //   --engine codex|claude      (default claude)
@@ -21,6 +27,8 @@
 //   --effort low|medium|high|xhigh|max   (characters low; director medium)
 //   --persona NAME             agents/characters|directors/<NAME>.md
 //   --name NAME                Explicit seat name (single character)
+//   --names A,B,C              Explicit seat names (multiple characters)
+//   --cadence-ticks N           Director relaunch cadence (0 = event-woken)
 //   --no-ocean                 Skip the OCEAN personality roll (on by default)
 //   --instructions TEXT        Extra operator text appended to the prompt
 //   --url http://host:port     Server base (env AGENT_ISLAND_URL, default :3000)
@@ -35,6 +43,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { parseDirectorCadenceTicks, parseMaxTicks, targetTick } from "./crew-policy.mjs";
 import { api, baseUrl } from "./world.mjs";
 
 // Runtime home, mirrored from src/paths.ts (this script runs under plain node,
@@ -80,7 +89,7 @@ const CONFIG = {
   ),
   defaultCharacterPrompt: path.resolve(
     process.env.AGENT_ISLAND_CHARACTER_PROMPT ??
-    "agents/characters/character-minimal.md",
+      "agents/characters/character-minimal.md",
   ),
   defaultDirectorPersona: path.resolve(
     process.env.AGENT_ISLAND_DIRECTOR_PROMPT ?? "agents/directors/oracle.md",
@@ -91,17 +100,23 @@ const CONFIG = {
   oceanFile: path.resolve(
     process.env.AGENT_ISLAND_OCEAN_FILE ?? "agents/characters/OCEAN.md",
   ),
-  pidFiles: {
-    director: homePath(".crew-director.pid"),
-    characters: homePath(".crew-characters.pid"),
+  batchDirs: {
+    characters: homePath(".crew-characters"),
+    director: homePath(".crew-directors"),
   },
   relaunchDelayMs: numEnv("AGENT_ISLAND_CREW_RELAUNCH_MS", 3000),
+  directorPollMs: numEnv("AGENT_ISLAND_DIRECTOR_POLL_MS", 1000),
   launchStaggerMs: numEnv("AGENT_ISLAND_CREW_STAGGER_MS", 3000),
   stopGraceMs: numEnv("AGENT_ISLAND_CREW_STOP_GRACE_MS", 10000),
   livenessPollMs: numEnv("AGENT_ISLAND_CREW_LIVENESS_MS", 5000),
   storm: {
     maxRestarts: numEnv("AGENT_ISLAND_CREW_STORM_MAX", 3),
     windowMs: numEnv("AGENT_ISLAND_CREW_STORM_WINDOW_MS", 20000),
+    // A director exits on purpose after every pass, and it has no body for
+    // liveness to find, so "did it ever join" can't tell a healthy pass
+    // from a CLI that won't start. Run length can: a pass does a whole orient
+    // and reading before exit, while a broken CLI dies in under a second.
+    healthyRunMs: numEnv("AGENT_ISLAND_CREW_HEALTHY_RUN_MS", 10000),
   },
   defaults: {
     character: { engine: "claude", model: "haiku", effort: "low" },
@@ -114,6 +129,22 @@ const CONFIG = {
     codex: { character: "gpt-5.4-mini", director: "gpt-5.6-luna" },
   },
 };
+
+async function readWorldState(opts) {
+  let response = await fetch(`${baseUrl(opts)}/api/state`, {
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok)
+    throw new Error(`GET /api/state failed (${response.status}).`);
+  return response.json();
+}
+
+async function readWorldTick(opts) {
+  let payload = await readWorldState(opts);
+  let tick = payload.state?.tick;
+  if (!Number.isFinite(tick)) throw new Error("World state has no valid tick.");
+  return tick;
+}
 
 // --- spawn plans (parity with the retired in-server launcher) -----------
 
@@ -254,6 +285,63 @@ function buildNamePool() {
     pool.push(name);
   }
   return pool;
+}
+
+// The world's agent id is a normalized form of the display name (lowercased,
+// spaces collapsed to hyphens - see normalizeId in src/rules/engine.ts, which
+// this plain-node script can't import directly). Character names are always
+// single words, so this is the whole normalization that matters here.
+function toAgentId(name) {
+  return name.trim().toLowerCase().replace(/\s+/g, "-");
+}
+
+// What the live world actually looks like right now, so a (re)launch can
+// reclaim real idle colonists instead of a local, world-blind guess. Keyed by
+// agent id (toAgentId), with `idleNames` carrying each idle agent's original
+// display name (state.agents[id].name) so a relaunch passes back exactly the
+// name that will reclaim it. Best-effort: a fetch failure just yields empty
+// sets, degrading to the old filesystem-only pool rather than failing the
+// launch outright.
+async function fetchRoster(opts) {
+  let idleNames = [];
+  let deadIds = new Set();
+  let activeIds = new Set();
+  try {
+    let state = await api("GET", "/api/state", opts);
+    let agents = state.state?.agents ?? {};
+    let controllers = state.controllers ?? {};
+    for (let [id, agent] of Object.entries(agents)) {
+      if (!agent.alive) {
+        deadIds.add(id);
+      } else if (controllers[id]?.connected) {
+        activeIds.add(id);
+      } else {
+        idleNames.push(agent.name ?? id);
+      }
+    }
+  } catch {
+    // transient - treat the world as unknown rather than blocking the launch
+  }
+  return { idleNames, deadIds, activeIds };
+}
+
+// Tell the world to drop this character's controller right now, best-effort.
+// Called when a seat is stopped (Ctrl-C, `stop characters`, a dying child) so
+// the seat reads as idle immediately instead of lingering "connected" until
+// the server's own idle sweep catches up - which is slow enough that an
+// immediate relaunch would otherwise see the body as taken and spawn a fresh
+// one instead of reclaiming it. Never throws or exits; a failure here just
+// means the next launch falls back to the idle-sweep timing.
+async function releaseAgentNow(name, opts) {
+  try {
+    await fetch(`${baseUrl(opts)}/api/release-agent`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+  } catch {
+    // best-effort
+  }
 }
 
 function safeReaddir(dir) {
@@ -480,6 +568,10 @@ class Crew {
       : roleDefaults.effort;
     let count = Math.max(1, Math.floor(request.count ?? 1));
     let persona = request.persona?.trim() || null;
+    let cadenceTicks =
+      role === "director"
+        ? parseDirectorCadenceTicks(request.cadenceTicks, persona)
+        : 0;
     if (persona && !/^[A-Za-z0-9_-]+$/.test(persona))
       throw new Error(`Invalid persona name: ${persona}`);
 
@@ -492,21 +584,72 @@ class Crew {
       let stem = persona ?? path.basename(personaFile, ".md");
       let name =
         request.name?.trim() || stem.charAt(0).toUpperCase() + stem.slice(1);
+      let siblingIds = new Set(
+        [...(request.excludeNames ?? [])].map(toAgentId),
+      );
+      if (siblingIds.has(toAgentId(name)))
+        throw new Error(`${name} already has a running director crew.`);
       names = this.seats.has(name) ? [] : [name];
     } else {
       personaFile = persona
         ? path.join(CONFIG.characterPromptsDir, `${persona}.md`)
         : CONFIG.defaultCharacterPrompt;
-      if (request.name?.trim()) {
-        names = this.seats.has(request.name.trim())
-          ? []
-          : [request.name.trim()];
-      } else {
-        let pool = buildNamePool();
+      let roster = await fetchRoster(this.opts);
+      // Names already claimed by a sibling characters batch (a different
+      // launch/process, running concurrently against the same world) - kept
+      // id-normalized since a sibling's casing may differ from ours.
+      let siblingIds = new Set(
+        [...(request.excludeNames ?? [])].map(toAgentId),
+      );
+      let explicit = [
+        ...(request.name?.trim() ? [request.name.trim()] : []),
+        ...(request.names ?? []),
+      ];
+      if (explicit.length) {
+        // Fail fast on a name the world will refuse outright, instead of
+        // spawning a child that just burns a restart-storm retry on it.
+        for (let name of explicit) {
+          if (roster.deadIds.has(toAgentId(name)))
+            throw new Error(
+              `${name} died and cannot rejoin - pick a different name.`,
+            );
+          if (siblingIds.has(toAgentId(name)))
+            throw new Error(
+              `${name} is already seated by another running characters batch.`,
+            );
+        }
+        for (let name of explicit) {
+          if (roster.activeIds.has(toAgentId(name)))
+            console.log(
+              `[crew] ${name} is already controlled by a live session - this will reclaim it.`,
+            );
+        }
         let taken = new Set(this.seats.keys());
+        names = explicit.filter((name) => !taken.has(name));
+      } else {
+        let taken = new Set(this.seats.keys());
+        let claimedIds = new Set([
+          ...roster.deadIds,
+          ...roster.activeIds,
+          ...siblingIds,
+        ]);
+        // Idle colonists already in the world - the actual "empty seats" -
+        // come first, deterministically (sorted, not shuffled), so a restart
+        // reliably reclaims the same bodies instead of a shuffle lottery.
+        let idle = [...new Set(roster.idleNames)]
+          .filter(
+            (name) => !taken.has(name) && !siblingIds.has(toAgentId(name)),
+          )
+          .sort();
+        let rest = buildNamePool().filter(
+          (name) => !idle.includes(name) && !claimedIds.has(toAgentId(name)),
+        );
+        let ordered = [...idle, ...rest];
         names = [];
         for (let i = 0; i < count; i++) {
-          let name = pool.find((candidate) => !taken.has(candidate));
+          let name = ordered.find(
+            (candidate) => !taken.has(candidate) && !names.includes(candidate),
+          );
           if (!name) break;
           taken.add(name);
           names.push(name);
@@ -524,10 +667,16 @@ class Crew {
         model,
         effort,
         personaFile,
+        persona: persona ?? path.basename(personaFile, ".md"),
+        cadenceTicks,
         instructions: request.instructions?.trim() ?? "",
         ocean: role === "character" && request.ocean !== false,
         child: null,
         state: "starting",
+        spawnedAt: 0,
+        childPid: null,
+        lastLaunchTick: null,
+        nextLaunchTick: null,
         everJoined: false,
         stopping: false,
         restartTimes: [],
@@ -536,6 +685,7 @@ class Crew {
         onRetire: [],
       };
       this.seats.set(name, seat);
+      this.notifySeat(seat);
       let delay = index * CONFIG.launchStaggerMs;
       if (delay > 0)
         seat.relaunchTimer = setTimeout(() => this.spawnSeat(seat), delay);
@@ -546,6 +696,10 @@ class Crew {
     }
     this.ensureLivenessTimer();
     return names;
+  }
+
+  notifySeat(seat) {
+    this.opts.onSeatChange?.(seat);
   }
 
   seatBaseDir(seat) {
@@ -563,9 +717,12 @@ class Crew {
     // The director's cwd is its seat dir, not the repo, so the commissioner is
     // named by absolute path - the same path the seat's one Bash allow rule is
     // scoped to, so a relative invocation would simply be refused.
+    let directorCycle = seat.cadenceTicks
+      ? `Run ONE scheduled pass immediately. Do not call wait_for_world: orient, act if warranted, write ./memory.md, and end your turn. Your supervisor will launch a fresh process every ${seat.cadenceTicks} world ticks.`
+      : "Run ONE wake cycle: park in wait_for_world once, act on what it returns, write ./memory.md, and end your turn. Do not re-arm wait_for_world; your supervisor relaunches you for the next wake.";
     let lead =
       seat.role === "director"
-        ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect, join_as_gm, and stay in your wake loop. Keep ./memory.md current when durable knowledge or your intent changes.\nYour Illuminator commissioner is \`node ${ILLUMINATE_BIN}\` - the only shell command you may run.`
+        ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect and join_as_gm. ${directorCycle} ./memory.md is the only thing that survives between processes.\nYour Illuminator commissioner is \`node ${ILLUMINATE_BIN}\` - the only shell command you may run.`
         : `Your launcher gives you this character name: ${seat.name}\nKeep running continuously. Keep your memory current when durable knowledge or your intent changes.`;
     let base = `${lead}\n\n${prompt}`;
     // Characters always learn the world's ongoing dynamics (the flow rules'
@@ -583,7 +740,7 @@ class Crew {
 
   async flowDescriptions() {
     try {
-      let state = await api("GET", "/api/state", this.opts);
+      let state = await readWorldState(this.opts);
       return (state.rules ?? [])
         .filter((rule) => rule.phase === "flow" && rule.description?.trim())
         .map((rule) => rule.description.trim());
@@ -595,6 +752,10 @@ class Crew {
   async spawnSeat(seat) {
     seat.relaunchTimer = null;
     if (this.draining || seat.stopping || !this.seats.has(seat.name)) return;
+    seat.state = "starting";
+    seat.nextLaunchTick = null;
+    seat.childPid = null;
+    this.notifySeat(seat);
 
     let settled = false;
     let settle = (error) => {
@@ -662,8 +823,11 @@ class Crew {
         eventsPath.replace(/\.jsonl$/, ".stderr.log"),
         { flags: "w" },
       );
-      out.on("error", () => { });
-      err.on("error", () => { });
+      out.on("error", () => {});
+      err.on("error", () => {});
+
+      if (seat.role === "director" && seat.cadenceTicks > 0)
+        seat.lastLaunchTick = await readWorldTick(this.opts);
 
       let child = spawn(plan.command, plan.args, {
         cwd: seatDir,
@@ -673,7 +837,10 @@ class Crew {
       child.stdout?.pipe(out);
       child.stderr?.pipe(err);
       seat.child = child;
+      seat.childPid = child.pid ?? null;
       seat.state = "running";
+      seat.spawnedAt = Date.now();
+      this.notifySeat(seat);
 
       child.on("error", (error) => {
         seat.error = error instanceof Error ? error.message : String(error);
@@ -687,7 +854,7 @@ class Crew {
 
   async liveness(name) {
     try {
-      let state = await api("GET", "/api/state", this.opts);
+      let state = await readWorldState(this.opts);
       let agents = Object.values(state.state?.agents ?? {});
       let joined = false;
       let alive = false;
@@ -708,12 +875,58 @@ class Crew {
       seat.stopTimer = null;
     }
     seat.child = null;
+    seat.childPid = null;
     if (spawnError)
       seat.error =
         spawnError instanceof Error ? spawnError.message : String(spawnError);
 
     if (this.draining || seat.stopping) {
       this.retire(seat);
+      return;
+    }
+
+    // A healthy director exit completes one pass. Scheduled directors remain
+    // process-free until their next launch tick; event-woken directors start a
+    // fresh process after the ordinary relaunch gap. Fast failures retry on the
+    // short gap so a broken CLI reaches the storm guard promptly.
+    if (seat.role === "director") {
+      let now = Date.now();
+      let ranMs = seat.spawnedAt ? now - seat.spawnedAt : 0;
+      let healthy = !spawnError && ranMs >= CONFIG.storm.healthyRunMs;
+      if (healthy) seat.restartTimes = [];
+      else {
+        seat.restartTimes.push(now);
+        seat.restartTimes = seat.restartTimes.filter(
+          (at) => now - at <= CONFIG.storm.windowMs,
+        );
+        if (seat.restartTimes.length >= CONFIG.storm.maxRestarts) {
+          seat.state = "errored";
+          this.notifySeat(seat);
+          console.error(
+            `[crew] ${seat.name} exited ${seat.restartTimes.length} times in under ${Math.round(CONFIG.storm.healthyRunMs / 1000)}s - giving up${seat.error ? ` (${seat.error})` : ""}`,
+          );
+          return;
+        }
+      }
+      if (healthy && seat.cadenceTicks > 0) {
+        seat.nextLaunchTick = Number.isFinite(seat.lastLaunchTick)
+          ? seat.lastLaunchTick + seat.cadenceTicks
+          : null;
+        seat.state = "scheduled";
+        this.notifySeat(seat);
+        seat.relaunchTimer = setTimeout(
+          () => void this.checkDirectorCadence(seat),
+          CONFIG.relaunchDelayMs,
+        );
+      } else {
+        seat.state = "relaunching";
+        seat.nextLaunchTick = null;
+        this.notifySeat(seat);
+        seat.relaunchTimer = setTimeout(
+          () => this.spawnSeat(seat),
+          CONFIG.relaunchDelayMs,
+        );
+      }
       return;
     }
 
@@ -746,11 +959,34 @@ class Crew {
         return;
       }
       seat.state = "relaunching";
+      this.notifySeat(seat);
       seat.relaunchTimer = setTimeout(
         () => this.spawnSeat(seat),
         CONFIG.relaunchDelayMs,
       );
     });
+  }
+
+  async checkDirectorCadence(seat) {
+    seat.relaunchTimer = null;
+    if (this.draining || seat.stopping || !this.seats.has(seat.name)) return;
+    try {
+      let tick = await readWorldTick(this.opts);
+      if (!Number.isFinite(seat.nextLaunchTick))
+        seat.nextLaunchTick = tick + seat.cadenceTicks;
+      if (tick >= seat.nextLaunchTick) {
+        void this.spawnSeat(seat);
+        return;
+      }
+      this.notifySeat(seat);
+    } catch (error) {
+      seat.error = error instanceof Error ? error.message : String(error);
+      this.notifySeat(seat);
+    }
+    seat.relaunchTimer = setTimeout(
+      () => void this.checkDirectorCadence(seat),
+      CONFIG.directorPollMs,
+    );
   }
 
   retire(seat) {
@@ -780,8 +1016,14 @@ class Crew {
         seat.relaunchTimer = null;
       }
       seat.onRetire.push(resolve);
+      // The child's own SIGTERM handling can't be relied on to disconnect
+      // its MCP session cleanly, so tell the world directly - a relaunch
+      // right after this seat stops should see the body as idle, not wait
+      // out the idle sweep.
+      if (seat.role === "character") void releaseAgentNow(seat.name, this.opts);
       if (seat.child) {
         seat.state = "stopping";
+        this.notifySeat(seat);
         // SIGTERM first so the seat can call leave_game and vacate cleanly;
         // SIGKILL only if it ignores the grace window.
         seat.child.kill("SIGTERM");
@@ -832,7 +1074,7 @@ class Crew {
   }
 }
 
-// --- pidfile ------------------------------------------------------------
+// --- crew batch files ---------------------------------------------------
 
 function pidAlive(pid) {
   try {
@@ -843,23 +1085,52 @@ function pidAlive(pid) {
   }
 }
 
-function readPidFile(role) {
-  let raw = safeReadFile(CONFIG.pidFiles[role]).trim();
-  let pid = Number(raw);
-  return Number.isFinite(pid) && pid > 0 ? pid : null;
+function batchFile(role, pid = process.pid) {
+  return path.join(CONFIG.batchDirs[role], `${pid}.json`);
 }
 
-function writePidFile(role) {
-  fs.mkdirSync(path.dirname(CONFIG.pidFiles[role]), { recursive: true });
-  fs.writeFileSync(CONFIG.pidFiles[role], String(process.pid));
+function writeBatchFile(role, details) {
+  let directory = CONFIG.batchDirs[role];
+  let file = batchFile(role);
+  let temporary = `${file}.tmp`;
+  fs.mkdirSync(directory, { recursive: true });
+  fs.writeFileSync(
+    temporary,
+    JSON.stringify({ pid: process.pid, role, ...details }),
+  );
+  fs.renameSync(temporary, file);
 }
 
-function clearPidFile(role) {
+function clearBatchFile(role) {
   try {
-    fs.rmSync(CONFIG.pidFiles[role], { force: true });
+    fs.rmSync(batchFile(role), { force: true });
   } catch {
     // ignore
   }
+}
+
+// Every live batch for a role, pruning files left by supervisors that exited
+// without draining.
+function readCrewBatches(role) {
+  let batches = [];
+  let directory = CONFIG.batchDirs[role];
+  for (let entry of safeReaddir(directory)) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+    let file = path.join(directory, entry.name);
+    let parsed;
+    try {
+      parsed = JSON.parse(safeReadFile(file));
+    } catch {
+      fs.rmSync(file, { force: true });
+      continue;
+    }
+    if (!pidAlive(parsed.pid)) {
+      fs.rmSync(file, { force: true });
+      continue;
+    }
+    batches.push({ ...parsed, names: parsed.names ?? [], file });
+  }
+  return batches;
 }
 
 // --- commands -----------------------------------------------------------
@@ -886,54 +1157,61 @@ function seatRequest(opts, role) {
     model: opts.model,
     effort: opts.effort,
     persona: opts.persona,
+    cadenceTicks: opts["cadence-ticks"],
     name: opts.name,
+    names: opts.names
+      ? opts.names
+          .split(",")
+          .map((n) => n.trim())
+          .filter(Boolean)
+      : undefined,
     instructions: opts.instructions,
     ocean: !opts["no-ocean"],
+    excludeNames: opts.excludeNames,
   };
 }
 
-function guardSingleCrew(role) {
-  let pid = readPidFile(role);
-  if (pid && pidAlive(pid) && pid !== process.pid) {
-    console.error(
-      `error: a ${role} crew is already running (pid ${pid}). Stop it first: node scripts/crew.mjs stop ${role}`,
-    );
-    process.exit(1);
-  }
+async function runLimit(opts) {
+  let maxTicks = parseMaxTicks(opts["max-ticks"]);
+  if (maxTicks === 0) return { maxTicks, startTick: null, stopTick: null };
+  let startTick = await readWorldTick(opts);
+  return { maxTicks, startTick, stopTick: targetTick(startTick, maxTicks) };
 }
 
 // Supervise this crew until every seat retires, a signal arrives, or the tick
-// cap is reached (max-ticks > 0). Reaching the cap pauses the world before
-// draining; a plain stop leaves the clock alone.
-async function supervise(crew, opts, role, maxTicks) {
-  writePidFile(role);
+// budget has elapsed from this crew's launch tick. Reaching the cap pauses the
+// world before draining; a plain stop leaves the clock alone.
+async function supervise(crew, opts, role, limit, names) {
+  if (role === "characters") writeBatchFile(role, { names, ...limit });
   let drained = false;
   let finish = async (code, pause) => {
     if (drained) return;
     drained = true;
     if (pause)
-      await api("POST", "/api/pause", opts, { paused: true }).catch(() => { });
+      await api("POST", "/api/pause", opts, { paused: true }).catch(() => {});
     console.log(`[crew] draining ${role}...`);
     await crew.drain();
-    clearPidFile(role);
+    clearBatchFile(role);
     process.exit(code);
   };
   process.once("SIGINT", () => void finish(0, false));
   process.once("SIGTERM", () => void finish(0, false));
 
   let pollMs = opts["poll-ms"] ? Number(opts["poll-ms"]) : 5000;
-  for (; ;) {
+  for (;;) {
     await new Promise((resolve) => setTimeout(resolve, pollMs));
     if (!crew.seats.size) {
       console.log(`[crew] every ${role} seat has retired.`);
       await finish(0, false);
     }
-    if (maxTicks > 0) {
+    if (limit.stopTick !== null) {
       try {
-        let state = await api("GET", "/api/state", opts);
+        let state = await readWorldState(opts);
         let tick = state.state?.tick ?? 0;
-        if (state.liveness?.ended || tick >= maxTicks) {
-          console.log(`[crew] reached tick ${tick} - pausing and draining.`);
+        if (state.liveness?.ended || tick >= limit.stopTick) {
+          console.log(
+            `[crew] ran ${Math.max(0, tick - limit.startTick)} ticks (world tick ${tick}) - pausing and draining.`,
+          );
           await finish(0, true);
         }
       } catch {
@@ -943,94 +1221,140 @@ async function supervise(crew, opts, role, maxTicks) {
   }
 }
 
-function parseMaxTicks(opts) {
-  return opts["max-ticks"] === "off" ? 0 : Number(opts["max-ticks"] ?? 2000);
-}
-
 async function cmdDirector(opts) {
-  guardSingleCrew("director");
-  let crew = new Crew(opts);
-  await crew.launch(seatRequest({ ...opts, count: 1 }, "director"));
-  let maxTicks = parseMaxTicks(opts);
-  console.log(
-    maxTicks > 0
-      ? `[crew] director seated - watching for tick ${maxTicks}.`
-      : "[crew] director seated - unbounded.",
+  let limit = await runLimit(opts);
+  let excludeNames = readCrewBatches("director").flatMap(
+    (batch) => batch.names,
   );
-  await supervise(crew, opts, "director", maxTicks);
+  let crew = new Crew({
+    ...opts,
+    onSeatChange: (seat) =>
+      writeBatchFile("director", {
+        names: [seat.name],
+        persona: seat.persona,
+        cadenceTicks: seat.cadenceTicks,
+        state: seat.state,
+        childPid: seat.childPid,
+        lastLaunchTick: seat.lastLaunchTick,
+        nextLaunchTick: seat.nextLaunchTick,
+        ...limit,
+      }),
+  });
+  let launched = await crew.launch(
+    seatRequest({ ...opts, count: 1, excludeNames }, "director"),
+  );
+  let seat = crew.seats.get(launched[0]);
+  console.log(
+    limit.maxTicks > 0
+      ? `[crew] ${seat.name} seated - ${limit.maxTicks} run ticks, stopping at world tick ${limit.stopTick}.`
+      : `[crew] ${seat.name} seated - unbounded.`,
+  );
+  console.log(
+    seat.cadenceTicks > 0
+      ? `[crew] ${seat.name} launches every ${seat.cadenceTicks} world ticks.`
+      : `[crew] ${seat.name} is event-woken.`,
+  );
+  await supervise(crew, opts, "director", limit, launched);
 }
 
+// Every characters launch is its own additive batch, so adding more seats or
+// filling an empty one never needs to stop whatever is already running.
 async function cmdCharacters(opts) {
-  guardSingleCrew("characters");
+  let limit = await runLimit(opts);
   let crew = new Crew(opts);
-  let launched = await crew.launch(seatRequest(opts, "character"));
+  let excludeNames = readCrewBatches("characters").flatMap(
+    (batch) => batch.names,
+  );
+  let launched = await crew.launch(
+    seatRequest({ ...opts, excludeNames }, "character"),
+  );
   if (!launched.length) {
     console.error(
       "error: no seats launched (name pool exhausted or name taken)",
     );
     process.exit(1);
   }
-  let maxTicks = parseMaxTicks(opts);
   console.log(
-    maxTicks > 0
-      ? `[crew] ${launched.length} character(s) seated - watching for tick ${maxTicks}.`
+    limit.maxTicks > 0
+      ? `[crew] ${launched.length} character(s) seated - ${limit.maxTicks} run ticks, stopping at world tick ${limit.stopTick}.`
       : `[crew] ${launched.length} character(s) seated - unbounded.`,
   );
-  await supervise(crew, opts, "characters", maxTicks);
+  await supervise(crew, opts, "characters", limit, launched);
 }
 
-const ROLES = ["director", "characters"];
+let ROLES = ["director", "characters"];
 
-async function cmdStop(target) {
+async function cmdStop(target, name) {
   let roles = target ? [target] : ROLES;
   if (target && !ROLES.includes(target)) {
     console.error(`unknown crew: ${target} (director|characters)`);
     process.exit(1);
   }
   for (let role of roles) {
-    let pid = readPidFile(role);
-    if (!pid || !pidAlive(pid)) {
-      console.log(`no ${role} crew is running`);
-      clearPidFile(role);
+    let batches = readCrewBatches(role);
+    if (name) batches = batches.filter((batch) => batch.names.includes(name));
+    if (!batches.length) {
+      console.log(
+        name
+          ? `no ${role} crew has a seat named ${name}`
+          : `no ${role} crew is running`,
+      );
       continue;
     }
-    process.kill(pid, "SIGTERM");
-    console.log(
-      `sent SIGTERM to ${role} crew pid ${pid}; it drains and reports usage.`,
-    );
+    for (let batch of batches) {
+      process.kill(batch.pid, "SIGTERM");
+      console.log(
+        `sent SIGTERM to ${role} crew pid ${batch.pid} (${batch.names.join(", ")}); it drains and reports usage.`,
+      );
+    }
   }
 }
 
 async function cmdStatus() {
   for (let role of ROLES) {
-    let pid = readPidFile(role);
-    if (pid && pidAlive(pid)) console.log(`${role} crew running (pid ${pid})`);
-    else console.log(`no ${role} crew is running`);
+    let batches = readCrewBatches(role);
+    if (!batches.length) {
+      console.log(`no ${role} crew is running`);
+      continue;
+    }
+    for (let batch of batches)
+      console.log(
+        `${role} crew running (pid ${batch.pid}): ${batch.names.join(", ")}${batch.state ? ` · ${batch.state}` : ""}`,
+      );
   }
 }
 
 function printHelp() {
   console.log(`Agent Island crew supervisor - launches and babysits the LLM CLIs.
 
-The director and characters are separate crews, launched separately; seat
-options apply only to the crew being launched. World setup (scenario, reset,
-clock, pause/resume) lives in scripts/world.mjs.
+Every launch is an independent crew. Directors run one pass per LLM process,
+exit, and relaunch on their own cadence. World setup (scenario, reset, clock,
+pause/resume) lives in scripts/world.mjs.
 
 USAGE
-  node scripts/crew.mjs director   [--max-ticks N] [seat options]
+  node scripts/crew.mjs director   [--cadence-ticks N] [--max-ticks N] [seat options]
   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
-  node scripts/crew.mjs stop [director|characters]
+  node scripts/crew.mjs stop [director|characters [name]]
   node scripts/crew.mjs status
+
+Crews are additive: run the command again to add another character batch or a
+different director. \`stop <role> <name>\` stops only that seat's crew.
 
 SEAT OPTIONS
   --engine codex|claude   --model NAME   --effort low|medium|high|xhigh|max
-  --persona NAME          --name NAME    --no-ocean
+  --persona NAME          --name NAME    --names A,B,C   --no-ocean
+  --cadence-ticks N       Director launch cadence; 0 means event-woken
   --instructions TEXT     --url http://host:port
+
+Without --name/--names, characters auto-pick names: idle colonists already
+alive in the world come first (reliably reclaimed on a restart), then
+previously-played names with local evidence, then fresh ones.
 
 DEFAULTS
   characters: codex / gpt-5.4-mini / low, OCEAN on
   director:   codex / gpt-5.6-luna / medium, persona oracle
-  both drain at tick 2000 (--max-ticks off = unbounded)`);
+  both run for 2000 ticks after launch (--max-ticks off = unbounded)
+  director cadence: oracle event-woken; auditor/seeder 500; tuner 300`);
 }
 
 async function main() {
@@ -1041,7 +1365,7 @@ async function main() {
     case "characters":
       return cmdCharacters(opts);
     case "stop":
-      return cmdStop(process.argv[3]);
+      return cmdStop(process.argv[3], process.argv[4]);
     case "status":
       return cmdStatus();
     case "help":
@@ -1054,4 +1378,7 @@ async function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(`error: ${error.message}`);
+  process.exit(1);
+});

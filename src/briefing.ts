@@ -12,7 +12,7 @@ export const characterBriefing = readFileSync(
 );
 
 // The GM-side counterpart, served as the /gm endpoint's `instructions`: the
-// mechanics of the GM seat (tools, the wait_for_world wake loop, the pulse).
+// mechanics of the GM seat (tools, the wait_for_world wake cycle, the pulse).
 // Personality stays client-side - a bring-your-own-director ships its own
 // voice and gets the mechanics here at connect.
 export const gmBriefing = readFileSync(

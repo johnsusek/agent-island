@@ -123,7 +123,7 @@ button {
   white-space: nowrap;
 }
 
-/* "N alive" wears the same pill as the oracle badge, in the ink tones. */
+/* "N alive" wears a pill in the ink tones. */
 .clock__pop {
   font-size: 11px;
   color: var(--dim);
@@ -191,23 +191,6 @@ button {
 
 .clock__tick b {
   color: var(--ink);
-}
-
-.clock__oracle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--oracle);
-  white-space: nowrap;
-}
-
-.clock__oracle::before {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  content: "";
 }
 
 .clock__error {

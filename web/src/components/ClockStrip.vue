@@ -99,12 +99,6 @@ function setCadence(ms: number) {
           <p v-if="!roster.length" class="roster__empty">no agents yet</p>
         </div>
       </span>
-      <span
-        v-if="liveness.gmConnected"
-        class="clock__oracle"
-        title="A director holds the GM seat"
-        >Oracle</span
-      >
       <span v-for="s in worldStocks" :key="s.name" class="clock__stock">
         {{ s.name }} {{ s.value }}
       </span>
