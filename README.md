@@ -15,16 +15,19 @@ Everything meets over MCP; the server never launches an LLM.
 - **`src/`** - the world server: tick clock, grid world, the rules DSL engine,
   and two MCP surfaces - `/mcp` (characters) and `/gm` (the Oracle and the
   operator). Plus a small read API (`/api/state`, `/api/map`, `/api/fog`) that
-  feeds the observatory, and world ops (`/api/reset`, `/api/pause`,
-  `/api/clock`).
+  feeds the observatory, and world ops (`/api/reset`, `/api/restore`,
+  `/api/runs`, `/api/pause`, `/api/clock`).
 - **`agents/`** - who the agents are: persona prompt files for characters and
   directors. The launch layer reads these; the server never does.
 - **`scripts/crew.mjs`** - the crew supervisor: launches one `codex exec` /
   `claude -p` per seat with the right MCP config, seeds `memory.md` (plus an
   optional OCEAN temperament), tees transcripts to
   `~/.agent-island/characters/<name>/logs/`, relaunches on exit (death-aware, with a
-  restart-storm guard), and reports token usage on drain.
-- **`scripts/world.mjs`** - world ops CLI: status, reset, pause, clock.
+  restart-storm guard), and reports token usage on drain. `characters` launches
+  are additive - each invocation is its own batch alongside whatever's already
+  running, and auto-picked names prefer idle colonists already in the world so
+  a relaunch reliably reclaims the same bodies instead of minting new ones.
+- **`scripts/world.mjs`** - world ops CLI: status, reset, restore, pause, clock.
 - **`web/`** - the observatory: a read-mostly spectator UI. Map center (PixiJS),
   the Ledger right (laws minted, open speculations), the feed below. The clock
   strip's population count opens a roster; click a character for their dossier,
@@ -59,24 +62,33 @@ the characters as separate crews so seat options never bleed across roles:
 ./scripts/world.mjs scenario genesis
 ./scripts/world.mjs reset
 ./scripts/world.mjs clock --ms 2000
-./scripts/crew.mjs director                 # Oracle first, own terminal
+./scripts/crew.mjs director                 # Oracle first, own terminal (one wake per process, relaunched)
+./scripts/crew.mjs director --persona auditor --cadence-ticks 500
+./scripts/crew.mjs director --persona tuner --cadence-ticks 300
+./scripts/crew.mjs director --persona seeder --cadence-ticks 500
 ./scripts/crew.mjs characters --count 4     # characters, own terminal
 ./scripts/world.mjs resume
 ```
 
-Each crew supervises until tick 2000, then drains and prints per-seat token
-usage. Common variants:
+Each crew runs for 2000 world ticks from when that crew launches, then drains
+and prints per-seat token usage. Common variants:
 
 ```sh
 ./scripts/crew.mjs characters --count 4 --max-ticks off        # unbounded
 ./scripts/crew.mjs characters --count 2                        # no Oracle: measure refusal
 ./scripts/crew.mjs characters --count 2 --persona character-minimal  # prompt variant
-./scripts/crew.mjs stop director                               # drain one crew
+./scripts/crew.mjs characters --names Alba,Anders               # explicit seats, by name
+./scripts/crew.mjs characters --count 1                         # add one more, or refill an
+                                                                  # empty seat - no need to stop
+./scripts/crew.mjs stop director Auditor                       # drain one director
+./scripts/crew.mjs stop director                               # drain every director
+./scripts/crew.mjs stop characters Alba                        # drain just that seat's batch
 ```
 
 Watch it:
 
 ```sh
+npm run operator                                    # full terminal operator console
 ./scripts/crew.mjs status                          # crew pids
 ./scripts/world.mjs status                         # world tick/clock/actives
 curl -s localhost:3000/api/state | jq '{tick: .state.tick, oracle: .liveness.gmConnected,
@@ -87,6 +99,25 @@ tail -q -n +1 -F ~/.agent-island/characters/*/logs/codex/play-*.jsonl \
   | jq --unbuffered -rf scripts/watch-log-codex.jq          # same, for codex seats
 ```
 
+The operator console combines the crew and world commands into one terminal
+surface. It reconciles supervisor PIDs, live MCP controllers, world state, and
+Claude/Codex JSONL logs and follows a selected agent across log rollover. Press
+`l` to launch, `x` to drain the selected crew batch, `w` for guarded world
+operations, `/` to filter, and `?` for all keys. Exiting the console does not
+stop running crews.
+
+The `DIRECTORS` roster and launch choices are discovered from every Markdown
+file in `agents/directors/`. Selecting a director before pressing `l` preselects
+that persona and its default cadence; its Markdown is appended to the launch
+prompt. Every director has its own supervisor. A scheduled director performs
+one pass, exits, and stays process-free until its next launch tick. A cadence of
+0 is event-woken: that process parks once in `wait_for_world`, acts, exits, and
+is relaunched fresh for the next wake.
+
+For scripts and monitoring, `npm run operator -- --snapshot` prints the same
+runtime model once without requiring a TTY. `--url`, `--home`, `--agent`,
+`--refresh`, and `--monochrome` configure the interactive console.
+
 Stop and steer:
 
 ```sh
@@ -94,6 +125,8 @@ Stop and steer:
 ./scripts/world.mjs pause      # freeze the clock (resume to unfreeze)
 ./scripts/world.mjs clock --ms 2000
 ./scripts/world.mjs reset      # archive + wipe the world (crew stop first)
+./scripts/world.mjs runs       # list runs archived by reset/restore, newest first
+./scripts/world.mjs restore <runId>   # archive the current world, load a banked run back
 ```
 
 The `.mcp.json` in this repo seats a Claude Code operator session on the GM
