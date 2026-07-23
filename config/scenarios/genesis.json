@@ -488,6 +488,229 @@
           ],
           "mirror": "none"
         }
+      },
+      "fire": {
+        "icon": "campfire",
+        "color": "#e8843a",
+        "label": "fire",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "s": "#7a7a8c",
+            "f": "#e8843a",
+            "y": "#f7c95c"
+          },
+          "grid": [
+            "........",
+            "........",
+            "........",
+            "...yy...",
+            "..yffy..",
+            "..ffff..",
+            ".sffffs.",
+            ".ssffss.",
+            ".ssssss.",
+            "ssssssss",
+            "ssssssss",
+            ".ssssss.",
+            "..ssss..",
+            "........",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "shelter": {
+        "icon": "tepee",
+        "color": "#a67c4e",
+        "label": "shelter",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "r": "#6b4a2b",
+            "w": "#a67c4e",
+            "d": "#2a1f16"
+          },
+          "grid": [
+            ".......r",
+            "......rr",
+            ".....rrr",
+            "....rrrr",
+            "...rrrrr",
+            "..rrrrrr",
+            ".rrrrrrr",
+            "wwwwwwww",
+            "wwwwwwww",
+            "wwwwwwdd",
+            "wwwwwwdd",
+            "wwwwwwdd",
+            "wwwwwwdd",
+            "wwwwwwww",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "berry": {
+        "icon": "berries",
+        "color": "#c23b3b",
+        "label": "berry",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "g": "#3e7c3e",
+            "r": "#c23b3b",
+            "h": "#e8635c",
+            "s": "#6b4a2b"
+          },
+          "grid": [
+            "........",
+            "........",
+            "...gg...",
+            "..gggg..",
+            ".ggrrgg.",
+            ".grrrrg.",
+            ".rrhrrr.",
+            "grrrrrrg",
+            "grhrrrrg",
+            ".rrrrrr.",
+            ".rrhrr..",
+            "..rrrr..",
+            "...ss...",
+            "...ss...",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "roasted_berry": {
+        "icon": "berries",
+        "color": "#8b3a1f",
+        "label": "roasted berry",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "g": "#5b4632",
+            "r": "#8b3a1f",
+            "h": "#c2703c",
+            "s": "#4a3320"
+          },
+          "grid": [
+            "........",
+            "........",
+            "...gg...",
+            "..gggg..",
+            ".ggrrgg.",
+            ".grrrrg.",
+            ".rrhrrr.",
+            "grrrrrrg",
+            "grhrrrrg",
+            ".rrrrrr.",
+            ".rrhrr..",
+            "..rrrr..",
+            "...ss...",
+            "...ss...",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "spear": {
+        "icon": "spear-head",
+        "color": "#6b4a2b",
+        "label": "spear",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "t": "#9aa3ab",
+            "w": "#6b4a2b",
+            "b": "#3a2a1a"
+          },
+          "grid": [
+            ".......t",
+            "......tt",
+            "......tt",
+            "......bb",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "stone_tool": {
+        "icon": "stone-axe",
+        "color": "#9aa3ab",
+        "label": "stone tool",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "g": "#9aa3ab",
+            "d": "#5f6870"
+          },
+          "grid": [
+            "........",
+            "......gg",
+            ".....ggg",
+            "....gggg",
+            "....gggg",
+            "....gdgg",
+            "....gggg",
+            ".....ggg",
+            ".....ggg",
+            "......gg",
+            "......gg",
+            ".......g",
+            ".......g",
+            "........",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
       }
     },
     "stockDefaults": {
