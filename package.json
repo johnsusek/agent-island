@@ -11,11 +11,12 @@
     "build:web": "vite build",
     "world": "node scripts/world.mjs",
     "crew": "node scripts/crew.mjs",
+    "operator": "node scripts/operator.mjs",
     "illuminate": "node scripts/illuminate.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
     "format": "prettier --write . --ignore-path .gitignore",
-    "test": "AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts"
+    "test": "AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts test/*.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
