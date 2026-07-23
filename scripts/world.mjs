@@ -10,6 +10,8 @@
 // Commands:
 //   status                     Show world tick/state
 //   reset [--width N --height N]   Wipe and regenerate the world
+//   runs                       List runs banked by reset/restore, newest first
+//   restore <runId>            Archive the current world, load a banked run
 //   scenario <name> [--off]    Activate (or --off deactivate) a scenario pack
 //   pause | resume             Freeze / unfreeze the world clock
 //   clock [--ms N]             Real-time clock cadence (0/omit = lockstep)
@@ -95,6 +97,27 @@ export async function cmdReset(opts) {
   console.log(`reset ok - new world ${payload.worldId}`);
 }
 
+export async function cmdRuns(opts) {
+  let runs = await api("GET", "/api/runs", opts);
+  if (!runs.length) {
+    console.log("no runs banked yet");
+    return;
+  }
+  for (let run of runs) {
+    let when = run.archivedAt ? new Date(run.archivedAt).toISOString() : "?";
+    console.log(
+      `${run.runId}  scenario=${run.scenario}  tick=${run.tick}  ${when}`,
+    );
+  }
+}
+
+export async function cmdRestore(opts, positional) {
+  let runId = positional[0];
+  if (!runId) fail("restore requires a run id, e.g. `restore 2026-07-21-12-00-00-1a2b3c4d` (see `runs`)");
+  let payload = await api("POST", "/api/restore", opts, { runId });
+  console.log(`restore ok - world ${payload.worldId} (tick ${payload.state?.tick ?? "?"})`);
+}
+
 export async function cmdScenario(opts, positional) {
   let name = positional[0];
   if (!name) fail("scenario requires a name, e.g. `scenario genesis`");
@@ -124,6 +147,8 @@ USAGE
 COMMANDS
   status                         Show world tick/state.
   reset [--width N] [--height N] Wipe and regenerate the world.
+  runs                           List runs banked by reset/restore, newest first.
+  restore <runId>                Archive the current world, load a banked run.
   scenario <name> [--off]        Activate (or --off deactivate) a scenario.
   pause | resume                 Freeze / unfreeze the world clock.
   clock [--ms N]                 Real-time cadence in ms (0/omit = lockstep).
@@ -139,6 +164,10 @@ async function main() {
       return cmdStatus(opts);
     case "reset":
       return cmdReset(opts);
+    case "runs":
+      return cmdRuns(opts);
+    case "restore":
+      return cmdRestore(opts, positional);
     case "scenario":
       return cmdScenario(opts, positional);
     case "pause":

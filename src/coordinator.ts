@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 import {
+  copyFileSync,
+  existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   unlinkSync,
   writeFileSync,
+  type Dirent,
 } from "node:fs";
 import { dirname, join as joinPath } from "node:path";
 
@@ -141,6 +145,11 @@ interface ColonyOptions {
   // Best-effort like the rest of archiveRun; the coordinator stays ignorant of
   // the runtime paths involved.
   collectRunArtifacts?: (runDir: string) => void;
+  // The restore-time mirror of collectRunArtifacts: copy a run archive's banked
+  // memory files back onto the live character/director workdirs before the
+  // restored world boots. Injected by the server; omitted in tests and embeds,
+  // where restore leaves the filesystem alone.
+  restoreRunArtifacts?: (runDir: string) => void;
   // Wipe every character's persisted memory when the world is reset. Injected by
   // the server so the coordinator stays ignorant of character-runtime paths;
   // omitted in tests and embeds, where reset leaves the filesystem alone. A
@@ -287,11 +296,10 @@ export function createColony(options: ColonyOptions = {}) {
   let customRuleSources: Record<string, string> = {};
   let wipeCharacterMemory = options.wipeCharacterMemory ?? null;
   let collectRunArtifacts = options.collectRunArtifacts ?? null;
-  let journalEnabled = Boolean(options.journalDir);
-  let journal = createEventJournal(
-    options.journalDir ?? null,
-    options.journalStorage,
-  );
+  let restoreRunArtifacts = options.restoreRunArtifacts ?? null;
+  let journalDir = options.journalDir ?? null;
+  let journalEnabled = Boolean(journalDir);
+  let journal = createEventJournal(journalDir, options.journalStorage);
   // The GM's scratch rule overlay, kept in memory so rule application never
   // has to touch disk. Seeded from rulesPath on startup, refreshed whenever
   // the GM edits a rule, and wiped by reset(); null when no GM rules are in
@@ -1243,6 +1251,28 @@ export function createColony(options: ColonyOptions = {}) {
     return { status, worldId, agentId };
   }
 
+  // Force a live agent's controller loose right now, regardless of idleMs -
+  // an operator-driven equivalent of reapIdle's stage-one release for a
+  // single named agent. A killed client (crew.mjs SIGTERMing a character's
+  // process, say) never sends the MCP session's own disconnect, so without
+  // this the seat would otherwise read as "connected" until the idle sweep
+  // catches up (up to idleMs), which is long enough that a same-second
+  // relaunch sees the body as still taken and spawns a fresh one instead of
+  // reclaiming it. No-op (returns false) if the agent has no live controller.
+  function releaseAgent(name: string) {
+    let id = normalizeId(name);
+    let sessionId = seats.get(id);
+    if (!sessionId) return false;
+    let session = sessions.get(sessionId);
+    if (!session) return false;
+    releaseControl(sessionId, session, "disconnected");
+    if (closeTransport && !session.closing) {
+      session.closing = true;
+      closeTransport(sessionId);
+    }
+    return true;
+  }
+
   // The sense verb. `situation` answers from the character's own knowledge;
   // `changes` touches session state (it reads and advances the event cursor,
   // exactly as observe always has - deliver() owns that). The payload shape is
@@ -1493,6 +1523,94 @@ export function createColony(options: ColonyOptions = {}) {
     boot(seed);
     note(`* world reset (${worldId.slice(0, 8)}, seed ${seed})`);
     return getAdminPayload();
+  }
+
+  // Every archived run under runsDir, newest first - what the operator picks
+  // a restore target from. Best-effort per folder: a meta.json that fails to
+  // parse is skipped rather than failing the whole listing.
+  function listRuns() {
+    if (!runsDir) return [];
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(runsDir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    let runs: Record<string, unknown>[] = [];
+    for (let entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        let raw = readFileSync(
+          joinPath(runsDir, entry.name, "meta.json"),
+          "utf8",
+        );
+        runs.push(JSON.parse(raw));
+      } catch {
+        // skip a run whose meta.json is missing or unreadable
+      }
+    }
+    runs.sort(
+      (a, b) => ((b.archivedAt as number) ?? 0) - ((a.archivedAt as number) ?? 0),
+    );
+    return runs;
+  }
+
+  function tryCopy(from: string, to: string) {
+    try {
+      copyFileSync(from, to);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+
+  // The restore half of the reset/restore pair: bank the current world (same
+  // as a reset would), then copy a previously-archived run's files back into
+  // the live paths and boot from them - the mirror image of archiveRun(),
+  // followed by the exact same load sequence the constructor uses when it
+  // finds a compatible state file on disk (see the loadState() branch below).
+  async function restoreRunNow(runId: string) {
+    if (!runsDir) throw new Error("No runsDir configured - nothing to restore from.");
+    // runId names a runsDir subfolder - refuse anything that could climb out
+    // of it (a path separator or "..").
+    if (!/^[^/\\]+$/.test(runId) || runId === "." || runId === "..")
+      throw new Error(`Invalid run id: ${runId}`);
+    let runDir = joinPath(runsDir, runId);
+    let archivedStatePath = joinPath(runDir, "state.json");
+    if (!existsSync(archivedStatePath))
+      throw new Error(`No such run: ${runId}`);
+
+    archiveRun();
+    deleteAllState();
+
+    if (statePath) tryCopy(archivedStatePath, statePath);
+    if (rulesPath) tryCopy(joinPath(runDir, "rules.json"), rulesPath);
+    if (journalDir) {
+      mkdirSync(journalDir, { recursive: true });
+      tryCopy(joinPath(runDir, "journal.jsonl"), joinPath(journalDir, "journal.jsonl"));
+    }
+    restoreRunArtifacts?.(runDir);
+
+    if (!loadState()) {
+      // The wipe above already happened - leaving the coordinator with no
+      // world at all would be worse than the failed restore, so boot a fresh
+      // one (same fallback the constructor takes) and surface the error.
+      loadRules();
+      boot();
+      throw new Error(
+        `Run ${runId}'s state.json is incompatible with this world - booted a fresh world instead.`,
+      );
+    }
+    applyRuleLayers();
+    loadRules();
+    openJournal();
+    note(`* world restored from run ${runId} (${worldId.slice(0, 8)})`);
+    return getAdminPayload();
+  }
+
+  function restoreRun(runId: string) {
+    let run = resetChain.then(() => restoreRunNow(runId));
+    resetChain = run.catch(() => {});
+    return run;
   }
 
   function getAdminPayload() {
@@ -1818,6 +1936,7 @@ export function createColony(options: ColonyOptions = {}) {
     disconnect,
     join,
     leave,
+    releaseAgent,
     sense,
     act,
     setOrder,
@@ -1830,6 +1949,8 @@ export function createColony(options: ColonyOptions = {}) {
     waitForChange,
     waitForWorld,
     reset,
+    listRuns,
+    restoreRun,
     setRealTime,
     setPaused,
     getAdminPayload,

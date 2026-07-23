@@ -141,6 +141,42 @@ test("a session joins by name, acts, and wait_for_change wakes on completion", a
   }
 });
 
+test("releaseAgent drops a live controller immediately, without waiting on the idle sweep", async () => {
+  let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
+  colony.start();
+  colony.connect("s1");
+  try {
+    colony.join("s1", "Ara");
+    assert.equal(
+      (colony.getAdminPayload() as any).controllers.ara.connected,
+      true,
+    );
+
+    let released = colony.releaseAgent("Ara");
+    assert.equal(released, true);
+    assert.equal(
+      (colony.getAdminPayload() as any).controllers.ara.connected,
+      false,
+    );
+    assert.ok(
+      (colony.getAdminPayload() as any).state.agents.ara.alive,
+      "the body stays put - only the controller is released",
+    );
+
+    // A second call is a no-op, not an error - the seat is already empty.
+    assert.equal(colony.releaseAgent("Ara"), false);
+    assert.equal(colony.releaseAgent("nobody-home"), false);
+
+    // The vacated body is reclaimable by name, exactly like a normal rejoin.
+    colony.connect("s2");
+    let rejoined = colony.join("s2", "Ara");
+    assert.equal(rejoined.status, "joined");
+    assert.equal(rejoined.reclaimed, true);
+  } finally {
+    colony.stop();
+  }
+});
+
 test("concurrent wait_for_change calls share one pending result", async () => {
   let colony = createColony({ waitTimeoutMs: 2000 });
   colony.connect("a");

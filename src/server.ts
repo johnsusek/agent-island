@@ -101,6 +101,43 @@ export function collectMemoryArtifacts(runDir: string) {
   }
 }
 
+// The restore-time mirror of collectMemoryArtifacts: copy a run archive's
+// banked memory.md files back onto the live character/director workdirs
+// before the restored world boots, so a relaunched seat picks up the memory
+// it had when that run was archived instead of starting blank. Creates the
+// seat's workdir if a relaunch hasn't recreated it yet. Best-effort per file,
+// same as the collector this reverses.
+export function restoreMemoryArtifacts(runDir: string) {
+  let { charactersDir, directorsDir } = characterDirs();
+  let memoryRoot = path.join(runDir, "memory");
+  for (let [label, root] of [
+    ["characters", charactersDir],
+    ["directors", directorsDir],
+  ] as const) {
+    let labelDir = path.join(memoryRoot, label);
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(labelDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (let entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+      let name = entry.name.slice(0, -".md".length);
+      try {
+        let seatDir = path.join(root, name);
+        fs.mkdirSync(seatDir, { recursive: true });
+        fs.copyFileSync(
+          path.join(labelDir, entry.name),
+          path.join(seatDir, "memory.md"),
+        );
+      } catch {
+        // skip this mind, keep restoring the rest
+      }
+    }
+  }
+}
+
 // Delete every character's and director's memory.md so a relaunch starts fresh
 // in the new world instead of acting on the wiped world's beliefs. Logs are
 // kept - they are the run's evidence trail and the archive already banked the
@@ -158,6 +195,9 @@ export function createAgentIslandServer(options: ServerOptions = {}) {
       // archive before the wipe above deletes them - the retro reads these.
       // Copies only; the wipe owns deletion.
       collectRunArtifacts: (runDir) => collectMemoryArtifacts(runDir),
+      // The restore half: bring a banked run's memory files back before the
+      // restored world boots.
+      restoreRunArtifacts: (runDir) => restoreMemoryArtifacts(runDir),
       scenarios: configuredScenarios(process.env.AGENT_ISLAND_SCENARIOS),
       minTurnMs,
       realTimeMs,
@@ -196,6 +236,40 @@ export function createAgentIslandServer(options: ServerOptions = {}) {
       response.json(payload);
     } catch (error) {
       response.status(500).json({ error: errorMessage(error) });
+    }
+  });
+
+  // Force a live agent's controller loose right now, bypassing the idle
+  // grace window. For an operator (crew.mjs, say) that just killed a
+  // character's process by signal - the process never sends the MCP
+  // session's own disconnect, so without this the seat reads as "connected"
+  // until the idle sweep catches up, which is long enough that an immediate
+  // relaunch sees the body as taken and spawns a fresh one instead of
+  // reclaiming it. Body: { name: string }.
+  app.post("/api/release-agent", (request, response) => {
+    let name = request.body?.name;
+    if (typeof name !== "string" || !name.trim()) {
+      response.status(400).json({ error: "name is required." });
+      return;
+    }
+    response.json({ released: coordinator.releaseAgent(name) });
+  });
+
+  app.get("/api/runs", (_request, response) => {
+    response.json(coordinator.listRuns());
+  });
+
+  app.post("/api/restore", async (request, response) => {
+    let runId = request.body?.runId;
+    if (typeof runId !== "string" || !runId.trim()) {
+      response.status(400).json({ error: "runId is required." });
+      return;
+    }
+    try {
+      let payload = await coordinator.restoreRun(runId);
+      response.json(payload);
+    } catch (error) {
+      response.status(400).json({ error: errorMessage(error) });
     }
   });
 
