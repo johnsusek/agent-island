@@ -78,6 +78,34 @@ test("repeated attempts across distinct agents cluster by verb for the GM feed",
   assert.equal(clusters[0].verb, "scoop_water");
 });
 
+test("a rejected speculation keeps its reason across snapshot restore", () => {
+  let engine = makeSurvivalEngine();
+  let ara = engine.addAgent("Ara").id;
+
+  engine.commitIntent(ara, { type: "summon_infinite_food" });
+  engine.rejectSpeculation(
+    "summon_infinite_food",
+    "food cannot appear from nothing",
+  );
+
+  assert.equal(
+    engine
+      .getSpeculativeAttempts()
+      .find((cluster) => cluster.verb === "summon_infinite_food")?.rejected,
+    "food cannot appear from nothing",
+  );
+  assert.equal(engine.recentGmEvents().at(-1)?.kind, "speculation_rejected");
+
+  let restored = makeSurvivalEngine();
+  assert.equal(restored.restore(engine.snapshot()), true);
+  assert.equal(
+    restored
+      .getSpeculativeAttempts()
+      .find((cluster) => cluster.verb === "summon_infinite_food")?.rejected,
+    "food cannot appear from nothing",
+  );
+});
+
 test("ratifying a verb with aliases answers every synonym that was tried", () => {
   let engine = makeSurvivalEngine();
   let ara = engine.addAgent("Ara").id;

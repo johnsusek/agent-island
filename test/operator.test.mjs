@@ -5,13 +5,14 @@ import path from "node:path";
 import test from "node:test";
 
 // prettier-ignore
-import { defaultDirectorCadenceTicks, parseDirectorCadenceTicks, parseMaxTicks, targetTick } from "../scripts/crew-policy.mjs";
-// prettier-ignore
-import { buildCrewArgs, parseResetDimensions, personaNames } from "../src/operator/actions.ts";
-import { formWindowHeight } from "../src/operator/dialogs.ts";
+import { directorWake, parseDirectorCadenceTicks, parseMaxTicks, parsePersona, targetTick, wakeCadenceTicks } from "../scripts/crew-policy.mjs";
 // prettier-ignore
 import { detailText, filterSeats, headerText, reconcileSelection, rosterItems, seatHeading } from "../src/operator/presentation.ts";
-import { operatorPaths, parseOperatorArgs } from "../src/operator/config.ts";
+import {
+  operatorHelp,
+  operatorPaths,
+  parseOperatorArgs,
+} from "../src/operator/config.ts";
 import { createLogStore } from "../src/operator/logs.ts";
 import { createRuntime } from "../src/operator/runtime.ts";
 import { nextFocusPane } from "../src/operator/screen.ts";
@@ -21,26 +22,7 @@ test("operator pane focus toggles without traversing roster items", () => {
   assert.equal(nextFocusPane("detail"), "roster");
 });
 
-test("operator forms reserve every row TerminalKit draws", () => {
-  assert.equal(formWindowHeight(2, 24), 7);
-  assert.equal(formWindowHeight(7, 16), 12);
-});
-
-test("world reset dimensions reject incomplete or unsafe values", () => {
-  assert.deepEqual(parseResetDimensions({ height: "", width: "" }), {});
-  assert.deepEqual(parseResetDimensions({ height: "80", width: "120" }), {
-    height: 80,
-    width: 120,
-  });
-  assert.throws(() => parseResetDimensions({ height: "", width: "120" }));
-  assert.throws(() => parseResetDimensions({ height: "80", width: "" }));
-  assert.throws(() => parseResetDimensions({ height: "0", width: "120" }));
-  assert.throws(() => parseResetDimensions({ height: "80", width: "201" }));
-  assert.throws(() => parseResetDimensions({ height: "80.5", width: "120" }));
-  assert.throws(() => parseResetDimensions({ height: "80", width: "wide" }));
-});
-
-test("operator arguments and crew launch arguments preserve explicit settings", () => {
+test("operator arguments and help expose only viewer controls", () => {
   let options = parseOperatorArgs([
     "--url",
     "http://island.test/",
@@ -55,82 +37,56 @@ test("operator arguments and crew launch arguments preserve explicit settings", 
   assert.equal(options.selectedName, "Linden");
   assert.equal(options.monochrome, true);
 
-  assert.deepEqual(
-    buildCrewArgs({
-      role: "character",
-      names: "Alba,Linden",
-      count: 2,
-      engine: "codex",
-      model: "gpt-test",
-      effort: "high",
-      persona: "character-minimal",
-      maxTicks: "off",
-      ocean: false,
-      instructions: "build carefully",
-      url: "http://island.test",
-    }),
-    [
-      "characters",
-      "--max-ticks",
-      "off",
-      "--engine",
-      "codex",
-      "--model",
-      "gpt-test",
-      "--effort",
-      "high",
-      "--persona",
-      "character-minimal",
-      "--instructions",
-      "build carefully",
-      "--url",
-      "http://island.test",
-      "--names",
-      "Alba,Linden",
-      "--no-ocean",
-    ],
-  );
-  assert.deepEqual(
-    buildCrewArgs({
-      role: "director",
-      names: "Auditor",
-      persona: "auditor",
-      engine: "claude",
-      model: "haiku",
-      effort: "medium",
-      maxTicks: "2000",
-      cadenceTicks: "500",
-    }),
-    [
-      "director",
-      "--max-ticks",
-      "2000",
-      "--engine",
-      "claude",
-      "--model",
-      "haiku",
-      "--effort",
-      "medium",
-      "--persona",
-      "auditor",
-      "--cadence-ticks",
-      "500",
-    ],
-  );
+  let help = operatorHelp();
+  assert.match(help, /Activity \/ memory/);
+  assert.doesNotMatch(help, /Launch|Raw|Stop|World operations/);
 });
 
-test("crew policy gives only Oracle event wakeups and measures run ticks from launch", () => {
-  assert.equal(defaultDirectorCadenceTicks("oracle"), 0);
-  assert.equal(defaultDirectorCadenceTicks("auditor"), 600);
-  assert.equal(defaultDirectorCadenceTicks("tuner"), 250);
-  assert.equal(defaultDirectorCadenceTicks("seeder"), 400);
-  assert.equal(defaultDirectorCadenceTicks("unknown"), 500);
-  assert.equal(parseDirectorCadenceTicks(undefined, "auditor"), 600);
-  assert.equal(parseDirectorCadenceTicks("125", "auditor"), 125);
-  assert.throws(() => parseDirectorCadenceTicks("1.5", "auditor"));
+test("persona frontmatter parses into meta and stripped body", () => {
+  let { meta, body } = parsePersona(
+    "---\nmodel: haiku\neffort: medium\nwake:\n  events: [speculative_attempt, noun_attempt]\n  every_ticks: 50\n---\nYou are the Oracle.",
+  );
+  assert.equal(meta.model, "haiku");
+  assert.equal(meta.effort, "medium");
+  assert.deepEqual(meta.wake.events, ["speculative_attempt", "noun_attempt"]);
+  assert.equal(meta.wake.every_ticks, 50);
+  assert.equal(body, "You are the Oracle.");
+  // No frontmatter: the whole file is body and there is no wake policy.
+  let plain = parsePersona("You are the Illuminator.");
+  assert.deepEqual(plain.meta, {});
+  assert.equal(plain.body, "You are the Illuminator.");
+  assert.equal(directorWake(plain.meta), null);
+});
+
+test("persona wake policy drives director cadence and run ticks measure from launch", () => {
+  let eventWoken = directorWake({
+    wake: { events: ["speculative_attempt"], every_ticks: 50 },
+  });
+  assert.equal(wakeCadenceTicks(eventWoken), 0);
+  let scheduled = directorWake({ wake: { every_ticks: 600 } });
+  assert.equal(wakeCadenceTicks(scheduled), 600);
+  assert.throws(() => directorWake({ wake: {} }));
+  assert.throws(() => directorWake({ wake: { every_ticks: 1.5 } }));
+  assert.equal(parseDirectorCadenceTicks(undefined, scheduled), 600);
+  assert.equal(parseDirectorCadenceTicks("125", scheduled), 125);
+  assert.throws(() => parseDirectorCadenceTicks("1.5", scheduled));
   assert.equal(parseMaxTicks("off"), 0);
   assert.equal(parseMaxTicks("2000"), 2000);
   assert.equal(targetTick(4200, 2000), 6200);
+});
+
+test("shipped director personas declare their seats in frontmatter", () => {
+  let personaDir = new URL("../agents/directors/", import.meta.url);
+  let read = (name) =>
+    parsePersona(fs.readFileSync(new URL(`${name}.md`, personaDir), "utf8"));
+  let oracle = directorWake(read("oracle").meta);
+  assert.deepEqual(oracle.events, ["speculative_attempt", "noun_attempt"]);
+  assert.equal(wakeCadenceTicks(oracle), 0);
+  assert.equal(wakeCadenceTicks(directorWake(read("auditor").meta)), 600);
+  assert.equal(wakeCadenceTicks(directorWake(read("seeder").meta)), 400);
+  assert.equal(wakeCadenceTicks(directorWake(read("tuner").meta)), 250);
+  // The Illuminator is commissioned, never seated: no wake frontmatter.
+  assert.equal(directorWake(read("illuminator").meta), null);
 });
 
 test("log store normalizes Codex and Claude usage and renders their tool activity", () => {
@@ -289,16 +245,17 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     fs.mkdirSync(paths.directorPersonasDir, { recursive: true });
     fs.writeFileSync(
       path.join(paths.directorPersonasDir, "auditor.md"),
-      "# Auditor",
+      "---\nwake:\n  every_ticks: 600\n---\n# Auditor",
     );
     fs.writeFileSync(
       path.join(paths.directorPersonasDir, "oracle.md"),
-      "# Oracle",
+      "---\nwake:\n  events: [speculative_attempt]\n---\n# Oracle",
     );
-    assert.deepEqual(personaNames(paths.directorPersonasDir), [
-      "auditor",
-      "oracle",
-    ]);
+    // No wake frontmatter: a commissioned helper, never listed as a seat.
+    fs.writeFileSync(
+      path.join(paths.directorPersonasDir, "illuminator.md"),
+      "# Illuminator",
+    );
     fs.mkdirSync(path.join(paths.charactersDir, "Linden", "logs", "codex"), {
       recursive: true,
     });
@@ -417,6 +374,10 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     );
 
     let snapshot = await createRuntime(options, paths).refresh();
+    assert.equal(
+      snapshot.seats.find((seat) => seat.name === "Illuminator"),
+      undefined,
+    );
     let linden = snapshot.seats.find((seat) => seat.name === "Linden");
     let auditor = snapshot.seats.find((seat) => seat.name === "Auditor");
     let oracle = snapshot.seats.find((seat) => seat.name === "Oracle");
@@ -533,8 +494,8 @@ test("operator presentation filters and builds TerminalKit widget content", () =
     ["DIRECTORS", "CHARACTERS"],
   );
   assert.match(seatHeading(seats[0]), /Oracle · running/);
-  assert.match(detailText(seats[0], "activity", null, false, ""), /Listening/);
-  assert.match(detailText(seats[0], "memory", null, false, ""), /Watch/);
+  assert.match(detailText(seats[0], "activity", null, ""), /Listening/);
+  assert.match(detailText(seats[0], "memory", null, ""), /Watch/);
   assert.match(
     headerText({
       online: true,

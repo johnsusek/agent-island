@@ -179,6 +179,74 @@
           "type": "death",
           "global": true
         }
+      },
+      {
+        "id": "grow-north",
+        "description": "The map extends north as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": { "tag": "world" },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": { "canSeeMapEdge": { "edge": "north", "within": 12 } }
+            }
+          },
+          "right": 0
+        },
+        "do": [{ "growWorld": { "by": 12, "direction": "north" } }]
+      },
+      {
+        "id": "grow-east",
+        "description": "The map extends east as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": { "tag": "world" },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": { "canSeeMapEdge": { "edge": "east", "within": 12 } }
+            }
+          },
+          "right": 0
+        },
+        "do": [{ "growWorld": { "by": 12, "direction": "east" } }]
+      },
+      {
+        "id": "grow-south",
+        "description": "The map extends south as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": { "tag": "world" },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": { "canSeeMapEdge": { "edge": "south", "within": 12 } }
+            }
+          },
+          "right": 0
+        },
+        "do": [{ "growWorld": { "by": 12, "direction": "south" } }]
+      },
+      {
+        "id": "grow-west",
+        "description": "The map extends west as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": { "tag": "world" },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": { "canSeeMapEdge": { "edge": "west", "within": 12 } }
+            }
+          },
+          "right": 0
+        },
+        "do": [{ "growWorld": { "by": 12, "direction": "west" } }]
       }
     ],
     "removedBaseIds": [],
@@ -241,6 +309,8 @@
       }
     ],
     "connect": true,
+    "worldWidth": 1024,
+    "worldHeight": 1024,
     "terrainSpecs": {
       "plains": {
         "moveCost": 1,

@@ -272,6 +272,48 @@ for (let edgeCase of edgeCases)
     assert.deepEqual(restored.getMap().origin, edgeCase.expected.origin);
   });
 
+test("canSeeMapEdge grows the map while a character is still `within` tiles from the boundary, not only once they stand on it", () => {
+  // Spawn 3 tiles from the east edge of an 8-wide map (edge at x=7), with a
+  // canSeeMapEdge gate of within: 5 - wide enough that the character never
+  // has to physically touch the edge for growth to fire.
+  let scenario: Scenario = {
+    name: "grow-early",
+    spawn: { x: 4, y: 2 },
+    agentTemplate: { tags: ["agent"], stocks: {} },
+    worldgen: { width: 8, height: 5, seed: 1, defaultTerrain: "plains" },
+    rules: [
+      {
+        id: "grow-east",
+        phase: "transition",
+        each: { tag: "world" },
+        when: {
+          cmp: "gt",
+          left: {
+            count: {
+              tag: "agent",
+              where: { canSeeMapEdge: { edge: "east", within: 5 } },
+            },
+          },
+          right: 0,
+        },
+        do: [{ growWorld: { by: 2, direction: "east" } }],
+      },
+    ],
+  };
+  let engine = createWorld(scenario);
+  let agentId = engine.addAgent("Ara").id;
+  let position = engine.getEntities()[agentId].pos!;
+  // 7 - 4 = 3 tiles from the (pre-growth) edge - inside the `within: 5` band,
+  // so growth should fire on the very first tick despite Ara not moving.
+  assert.equal(7 - position.x, 3);
+
+  engine.tick();
+
+  let map = engine.getMap();
+  assert.equal(map.width, 10, "grew by 2 on the east edge, before Ara ever reached it");
+  assert.deepEqual(engine.getEntities()[agentId].pos, position, "Ara never moved");
+});
+
 test("a growWorld effect is rejected in a buffered threshold phase", () => {
   assert.throws(
     () =>

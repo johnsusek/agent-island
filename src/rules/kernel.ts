@@ -334,6 +334,11 @@ export type Cond =
   // True when self stands on the named boundary. This remains valid when
   // north/west growth moves the map origin into negative coordinates.
   | { atMapEdge: { edge: MapEdge } }
+  // True once self is within `within` tiles of the named boundary - the gate
+  // behind growth rules. `within` should be >= the host's sight radius, or
+  // agents reach a stretch where nothing new is revealed before the map
+  // actually grows and have no signal pulling them further that way.
+  | { canSeeMapEdge: { edge: MapEdge; within: number } }
   // the named stock (literal or arg) is one the ruleset marks stockpilable - the
   // gate behind "you may only haul haulable resources into a stockpile". Reads a
   // ruleset-level registry the host installs (see setStockpilable), not entity
@@ -1548,6 +1553,27 @@ function evalCond(
     return (
       terrainLookup(self.pos.x + offset.dx, self.pos.y + offset.dy) ===
       undefined
+    );
+  }
+  if ("canSeeMapEdge" in cond) {
+    if (!self.pos) return false;
+    if (!terrainLookup)
+      throw new Error(
+        `canSeeMapEdge condition needs a terrain lookup, but none was installed for this call`,
+      );
+    let offsets: Record<MapEdge, { dx: number; dy: number }> = {
+      north: { dx: 0, dy: -1 },
+      east: { dx: 1, dy: 0 },
+      south: { dx: 0, dy: 1 },
+      west: { dx: -1, dy: 0 },
+    };
+    let offset = offsets[cond.canSeeMapEdge.edge];
+    let within = cond.canSeeMapEdge.within;
+    return (
+      terrainLookup(
+        self.pos.x + offset.dx * within,
+        self.pos.y + offset.dy * within,
+      ) === undefined
     );
   }
   if ("stockpilable" in cond)

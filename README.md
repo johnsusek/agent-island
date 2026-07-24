@@ -28,6 +28,10 @@ Everything meets over MCP; the server never launches an LLM.
   running, and auto-picked names prefer idle colonists already in the world so
   a relaunch reliably reclaims the same bodies instead of minting new ones.
 - **`scripts/world.mjs`** - world ops CLI: status, reset, restore, pause, clock.
+- **`scripts/generate-map.ts`** - bakes a scenario's terrain recipe at full
+  size into `config/scenarios/<name>.map.json`; when present, the engine
+  slices the world's starting view from that file and reveals more of it as
+  `growWorld` rules fire, instead of generating terrain live.
 - **`web/`** - the observatory: a read-mostly spectator UI. Map center (PixiJS),
   the Ledger right (laws minted, open speculations), the feed below. The clock
   strip's population count opens a roster; click a character for their dossier,
@@ -54,6 +58,16 @@ throwaway world). The bundled starter scenarios stay tracked in
 `config/scenarios/`; `save_scenario` writes new ones into
 `~/.agent-island/scenarios/`, and both are read at load time.
 
+Authoring a new scenario is a one-shot, out-of-band step - no server needed:
+the Worldsmith is a genesis author, not a director seat, so it runs with a
+real shell and no MCP surface, writes a new scenario under
+`config/scenarios/`, bakes its map, and exits.
+
+```sh
+./scripts/crew.mjs worldsmith --commission "a half-drowned quarry"
+npm run generate-map -- <scenario-name>   # re-bake a map after hand-editing a scenario
+```
+
 Run a full genesis experiment (other terminals - each crew stays in the
 foreground supervising its children). World setup first, then the Oracle and
 the characters as separate crews so seat options never bleed across roles:
@@ -63,9 +77,9 @@ the characters as separate crews so seat options never bleed across roles:
 ./scripts/world.mjs reset
 ./scripts/world.mjs clock --ms 2000
 ./scripts/crew.mjs director                 # Oracle first, own terminal (one wake per process, relaunched)
-./scripts/crew.mjs director --persona auditor --cadence-ticks 500
-./scripts/crew.mjs director --persona tuner --cadence-ticks 300
-./scripts/crew.mjs director --persona seeder --cadence-ticks 500
+./scripts/crew.mjs director --persona auditor   # cadence, model, and effort come
+./scripts/crew.mjs director --persona tuner     # from each persona's frontmatter;
+./scripts/crew.mjs director --persona seeder    # --cadence-ticks N overrides per launch
 ./scripts/crew.mjs characters --count 4     # characters, own terminal
 ./scripts/world.mjs resume
 ```
@@ -107,13 +121,16 @@ batch, `w` for guarded world operations, `/` to find, and `?` for all keys.
 Exiting the console does not stop running crews. Press `m` to switch the
 selected agent between its combined activity and `memory.md`.
 
-The `DIRECTORS` roster and launch choices are discovered from every Markdown
-file in `agents/directors/`. Selecting a director before pressing `l` preselects
-that persona and its default cadence; its Markdown is appended to the launch
-prompt. Every director has its own supervisor. A scheduled director performs
-one pass, exits, and stays process-free until its next launch tick. A cadence of
-0 is event-woken: that process parks once in `wait_for_world`, acts, exits, and
-is relaunched fresh for the next wake.
+The director roster is discovered from the Markdown files in
+`agents/directors/`: each persona opens with a frontmatter block naming its
+model, effort, and wake policy, so dropping a new file in the folder is all the
+orchestration a new seat needs. A `wake` with `events` is event-woken: that
+process parks once in `wait_for_world` (with the frontmatter's events and
+heartbeat), acts, exits, and is relaunched fresh for the next wake. A `wake`
+with only `every_ticks` is scheduled: one pass, exit, process-free until its
+next launch tick. A persona with no `wake` at all (the Illuminator) is not a
+seat - it is commissioned by the others and never launched as a director.
+Every director has its own supervisor.
 
 For scripts and monitoring, `npm run operator -- --snapshot` prints the same
 runtime model once without requiring a TTY. `--url`, `--home`, `--agent`,

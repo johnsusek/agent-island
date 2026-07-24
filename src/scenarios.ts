@@ -30,6 +30,10 @@ export interface RecommendedPlayers {
 export interface ScenarioFile {
   name: string;
   description?: string;
+  // One or two character-facing sentences in the fiction's own register,
+  // delivered in-band to a fresh character at join (never to a reclaim, which
+  // already has its history). `description` stays operator-facing prose.
+  intro?: string;
   recommendedPlayers?: RecommendedPlayers;
   // Names of rulesets (config/rulesets/*.json) to pull in before this file's own
   // overlay. A shared bundle of related rules (the hunger loop, woodcutting, ...)
@@ -160,6 +164,14 @@ export function validateOwnOverlay(overlay: RuleOverlay, label: string): void {
         `${label}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+  for (let [key, value] of [
+    ["worldWidth", overlay.worldWidth],
+    ["worldHeight", overlay.worldHeight],
+  ] as const) {
+    if (value === undefined) continue;
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1)
+      throw new Error(`${label}: ${key} must be a positive integer.`);
   }
   // Terrain placement gets the same load-time gate as rules: a malformed layer
   // stack or connect flag fails here with the file named, not as a blank map
@@ -329,9 +341,12 @@ export function createScenarioStore(
     // composed game - `include` has been resolved away and never rides it.
     let composed = composeIncludes(own, parsed.include, rulesetsDir, [], name);
     assertValidRecommendedPlayers(name, parsed.recommendedPlayers);
+    if (parsed.intro !== undefined && typeof parsed.intro !== "string")
+      throw new Error(`scenario "${name}": intro must be a string.`);
     return {
       name: normalizeScenarioName(parsed.name ?? name),
       description: parsed.description,
+      intro: parsed.intro,
       recommendedPlayers: parsed.recommendedPlayers,
       overlay: composed.overlay,
       ruleSources: composed.ruleSources,
@@ -360,6 +375,11 @@ export function createScenarioStore(
         }
         for (let fileName of entries) {
           if (!fileName.endsWith(".json")) continue;
+          // A pregenerated map (<name>.map.json, see scripts/generate-map.ts) is a
+          // plain sibling of its scenario file, not a scenario in its own right -
+          // skip it here the same way loadPregeneratedMap reads it directly rather
+          // than through the store.
+          if (fileName.endsWith(".map.json")) continue;
           let scenario = readScenarioAt(
             path.join(dir, fileName),
             fileName.slice(0, -5),

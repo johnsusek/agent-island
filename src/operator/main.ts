@@ -32,7 +32,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  let app = createOperatorApp(options, paths, runtime);
+  let app = createOperatorApp(options, runtime);
   try {
     await app.run();
   } finally {

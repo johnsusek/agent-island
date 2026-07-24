@@ -34,7 +34,8 @@ speculation materializes _capabilities_, votes create _social rules_. Parked, no
    `src/rules/engine.ts` soft-fails it into a `speculative_attempt` event — actor, verb,
    the actor's stated `expectation`, remaining args — and returns _"Nothing happens. The
    world does not respond to that... yet."_
-3. **Synthesis.** The Oracle (`agents/directors/oracle.md`) wakes on `speculative_attempt`,
+3. **Synthesis.** The Oracle (`agents/directors/oracle.md`) wakes on `speculative_attempt`
+   and `noun_attempt`,
    reads `list_speculative_attempts`, merges semantically-equivalent verbs into one rule
    with many `aliases`, and mints it — first showing, one attempter, no threshold. The
    **expectations are the spec**. Same validate + dry-run gate as every `add_rule`.

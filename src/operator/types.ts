@@ -2,7 +2,6 @@ export type AgentRole = "character" | "director";
 export type DetailView = "activity" | "memory";
 export type Engine = "claude" | "codex";
 export type Filter = "all" | "running" | "idle" | "dead";
-export type NoticeKind = "error" | "success";
 
 export interface Usage {
   cachedInputTokens: number;
@@ -140,37 +139,13 @@ export interface OperatorOptions {
 
 export interface OperatorPaths {
   batchesDir: string;
-  characterPersonasDir: string;
   charactersDir: string;
-  crewScript: string;
   directorBatchesDir: string;
   directorPersonasDir: string;
   directorsDir: string;
-  operatorLogsDir: string;
-  repoRoot: string;
   runsDir: string;
   scenariosDir: string;
   stateFile: string;
-}
-
-export interface LaunchForm {
-  cadenceTicks?: string;
-  count?: string;
-  effort: string;
-  engine: Engine;
-  instructions?: string;
-  maxTicks: string;
-  model: string;
-  names?: string;
-  ocean?: boolean;
-  persona: string | null;
-  role: AgentRole;
-  url?: string;
-}
-
-export interface ActionContext {
-  options: OperatorOptions;
-  paths: OperatorPaths;
 }
 
 export interface OperatorState {
@@ -178,9 +153,8 @@ export interface OperatorState {
   detailView: DetailView;
   filter: Filter;
   follow: boolean;
-  notice: { kind: NoticeKind; text: string; until: number } | null;
+  notice: { kind: "error"; text: string; until: number } | null;
   query: string;
-  rawLogs: boolean;
   selectedId: string | null;
   selectedLog: LogView | null;
   selectedSeat: Seat | null;

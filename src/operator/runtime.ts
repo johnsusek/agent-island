@@ -217,10 +217,11 @@ function buildSeats(
   let characterNames = new Set<string>();
   let directorNames = new Set<string>();
   let directorPersonas = new Map(
-    markdownNames(paths.directorPersonasDir).map((persona) => [
-      normalizeId(directorName(persona)),
-      persona,
-    ]),
+    markdownNames(paths.directorPersonasDir)
+      .filter((persona) =>
+        personaIsSeat(path.join(paths.directorPersonasDir, `${persona}.md`)),
+      )
+      .map((persona) => [normalizeId(directorName(persona)), persona]),
   );
   for (let persona of directorPersonas.values())
     directorNames.add(directorName(persona));
@@ -489,6 +490,24 @@ function markdownNames(directory: string): string[] {
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => path.basename(entry.name, ".md"))
     .sort();
+}
+
+// A director persona is a seat only when its frontmatter declares a wake
+// policy; wake-less personas (the Illuminator) are commissioned helpers.
+// Mirrors parsePersona in scripts/crew-policy.mjs, which plain-node scripts
+// use and this TS module cannot import.
+function personaIsSeat(file: string): boolean {
+  let text: string;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch {
+    return false;
+  }
+  let lines = text.split(/\r?\n/);
+  if ((lines[0] ?? "").trim() !== "---") return false;
+  let close = lines.findIndex((line, i) => i > 0 && line.trim() === "---");
+  if (close === -1) return false;
+  return lines.slice(1, close).some((line) => /^wake\s*:/.test(line));
 }
 
 function directorName(persona: string): string {

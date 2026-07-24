@@ -1229,6 +1229,50 @@ test("active custom scenarios load between base rules and GM scratch", () => {
   }
 });
 
+test("a fresh join hears the active scenario's intro; a reclaim does not", () => {
+  let dir = mkdtempSync(join(tmpdir(), "agent-island-scenario-intro-"));
+  let scenariosDir = join(dir, "scenarios");
+  try {
+    mkdirSync(scenariosDir, { recursive: true });
+    writeFileSync(
+      join(scenariosDir, "islands.json"),
+      JSON.stringify({
+        name: "islands",
+        intro: "A chain of low islands separated by cold shallows.",
+        overlay: {},
+      }),
+    );
+    let colony = createColony({
+      statePath: null,
+      scenariosDir,
+      scenarios: ["islands"],
+    });
+    colony.start();
+    try {
+      colony.connect("s1");
+      let joined = colony.join("s1", "Ara") as any;
+      assert.equal(joined.reclaimed, false);
+      assert.ok(joined.briefing);
+      assert.equal(
+        joined.intro,
+        "A chain of low islands separated by cold shallows.",
+      );
+
+      // The same living body reclaimed from another session gets its recent
+      // history, never a re-introduction.
+      colony.connect("s2");
+      let reclaimed = colony.join("s2", "Ara") as any;
+      assert.equal(reclaimed.reclaimed, true);
+      assert.equal("briefing" in reclaimed, false);
+      assert.equal("intro" in reclaimed, false);
+    } finally {
+      colony.stop();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("saving GM scratch as a custom scenario promotes it out of GM edits", () => {
   let dir = mkdtempSync(join(tmpdir(), "agent-island-scenario-save-"));
   let scenariosDir = join(dir, "scenarios");

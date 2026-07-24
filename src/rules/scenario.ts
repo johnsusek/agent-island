@@ -9,7 +9,12 @@
 // config.ts) and the same core becomes the colony game.
 
 import type { Args, Rule, Stock } from "./kernel.js";
-import { assertValidMoveCost, type Position, type WorldGen } from "./space.js";
+import {
+  assertValidMoveCost,
+  type PregeneratedMap,
+  type Position,
+  type WorldGen,
+} from "./space.js";
 import { assertValidSpriteSpec, type SpriteSpec } from "./sprite.js";
 
 // What a stock IS to a character, independent of its name: a pressure that
@@ -195,6 +200,12 @@ export interface Scenario {
   agentTemplate?: EntityTemplate;
   // How the land is generated. Omit for a bare, fully-passable grid.
   worldgen?: WorldGen;
+  // A full map baked offline by scripts/generate-map.ts (config/scenarios/
+  // <name>.map.json), loaded by the coordinator when the file exists. When
+  // present, the live grid is a window sliced out of this instead of freshly
+  // painted, and growWorld reveals more of it instead of generating new
+  // terrain - see makeGrid/copyPregeneratedFrontier in space.ts.
+  pregeneratedMap?: PregeneratedMap;
   // Where agents enter the grid. Not authored on disk: the loader rolls a random
   // passable tile from the worldgen seed and stamps it here (see config.ts).
   spawn: Position;

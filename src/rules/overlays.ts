@@ -53,6 +53,8 @@ export function mergeOverlays(
   let blobs: RuleOverlay["blobs"];
   let terrainLayers: RuleOverlay["terrainLayers"];
   let connect: RuleOverlay["connect"];
+  let worldWidth: RuleOverlay["worldWidth"];
+  let worldHeight: RuleOverlay["worldHeight"];
   let kindVisuals: RuleOverlay["kindVisuals"] = {};
   let describeEvent: RuleOverlay["describeEvent"] = {};
 
@@ -82,6 +84,8 @@ export function mergeOverlays(
     if (overlay.terrainLayers !== undefined)
       terrainLayers = structuredClone(overlay.terrainLayers);
     if (overlay.connect !== undefined) connect = overlay.connect;
+    if (overlay.worldWidth !== undefined) worldWidth = overlay.worldWidth;
+    if (overlay.worldHeight !== undefined) worldHeight = overlay.worldHeight;
     Object.assign(kindVisuals, structuredClone(overlay.kindVisuals ?? {}));
     Object.assign(describeEvent, structuredClone(overlay.describeEvent ?? {}));
     for (let fixture of overlay.fixtures ?? [])
@@ -103,6 +107,8 @@ export function mergeOverlays(
     blobs,
     terrainLayers,
     connect,
+    worldWidth,
+    worldHeight,
     kindVisuals,
     describeEvent,
   });
@@ -168,6 +174,12 @@ export function subtractOverlay(
     connect: sameJson(value.connect, baseline.connect)
       ? undefined
       : value.connect,
+    worldWidth: sameJson(value.worldWidth, baseline.worldWidth)
+      ? undefined
+      : value.worldWidth,
+    worldHeight: sameJson(value.worldHeight, baseline.worldHeight)
+      ? undefined
+      : value.worldHeight,
     kindVisuals: subtractRecord(value.kindVisuals, baseline.kindVisuals),
     describeEvent: subtractRecord(value.describeEvent, baseline.describeEvent),
   });
@@ -194,6 +206,9 @@ export function compactOverlay(overlay: RuleOverlay): RuleOverlay {
     compact.terrainLayers = overlay.terrainLayers;
   if (overlay.connect !== undefined && overlay.connect !== false)
     compact.connect = overlay.connect;
+  if (overlay.worldWidth !== undefined) compact.worldWidth = overlay.worldWidth;
+  if (overlay.worldHeight !== undefined)
+    compact.worldHeight = overlay.worldHeight;
   if (Object.keys(overlay.kindVisuals ?? {}).length)
     compact.kindVisuals = overlay.kindVisuals;
   if (Object.keys(overlay.describeEvent ?? {}).length)

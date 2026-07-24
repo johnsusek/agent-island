@@ -13,6 +13,7 @@
     "crew": "node scripts/crew.mjs",
     "operator": "node --import tsx src/operator/main.ts",
     "illuminate": "node scripts/illuminate.mjs",
+    "generate-map": "node --import tsx scripts/generate-map.ts",
     "typecheck": "tsc -p tsconfig.json",
     "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
     "format": "prettier --write . --ignore-path .gitignore",

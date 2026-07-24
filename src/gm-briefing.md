@@ -58,10 +58,23 @@ a tension digest: `population`, `deathsInWindow` / `ticksSinceLastDeath`,
 `ticksSinceLastDecisionEvent` — how long since anything worth waking anyone for
 happened. A large value there is the flatline signal.
 
+Alongside it, `pulse.invention` measures whether the world is still being
+_authored_, not just whether it is busy: `ticksSinceLastSpeculativeAttempt` /
+`ticksSinceLastNounAttempt` (the real flatline — a world can run hot on travel
+and chat for thousands of ticks after the last new idea),
+`unansweredPetitions` / `oldestPetitionAge` (verb ideas tried and not yet
+ratified or rejected — the Oracle's open work), `ticksSinceLastMint`,
+`medianMintLatency` / `meanMintLatency` (petition-to-rule latency; the target is
+tens of ticks), `ruleUseCounts` (starts per action rule, by canonical id), and
+`unusedRuleIds` (minted verbs past a grace window that nobody has ever used — an
+affordance waiting on a noun). Judge invention by these, never by general
+activity.
+
 ## Tools
 
 `inspect_world` (drill-down: agent/entity/rule/area/include), `list_rules`,
 `list_speculative_attempts` (verbs characters tried that no rule defines yet),
+`reject_speculation` (record why an unresolved verb cannot become physics),
 `add_rule` / `remove_rule` / `tweak_rule` (dry-run vetted), `set_stock`,
 `set_stock_default`, `spawn_entity`, `register_terrain` / `set_terrain`,
 `register_kind_visual` (attach an inline sprite to a kind - every new kind of

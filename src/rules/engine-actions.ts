@@ -133,9 +133,11 @@ export function actionCanStart(
   if (!action) return false;
   let spec = findAction(context, action.type);
   if (!spec) return false;
-  let args = intentArgs(action);
   try {
+    // Validate first: it normalizes entity args (a display name to its id), so
+    // intentArgs below reads the canonical value the CanStart checks expect.
     validateActionArgs(context, actorId, spec, action);
+    let args = intentArgs(action);
     if (spec.kind === "movement")
       return movementCanStart(context, actorId, action.type, args);
     if (spec.kind === "give") return giveCanStart(context, actorId, args);
@@ -200,15 +202,26 @@ export function validateActionArgs(
 
     if (typeof value !== "string")
       throw new Error(`${spec.name} ${param.name} must be an entity id.`);
-    let valid = entityTargetOptions(context, actorId, param).some(
-      (option) => option.id === value,
-    );
-    if (!valid)
+    // The observation shows an entity target by its DISPLAY name (give(to: Mica)),
+    // but downstream lookups key on the id (mica). A character copies the word it
+    // was shown, so resolve either: exact id, then a case-insensitive label or id
+    // match. Genesis cb263000 blocked every give for 4,003 ticks on this mismatch
+    // - the agents talked like a settlement the world would not let them supply.
+    let options = entityTargetOptions(context, actorId, param);
+    let lowered = value.toLowerCase();
+    let match =
+      options.find((option) => option.id === value) ??
+      options.find((option) => option.label.toLowerCase() === lowered) ??
+      options.find((option) => option.id.toLowerCase() === lowered);
+    if (!match)
       throw new UnknownChoiceError(
         param.name,
         value,
         `${value} is not a valid ${param.name} for ${spec.name}.`,
       );
+    // Normalize to the canonical id so every downstream reader (the give/pick_up/
+    // drop commit paths, the kernel, the event text) sees one word for the thing.
+    action[param.name] = match.id;
   }
 }
 

@@ -55,14 +55,10 @@ export function operatorPaths(options: OperatorOptions): OperatorPaths {
   let repoRoot = path.resolve(moduleDirectory, "../..");
   return {
     batchesDir: path.join(options.home, ".crew"),
-    characterPersonasDir: path.join(repoRoot, "agents", "characters"),
     charactersDir: path.join(options.home, "characters"),
-    crewScript: path.join(repoRoot, "scripts", "crew.mjs"),
     directorBatchesDir: path.join(options.home, ".crew-directors"),
     directorPersonasDir: path.join(repoRoot, "agents", "directors"),
     directorsDir: path.join(options.home, "directors"),
-    operatorLogsDir: path.join(options.home, "operator-logs"),
-    repoRoot,
     runsDir: path.join(options.home, "runs"),
     scenariosDir: path.join(repoRoot, "config", "scenarios"),
     stateFile: path.join(options.home, "state.json"),
@@ -83,9 +79,9 @@ Options:
 
 Keys:
   ↑/↓                 Select agent       Tab          Move focus
-  l                   Launch             x / X        Stop selected / all
   /                   Find               m            Activity / memory
-  w                   World operations   r            Refresh
+  f                   Filter agents      G            Follow latest
+  r                   Refresh
   ?                   Help               q            Quit`;
 }
 

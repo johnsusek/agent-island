@@ -274,6 +274,7 @@ export interface GmEventView {
     | "terrain_painted"
     | "world_regenerated"
     | "world_grew"
+    | "speculation_rejected"
     | "announced"
     | "game_over"
     | "gm_joined"
@@ -298,6 +299,8 @@ export interface RuleView {
   description?: string;
   phase?: string;
   kind?: string;
+  on?: string;
+  duration?: number;
   aliases?: string[];
   requires?: unknown;
   each?: { tag?: string; kind?: string };
@@ -321,6 +324,7 @@ export interface SpeculativeCluster {
   lastTick: number;
   expectations: string[];
   sampleArgs: Record<string, string | number>[];
+  rejected?: string;
 }
 
 // One noun-cluster of the companion feed - a thing characters reached for that

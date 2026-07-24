@@ -541,6 +541,24 @@ export function createColony(options: ColonyOptions = {}) {
     return mergeOverlays(baselineIds, overlays);
   }
 
+  // The character-facing intro of the active scenario(s): the optional
+  // top-level `intro` a scenario author wrote for newcomers. Read at join time
+  // so a runtime scenario switch changes what the next fresh body hears;
+  // missing files are skipped exactly as readCustomOverlay skips them.
+  function activeScenarioIntro(): string | undefined {
+    if (!scenarioStore) return undefined;
+    let intros: string[] = [];
+    for (let name of activeScenarios) {
+      try {
+        let intro = scenarioStore.load(name).intro?.trim();
+        if (intro) intros.push(intro);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+    return intros.length > 0 ? intros.join("\n\n") : undefined;
+  }
+
   function combinedOverlay() {
     return mergeOverlays(engine.getRuleMeta().baselineIds, [
       customRules,
@@ -1221,13 +1239,16 @@ export function createColony(options: ColonyOptions = {}) {
     // what changed during the gap. A freshly spawned character has no past.
     if (reclaimed) session.cursor = engine.backfillCursor(BACKFILL_TICKS);
     // A fresh body gets the briefing in-band for clients that don't surface MCP
-    // instructions. Reclaims already have their prompt and memory, so do
-    // not resend the static briefing alongside their recent history.
+    // instructions, plus the active scenario's `intro` - the one line of
+    // scenario-authored fiction a newcomer hears. Reclaims already have their
+    // prompt and memory, so do not resend either alongside their recent history.
+    let intro = reclaimed ? undefined : activeScenarioIntro();
     return {
       status: "joined",
       worldId,
       reclaimed,
       ...(reclaimed ? {} : { briefing: characterBriefing }),
+      ...(intro !== undefined ? { intro } : {}),
       ...deliver(session),
     };
   }
@@ -1964,6 +1985,7 @@ export function createColony(options: ColonyOptions = {}) {
     gmInspect: gmCommands.gmInspect,
     gmRules: gmCommands.gmRules,
     gmSpeculativeAttempts: gmCommands.gmSpeculativeAttempts,
+    gmRejectSpeculation: gmCommands.gmRejectSpeculation,
     gmAddRule: gmCommands.gmAddRule,
     gmRemoveRule: gmCommands.gmRemoveRule,
     gmPatchRule: gmCommands.gmPatchRule,

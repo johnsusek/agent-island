@@ -139,3 +139,61 @@ test("give is advertised as an available action to a character carrying goods", 
   assert.ok(give, "give should be listed");
   assert.equal(give.applicable, true);
 });
+
+// The observation advertises a target by its DISPLAY name (give(to: Bo)), so a
+// character copies that word back. Genesis cb263000 blocked every give for the
+// whole run because validation demanded the id (bo) and got the label (Bo).
+// Resolving the display name to its id is what makes the natural reach work.
+test("a give addressed by display name resolves to the recipient's id", () => {
+  let engine = makeSurvivalEngine();
+  let giver = engine.addAgent("Ara").id;
+  let receiver = engine.addAgent("Bo").id;
+  setAgentStock(engine, giver, "food", 3);
+  setAgentStock(engine, receiver, "food", 0);
+
+  let before = engine.cursor();
+  engine.setOrder(giver, {
+    kind: "sequence",
+    steps: [{ type: "give", target: "Bo", item: "food" }],
+  });
+  engine.tick();
+
+  assert.equal(engine.getOrder(giver).order?.status, "completed");
+  assert.equal(engine.getObservation(receiver).you.stocks.food.value, 3);
+  assert.equal(engine.getObservation(giver).you.stocks.food.value, 0);
+  assert.ok(engine.getEventsSince(before).some((e) => e.type === "given"));
+});
+
+// Case is not meaning: "BO", "bo", and "Bo" all name the same character.
+test("target resolution is case-insensitive across id and label", () => {
+  let engine = makeSurvivalEngine();
+  let giver = engine.addAgent("Ara").id;
+  let receiver = engine.addAgent("Bo").id;
+  setAgentStock(engine, giver, "food", 2);
+  setAgentStock(engine, receiver, "food", 0);
+
+  engine.setOrder(giver, {
+    kind: "sequence",
+    steps: [{ type: "give", target: "BO", item: "food" }],
+  });
+  engine.tick();
+
+  assert.equal(engine.getOrder(giver).order?.status, "completed");
+  assert.equal(engine.getObservation(receiver).you.stocks.food.value, 2);
+});
+
+// A genuinely absent target must still refuse - and still be journaled as a
+// reach for a thing the world lacks, exactly as before the lenient resolution.
+test("an unknown give target still blocks and journals a noun reach", () => {
+  let engine = makeSurvivalEngine();
+  let giver = engine.addAgent("Ara").id;
+  engine.addAgent("Bo");
+  setAgentStock(engine, giver, "food", 2);
+
+  let blocked = engine.setOrder(giver, {
+    kind: "sequence",
+    steps: [{ type: "give", target: "phantom", item: "food" }],
+  });
+  assert.equal(blocked.order?.status, "blocked");
+  assert.match(blocked.order?.reason ?? "", /not a valid target/);
+});

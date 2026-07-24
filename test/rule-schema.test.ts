@@ -67,6 +67,37 @@ test("assertValidRule does not throw for a valid rule", () => {
   assert.doesNotThrow(() => assertValidRule(rule));
 });
 
+test("assertValidRule rejects an action mis-typed as a phase:event rule", () => {
+  // The drowned-quarry failure: a Director wrote drink_water as phase:"event"
+  // + on, with the action-only fields (aliases/requires/requireReason/duration)
+  // hung off it. zod strips those silently, so RuleSchema alone accepts it.
+  const rule = {
+    id: "drink_water",
+    phase: "event",
+    on: "drink",
+    aliases: ["drink", "sip", "hydrate"],
+    requires: { nearTerrain: { type: "floodwater", range: 1 } },
+    requireReason: "You must be standing at the water's edge to drink from it",
+    duration: 1,
+    do: [{ set: { target: "hydration", to: 100 } }],
+  };
+  assert.equal(RuleSchema.safeParse(rule).success, true);
+  assert.throws(
+    () => assertValidRule(rule),
+    /is a phase:"event" rule but carries action-only field\(s\).*must be kind:"action"/s,
+  );
+});
+
+test("assertValidRule accepts a clean phase:event rule (no action-only fields)", () => {
+  const rule = {
+    id: "on_siphon",
+    phase: "event",
+    on: "siphon-gulps",
+    do: [{ adjust: { target: "kilnsmoke", by: -5 } }],
+  };
+  assert.doesNotThrow(() => assertValidRule(rule));
+});
+
 test("accepts directional growth gated by the matching map edge", () => {
   let rule = {
     id: "expand-west",

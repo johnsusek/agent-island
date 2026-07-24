@@ -1,11 +1,18 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 import { scenario } from "./rules/config.js";
 import type { Scenario, TerrainSpec } from "./rules/scenario.js";
 import {
   pickSpawn,
   worldgenWithTerrainPolicy,
+  type PregeneratedMap,
   type Terrain,
   type WorldGen,
 } from "./rules/space.js";
@@ -95,6 +102,42 @@ function assertPlacementDefined(
       );
 }
 
+// A pregenerated map (see scripts/generate-map.ts) is a plain sibling JSON
+// file, not a scenario-store concern - it has no `include`/GM-overlay
+// machinery, so it's read directly rather than through ScenarioStore. Missing
+// file (the common case - most scenarios have none) is silently no map, not
+// an error; a malformed one fails loudly since it means a scenario shipped a
+// broken pregen and boot should not silently fall back to live generation.
+export function loadPregeneratedMap(
+  scenariosDir: string,
+  name: string,
+): PregeneratedMap | undefined {
+  let file = join(scenariosDir, `${name}.map.json`);
+  if (!existsSync(file)) return undefined;
+  let map = JSON.parse(readFileSync(file, "utf8")) as PregeneratedMap;
+  if (
+    typeof map.width !== "number" ||
+    typeof map.height !== "number" ||
+    map.width < 1 ||
+    map.height < 1
+  )
+    throw new Error(`pregenerated map "${file}": invalid width/height.`);
+  if (!map.origin || typeof map.origin.x !== "number" || typeof map.origin.y !== "number")
+    throw new Error(`pregenerated map "${file}": invalid origin.`);
+  if (!Array.isArray(map.rows) || map.rows.length !== map.height)
+    throw new Error(
+      `pregenerated map "${file}": rows must have exactly ${map.height} entries.`,
+    );
+  for (let [index, row] of map.rows.entries())
+    if (row.length !== map.width)
+      throw new Error(
+        `pregenerated map "${file}": row ${index} has length ${row.length}, expected ${map.width}.`,
+      );
+  if (!map.legend || typeof map.legend !== "object")
+    throw new Error(`pregenerated map "${file}": missing legend.`);
+  return map;
+}
+
 // The Scenario the coordinator runs a given scenario under: the world file's canvas
 // with the scenario's terrain definitions (terrainSpecs) and placement (defaultTerrain
 // + blobs) merged in, identity stamped from the scenario, and spawn rerolled against
@@ -104,6 +147,7 @@ function assertPlacementDefined(
 export function scenarioBootScenario(
   base: Scenario,
   scenario: ScenarioFile | null,
+  pregeneratedMap?: PregeneratedMap,
 ): Scenario {
   let terrainSpecs = {
     ...(base.terrainSpecs ?? {}),
@@ -116,7 +160,11 @@ export function scenarioBootScenario(
     name: scenario?.name ?? base.name,
     terrainSpecs,
     worldgen,
-    spawn: pickSpawn(worldgenWithTerrainPolicy(worldgen, terrainSpecs)),
+    pregeneratedMap,
+    spawn: pickSpawn(
+      worldgenWithTerrainPolicy(worldgen, terrainSpecs),
+      pregeneratedMap,
+    ),
   };
 }
 
@@ -175,7 +223,13 @@ export function createScenarioBoot(options: ScenarioBootOptions): ScenarioBoot {
   // it never defined must fail here, while the colony still stands, not partway
   // through the reset it triggers. scenarioBootScenario throws on the mismatch.
   function validateScenario(authoredScenario: ScenarioFile): void {
-    scenarioBootScenario(scenario, authoredScenario);
+    scenarioBootScenario(
+      scenario,
+      authoredScenario,
+      scenariosDir
+        ? loadPregeneratedMap(scenariosDir, authoredScenario.name)
+        : undefined,
+    );
   }
 
   // Identity follows the game, which is the active scenario: snapshots, the saved GM
@@ -183,7 +237,14 @@ export function createScenarioBoot(options: ScenarioBootOptions): ScenarioBoot {
   // survival save can't rehydrate under a dungeon scenario. Bare scenario when none.
   function bootScenario(): Scenario {
     if (!scenarioStore) return scenario;
-    return scenarioBootScenario(scenario, activeScenario());
+    let authoredScenario = activeScenario();
+    return scenarioBootScenario(
+      scenario,
+      authoredScenario,
+      authoredScenario && scenariosDir
+        ? loadPregeneratedMap(scenariosDir, authoredScenario.name)
+        : undefined,
+    );
   }
 
   function writeActiveScenarios() {

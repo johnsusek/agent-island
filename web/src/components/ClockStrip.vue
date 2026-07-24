@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { nameTint } from "../glyphs";
+import { statIconVisual } from "../icons";
 import type { AdminPayload, AgentView } from "../types";
 import type { LivenessView } from "../useWorldState";
 
@@ -17,11 +18,28 @@ let tick = computed(() => props.payload?.state.tick ?? 0);
 let population = computed(() => props.payload?.state.population ?? 0);
 let scenario = computed(() => props.payload?.state.scenario?.name ?? "");
 
-let worldStocks = computed(() =>
-  Object.entries(props.payload?.state.world.stocks ?? {}).map(
-    ([name, stock]) => ({ name, value: Math.round(stock.value) }),
-  ),
-);
+let worldStocks = computed(() => {
+  let visuals = props.payload?.state.scenario?.kindVisuals ?? {};
+  return Object.entries(props.payload?.state.world.stocks ?? {}).map(
+    ([name, stock]) => {
+      let visual = statIconVisual(name, visuals);
+      let span = stock.max - stock.min;
+      let bounded =
+        Number.isFinite(stock.min) && Number.isFinite(stock.max) && span > 0;
+      let position = bounded ? (stock.value - stock.min) / span : 0;
+      return {
+        name,
+        label: visuals[name]?.label ?? name,
+        value: Math.round(stock.value),
+        max: Math.round(stock.max),
+        bounded,
+        fill: Math.round(Math.min(1, Math.max(0, position)) * 100),
+        color: visual?.color ?? visuals[name]?.color ?? "var(--spec)",
+        iconUrl: visual?.url,
+      };
+    },
+  );
+});
 
 // The population popover: every agent ever seen, living first.
 let rosterOpen = ref(false);
@@ -99,8 +117,40 @@ function setCadence(ms: number) {
           <p v-if="!roster.length" class="roster__empty">no agents yet</p>
         </div>
       </span>
-      <span v-for="s in worldStocks" :key="s.name" class="clock__stock">
-        {{ s.name }} {{ s.value }}
+      <span v-if="worldStocks.length" class="clock__stocks">
+        <span
+          v-for="stock in worldStocks"
+          :key="stock.name"
+          class="clock__stock"
+          :style="{ '--stock-color': stock.color }"
+          :title="
+            stock.bounded
+              ? `${stock.label}: ${stock.value} / ${stock.max}`
+              : `${stock.label}: ${stock.value}`
+          "
+        >
+          <span
+            v-if="stock.iconUrl"
+            class="clock__stock-icon"
+            :style="{ maskImage: `url(${stock.iconUrl})` }"
+          ></span>
+          <span class="clock__stock-readout">
+            <span class="clock__stock-line">
+              <span class="clock__stock-name">{{ stock.label }}</span>
+              <b class="clock__stock-value">{{ stock.value }}</b>
+            </span>
+            <span
+              v-if="stock.bounded"
+              class="clock__stock-track"
+              aria-hidden="true"
+            >
+              <span
+                class="clock__stock-fill"
+                :style="{ width: `${stock.fill}%` }"
+              ></span>
+            </span>
+          </span>
+        </span>
       </span>
       <span v-if="error" class="clock__error">{{ error }}</span>
     </div>

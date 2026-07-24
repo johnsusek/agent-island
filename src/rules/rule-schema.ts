@@ -106,6 +106,9 @@ const CondSchema: z.ZodType<Cond> = z.lazy(() =>
       }),
     }),
     z.object({ atMapEdge: z.object({ edge: MapEdgeSchema }) }),
+    z.object({
+      canSeeMapEdge: z.object({ edge: MapEdgeSchema, within: z.number() }),
+    }),
     z.object({ stockpilable: NameRefSchema }),
     z.object({
       stockpileAccepts: NameRefSchema,
@@ -619,18 +622,68 @@ export function formatRuleError(
     .join("\n");
 }
 
+// Fields that belong only to a kind:"action" rule (see ActionRuleSchema). A
+// phase rule (flow/watch/threshold/transition/event/derived) that carries one
+// is a mis-typed action: a Director wrote a selectable action as - almost
+// always - phase:"event" + on, then hung `aliases`/`requires`/`duration` off
+// it. Each per-phase schema is a plain (non-strict) z.object, so zod silently
+// strips those extras and the rule parses; add_rule then stores the raw object
+// with the dead fields still on it. Because it is not kind:"action" it never
+// enters the action registry, so no character can select it, and its verb and
+// every alias sit in the speculative-attempt feed forever, unanswerable.
+// (drowned-quarry run b0dfe2e6 minted 10 actions this way; four agents died of
+// thirst at the water's edge because drink_water was never a real action.)
+const ACTION_ONLY_FIELDS = [
+  "duration",
+  "requires",
+  "requireReason",
+  "fizzleWhen",
+  "fizzleReason",
+  "params",
+  "aliases",
+] as const;
+
+function ruleId(rule: unknown): string {
+  return rule &&
+    typeof rule === "object" &&
+    typeof (rule as { id?: unknown }).id === "string"
+    ? (rule as { id: string }).id
+    : "<unknown>";
+}
+
+// Reject a rule that reads like an action but is not typed as one. zod cannot
+// catch this on its own: the malformed rule is a structurally valid phase rule
+// (its action-only fields are just unknown keys the phase schema drops), so the
+// discriminated union accepts it. This is a cross-field check the union has no
+// way to express.
+function assertKindMatchesActionFields(rule: unknown, id: string): void {
+  if (!rule || typeof rule !== "object") return;
+  let record = rule as Record<string, unknown>;
+  if (record.kind === "action") return;
+  let stray = ACTION_ONLY_FIELDS.filter((field) => record[field] !== undefined);
+  if (stray.length === 0) return;
+  let shape =
+    typeof record.phase === "string"
+      ? `a phase:"${record.phase}" rule`
+      : "not an action";
+  throw new Error(
+    `rule "${id}" is ${shape} but carries action-only field(s) ${stray
+      .map((field) => `"${field}"`)
+      .join(", ")}. A selectable action must be kind:"action", not a phase ` +
+      `rule. As written it parses but never becomes a real action: no ` +
+      `character can select it, and its verb never leaves the ` +
+      `speculative-attempt feed.`,
+  );
+}
+
 // Throws a readable error (see formatRuleError) rather than the raw ZodError
 // a bare RuleSchema.parse() would produce.
 export function assertValidRule(rule: unknown): asserts rule is Rule {
+  let id = ruleId(rule);
   let result = RuleSchema.safeParse(rule);
-  if (result.success) return;
-  let id =
-    rule &&
-    typeof rule === "object" &&
-    typeof (rule as { id?: unknown }).id === "string"
-      ? (rule as { id: string }).id
-      : "<unknown>";
-  throw new Error(
-    `rule "${id}" does not match the Rule schema:\n${formatRuleError(result.error, rule)}`,
-  );
+  if (!result.success)
+    throw new Error(
+      `rule "${id}" does not match the Rule schema:\n${formatRuleError(result.error, rule)}`,
+    );
+  assertKindMatchesActionFields(rule, id);
 }

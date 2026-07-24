@@ -455,7 +455,9 @@ function runCommand(plan, cwd, timeoutMs) {
     let child = spawn(plan.command, plan.args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
+      // Preload all tool schemas: a drawing session is one short pass, and
+      // spending turns on ToolSearch discovery is pure latency.
+      env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
     });
     let timer = setTimeout(() => {
       timedOut = true;

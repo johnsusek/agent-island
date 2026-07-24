@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { nameTint } from "../glyphs";
-import type { AgentView, Stock, StockDisplay, StockRole } from "../types";
+import { statIconVisual } from "../icons";
+import type {
+  AgentView,
+  Stock,
+  StockDisplay,
+  StockRole,
+  VisualSpec,
+} from "../types";
 import type {
   ChatItem,
   FeedItem,
@@ -12,6 +19,7 @@ import type {
 const props = defineProps<{
   agent: AgentView;
   display: Record<string, StockDisplay>;
+  kindVisuals: Record<string, VisualSpec>;
   chat: ChatItem[];
   feed: FeedItem[];
   laws: LawCard[];
@@ -40,6 +48,7 @@ function conditionMeter(name: string, stock: Stock) {
     fill: Math.round(wellbeing * 100),
     tone: badness > 0.85 ? "danger" : badness > 0.6 ? "warn" : "ok",
     label: hint.label ?? name,
+    icon: statIconVisual(name, props.kindVisuals),
   };
 }
 
@@ -64,6 +73,7 @@ let pack = computed(() =>
       name,
       label: props.display[name]?.label ?? name,
       value: Math.round(stock.value * 10) / 10,
+      icon: statIconVisual(name, props.kindVisuals),
     })),
 );
 let held = computed(() => props.agent.held ?? []);
@@ -115,7 +125,14 @@ let activity = computed(() => {
       <section v-if="vitals.length" class="dossier__section">
         <h3 class="ledger__heading">Condition</h3>
         <div v-for="meter in vitals" :key="meter.name" class="bar">
-          <span class="bar__label">{{ meter.label }}</span>
+          <span class="bar__label">
+            <span
+              v-if="meter.icon"
+              class="bar__icon"
+              :style="{ maskImage: `url(${meter.icon.url})`, color: meter.icon.color }"
+            ></span>
+            {{ meter.label }}
+          </span>
           <span class="bar__track">
             <span
               class="bar__fill"
@@ -130,7 +147,14 @@ let activity = computed(() => {
       <section v-if="stats.length" class="dossier__section">
         <h3 class="ledger__heading">Disposition</h3>
         <div v-for="meter in stats" :key="meter.name" class="bar bar--muted">
-          <span class="bar__label">{{ meter.label }}</span>
+          <span class="bar__label">
+            <span
+              v-if="meter.icon"
+              class="bar__icon"
+              :style="{ maskImage: `url(${meter.icon.url})`, color: meter.icon.color }"
+            ></span>
+            {{ meter.label }}
+          </span>
           <span class="bar__track">
             <span
               class="bar__fill"
@@ -155,7 +179,17 @@ let activity = computed(() => {
           :key="packItem.name"
           class="dossier__pack"
         >
-          <span class="dossier__pack-name">{{ packItem.label }}</span>
+          <span class="dossier__pack-name">
+            <span
+              v-if="packItem.icon"
+              class="dossier__pack-icon"
+              :style="{
+                maskImage: `url(${packItem.icon.url})`,
+                color: packItem.icon.color,
+              }"
+            ></span>
+            {{ packItem.label }}
+          </span>
           <span class="dossier__pack-value">{{ packItem.value }}</span>
         </div>
       </section>

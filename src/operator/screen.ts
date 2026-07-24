@@ -17,19 +17,14 @@ import type { OperatorState } from "./types.js";
 
 interface ScreenHandlers {
   cycleFilter(): void;
-  launch(): Promise<void>;
   find(): Promise<void>;
   help(): Promise<void>;
   quit(): void;
   refresh(): Promise<void>;
   reportError(error: unknown): void;
   select(seatId: string): void;
-  stopAll(): Promise<void>;
-  stopSelected(): Promise<void>;
   tail(): void;
   toggleDetail(): void;
-  toggleRaw(): void;
-  world(): Promise<void>;
 }
 
 export interface OperatorScreen {
@@ -252,7 +247,6 @@ export function createOperatorScreen(
       state.selectedSeat,
       state.detailView,
       entries,
-      state.rawLogs,
       state.query,
     );
     let detail = new terminalKit.TextBox({
@@ -335,7 +329,7 @@ export function createOperatorScreen(
     let find = state.query ? ` · find:${state.query}` : "";
     let text =
       notice ??
-      ` [L] Launch  [X] Stop  [/] Find  [W] World  [M] ${state.detailView === "memory" ? "Activity" : "Memory"}  [Tab] Focus  [?] Help  [Q] Quit · ${state.filter}${find}`;
+      ` [/] Find  [M] ${state.detailView === "memory" ? "Activity" : "Memory"}  [G] Tail  [F] ${state.filter}  [Tab] Focus  [?] Help  [Q] Quit${find}`;
     return new terminalKit.Text({
       attr: footerAttr(),
       content: text.padEnd(terminal.width),
@@ -408,7 +402,6 @@ export function createOperatorScreen(
         state.selectedSeat,
         state.detailView,
         state.selectedLog?.entries ?? null,
-        state.rawLogs,
         state.query,
       ),
       footer: footerText(),
@@ -449,7 +442,7 @@ export function createOperatorScreen(
     let find = state.query ? ` · find:${state.query}` : "";
     return (
       notice ??
-      ` [L] Launch  [X] Stop  [/] Find  [W] World  [M] ${state.detailView === "memory" ? "Activity" : "Memory"}  [Tab] Focus  [?] Help  [Q] Quit · ${state.filter}${find}`
+      ` [/] Find  [M] ${state.detailView === "memory" ? "Activity" : "Memory"}  [G] Tail  [F] ${state.filter}  [Tab] Focus  [?] Help  [Q] Quit${find}`
     ).padEnd(terminal.width);
   }
 
@@ -498,15 +491,10 @@ export function createOperatorScreen(
     }
     if (modalOpen) return;
     if (key === "TAB" || key === "SHIFT_TAB") switchPaneFocus();
-    else if (key === "l") runHandler(handlers.launch);
     else if (key === "/") runHandler(handlers.find);
-    else if (key === "x") runHandler(handlers.stopSelected);
-    else if (key === "X") runHandler(handlers.stopAll);
     else if (key === "m") handlers.toggleDetail();
     else if (key === "f") handlers.cycleFilter();
-    else if (key === "v") handlers.toggleRaw();
     else if (key === "G") handlers.tail();
-    else if (key === "w") runHandler(handlers.world);
     else if (key === "r") runHandler(handlers.refresh);
     else if (key === "?") runHandler(handlers.help);
   }

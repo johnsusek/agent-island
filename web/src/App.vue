@@ -67,6 +67,7 @@ function selectByName(name: string) {
           v-if="selectedAgent"
           :agent="selectedAgent"
           :display="world.display.value"
+          :kind-visuals="world.kindVisuals.value"
           :chat="world.chat.value"
           :feed="world.feed.value"
           :laws="world.laws.value"

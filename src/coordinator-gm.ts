@@ -69,6 +69,20 @@ export function createGmCommands(context: GmCommandContext) {
     };
   }
 
+  function gmRejectSpeculation(
+    sessionId: string,
+    verb: string,
+    reason: string,
+  ) {
+    context.requireGm(sessionId);
+    let result = context.engine.rejectSpeculation(verb, reason);
+    return finishGmEdit(
+      `* GM rejected speculation ${verb}: ${result.rejected}`,
+      { ok: true, ...result },
+      { rulesChanged: false },
+    );
+  }
+
   function tryDryRun(id: string) {
     try {
       return context.engine.dryRunRule(id);
@@ -276,6 +290,7 @@ export function createGmCommands(context: GmCommandContext) {
     gmInspect,
     gmRules,
     gmSpeculativeAttempts,
+    gmRejectSpeculation,
     gmAddRule,
     gmRemoveRule,
     gmPatchRule,

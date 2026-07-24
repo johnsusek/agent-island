@@ -73,6 +73,7 @@ export interface SpeculationCard {
   firstTick: number;
   lastTick: number;
   expectation: string | null;
+  rejected: string | null;
 }
 
 function normalizeGraphics(
@@ -267,11 +268,22 @@ function createWorldState() {
 
   // Which live action rules answer to a given word.
   function answers(rule: RuleView, verb: string) {
-    return rule.id === verb || (rule.aliases ?? []).includes(verb);
+    return (
+      rule.id === verb ||
+      rule.on === verb ||
+      (rule.aliases ?? []).includes(verb)
+    );
   }
 
+  // Restored worlds can still carry the pre-kind action shape.
   let actionRules = computed(() =>
-    (payload.value?.rules ?? []).filter((rule) => rule.kind === "action"),
+    (payload.value?.rules ?? []).filter(
+      (rule) =>
+        rule.kind === "action" ||
+        (rule.phase === "event" &&
+          typeof rule.on === "string" &&
+          typeof rule.duration === "number"),
+    ),
   );
 
   // Runtime-minted actions: everything not in the scenario baseline. In
@@ -346,6 +358,7 @@ function createWorldState() {
         firstTick: cluster.firstTick,
         lastTick: cluster.lastTick,
         expectation: cluster.expectations[0] ?? null,
+        rejected: cluster.rejected ?? null,
       }))
       .sort((a, b) => b.lastTick - a.lastTick);
   });

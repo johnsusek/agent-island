@@ -366,6 +366,66 @@ export interface WorldGen {
   terrainCost?: Record<Terrain, number>;
 }
 
+// A full map baked offline by scripts/generate-map.ts and loaded from
+// config/scenarios/<name>.map.json. `origin` is the world coordinate of
+// rows[0][0], chosen at bake time so the live grid's own (0,0)-rooted start
+// sits well inside it, leaving room to grow in every direction. One character
+// per tile (`rows`) keyed through `legend`, so a large map stays a small file.
+export interface PregeneratedMap {
+  width: number;
+  height: number;
+  origin: Position;
+  seed: number;
+  legend: Record<string, Terrain>;
+  rows: string[];
+}
+
+// The terrain at a world coordinate, or undefined past the pregenerated
+// extent (the caller's cue to stop growing that direction).
+export function pregeneratedTerrainAt(
+  map: PregeneratedMap,
+  x: number,
+  y: number,
+): Terrain | undefined {
+  let localX = x - map.origin.x;
+  let localY = y - map.origin.y;
+  if (localX < 0 || localY < 0 || localX >= map.width || localY >= map.height)
+    return undefined;
+  let terrain = map.legend[map.rows[localY][localX]];
+  if (terrain === undefined)
+    throw new Error(
+      `pregenerated map: unknown legend character "${map.rows[localY][localX]}" at (${x}, ${y})`,
+    );
+  return terrain;
+}
+
+// A window of fresh tiles copied from a pregenerated map, world-coordinate
+// (x0, y0) through (x0 + width, y0 + height) exclusive. Used both to slice a
+// world's starting view and, edge by edge, to fill a grown frontier - the
+// same read either way, just a different rectangle.
+function sliceFromPregenerated(
+  map: PregeneratedMap,
+  x0: number,
+  y0: number,
+  width: number,
+  height: number,
+): Tile[][] {
+  let tiles: Tile[][] = [];
+  for (let y = 0; y < height; y += 1) {
+    let row: Tile[] = [];
+    for (let x = 0; x < width; x += 1) {
+      let terrain = pregeneratedTerrainAt(map, x0 + x, y0 + y);
+      if (terrain === undefined)
+        throw new Error(
+          `pregenerated map has no tile at (${x0 + x}, ${y0 + y}) - map is too small for this world`,
+        );
+      row.push({ terrain, token: null });
+    }
+    tiles.push(row);
+  }
+  return tiles;
+}
+
 export interface TerrainPolicySpec {
   passable?: boolean;
   moveCost?: number;
@@ -839,6 +899,61 @@ export function extendTerrain(
     );
 }
 
+// extendTerrain's pregenerated-map counterpart: instead of resampling noise
+// fields at the frontier's world coordinates, copy tiles that already exist
+// in the pregenerated map. Every layer kind comes along for free this way -
+// including grid-scoped ones (blobs, island, maze) that extendTerrain can't
+// continue, since they were baked once over the map's whole extent. Throws if
+// the frontier reaches past what the pregenerated map covers; callers must
+// clamp growth to `pregeneratedRoom` first so that never happens live.
+export function copyPregeneratedFrontier(
+  grid: Grid,
+  map: PregeneratedMap,
+  original: { x: number; y: number; width: number; height: number },
+) {
+  let origin = grid.origin ?? { x: 0, y: 0 };
+  for (let localY = 0; localY < grid.height; localY += 1)
+    for (let localX = 0; localX < grid.width; localX += 1) {
+      let wx = origin.x + localX;
+      let wy = origin.y + localY;
+      let isNew =
+        wx < original.x ||
+        wy < original.y ||
+        wx >= original.x + original.width ||
+        wy >= original.y + original.height;
+      if (!isNew) continue;
+      let terrain = pregeneratedTerrainAt(map, wx, wy);
+      if (terrain === undefined)
+        throw new Error(
+          `growWorld: (${wx}, ${wy}) is past the pregenerated map's extent - clamp growth to pregeneratedRoom first`,
+        );
+      grid.tiles[localY][localX].terrain = terrain;
+    }
+}
+
+// How many tiles a grid may still grow in each direction before it runs off
+// the edge of a pregenerated map - the clamp growWorld applies before calling
+// growGrid, so copyPregeneratedFrontier is never asked for a tile that isn't
+// there.
+export function pregeneratedRoom(
+  grid: Grid,
+  map: PregeneratedMap,
+): Record<MapEdge, number> {
+  let origin = grid.origin ?? { x: 0, y: 0 };
+  return {
+    north: Math.max(0, origin.y - map.origin.y),
+    west: Math.max(0, origin.x - map.origin.x),
+    east: Math.max(
+      0,
+      map.origin.x + map.width - (origin.x + grid.width),
+    ),
+    south: Math.max(
+      0,
+      map.origin.y + map.height - (origin.y + grid.height),
+    ),
+  };
+}
+
 // The connectivity guarantee behind WorldGen.connect: flood the passable tiles,
 // then carve minimal corridors from every stranded pocket to the largest
 // region, so a maze, a noise field, or an unlucky blob roll can never wall off
@@ -986,13 +1101,21 @@ export function paintedTiles(
 // into `tokens` by expandWorldGen - makeGrid only places concrete tokens. The map
 // is never edited to fit the spawn - pickSpawn chooses a tile with a clear
 // neighborhood instead.
-function makeGrid(spawn: Position, gen?: WorldGen): Grid {
+function makeGrid(
+  spawn: Position,
+  gen?: WorldGen,
+  pregen?: PregeneratedMap,
+): Grid {
   let width = gen?.width ?? DEFAULT_MAP_SIZE;
   let height = gen?.height ?? DEFAULT_MAP_SIZE;
   let fill = gen?.defaultTerrain ?? BARE_FILL;
   let impassable = new Set<Terrain>(gen?.impassable ?? []);
 
-  let tiles = paintedTiles(gen, width, height, fill);
+  // A pregenerated map's window is sliced, never painted - see
+  // copyPregeneratedFrontier for the same read applied to a grown frontier.
+  let tiles = pregen
+    ? sliceFromPregenerated(pregen, 0, 0, width, height)
+    : paintedTiles(gen, width, height, fill);
 
   let tokens: GridToken[] = [];
   for (let s of gen?.tokens ?? []) {
@@ -1195,7 +1318,7 @@ export function expandWorldGen(gen: WorldGen, spawn: Position): WorldGen {
 // a tile that already fits). Falls back to any-passable if the map is so choked
 // that no clearing exists. The stream is derived from (but independent of) the
 // seed makeGrid/expandWorldGen use, so picking a spawn never perturbs the map.
-export function pickSpawn(gen?: WorldGen): Position {
+export function pickSpawn(gen?: WorldGen, pregen?: PregeneratedMap): Position {
   let width = gen?.width ?? DEFAULT_MAP_SIZE;
   let height = gen?.height ?? DEFAULT_MAP_SIZE;
   let fill = gen?.defaultTerrain ?? BARE_FILL;
@@ -1207,10 +1330,16 @@ export function pickSpawn(gen?: WorldGen): Position {
   // old code painted with the choice stream, picking against a map that never
   // existed; the spawnClearRadius surgery then repainted the real map to match.
   // That surgery is gone, so fidelity here is what keeps spawn out of water.)
-  // Only the pick among candidates uses the derived `rand` stream.
-  let tiles = paintedTiles(gen, width, height, fill);
+  // Only the pick among candidates uses the derived `rand` stream. With a
+  // pregenerated map, makeGrid slices from it instead of painting - so spawn
+  // must judge passability against the same slice, not a phantom fresh paint.
+  let paintedFallback = pregen ? undefined : paintedTiles(gen, width, height, fill);
+  let terrainAt = (x: number, y: number): Terrain =>
+    pregen
+      ? (pregeneratedTerrainAt(pregen, x, y) ?? fill)
+      : paintedFallback![y][x].terrain;
 
-  let open = (x: number, y: number) => !impassable.has(tiles[y][x].terrain);
+  let open = (x: number, y: number) => !impassable.has(terrainAt(x, y));
   let clearAround = (cx: number, cy: number, radius: number) => {
     for (let y = cy - radius; y <= cy + radius; y += 1)
       for (let x = cx - radius; x <= cx + radius; x += 1)
@@ -1518,9 +1647,13 @@ export interface Space {
   moves: Map<string, { path: Position[]; index: number; progress: number }>;
 }
 
-export function makeSpace(spawn: Position, worldgen?: WorldGen): Space {
+export function makeSpace(
+  spawn: Position,
+  worldgen?: WorldGen,
+  pregen?: PregeneratedMap,
+): Space {
   return {
-    grid: makeGrid(spawn, worldgen),
+    grid: makeGrid(spawn, worldgen, pregen),
     fog: new Map(),
     fogRevision: 0,
     moves: new Map(),

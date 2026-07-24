@@ -85,7 +85,6 @@ export function detailText(
   seat: Seat | null,
   view: "activity" | "memory",
   selectedEntries: LogEntry[] | null,
-  rawLogs: boolean,
   query: string,
 ): string {
   if (!seat) return "Select an agent.";
@@ -100,7 +99,6 @@ export function detailText(
     return seat.log ? "No matching activity." : "No activity yet.";
   return entries
     .map((entry) => {
-      if (rawLogs) return entry.raw ?? entry.text;
       let timestamp = entry.timestamp
         ? new Date(entry.timestamp).toLocaleTimeString([], {
             hour: "2-digit",
@@ -122,7 +120,7 @@ export function headerText(snapshot: OperatorSnapshot | null): string {
       : snapshot.online
         ? "ONLINE"
         : "OFFLINE";
-  return ` Agent Island · ${world.scenario} · tick ${world.tick} · ${status} · ${world.alive} alive / ${world.activeCount} active`;
+  return ` Agent Island · Logs · ${world.scenario} · tick ${world.tick} · ${status}`;
 }
 
 export function seatHeading(seat: Seat | null): string {

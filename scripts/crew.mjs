@@ -8,6 +8,7 @@
 // Usage:
 //   node scripts/crew.mjs director   [--cadence-ticks N] [--max-ticks N] [seat options]
 //   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
+//   node scripts/crew.mjs worldsmith [--commission TEXT] [--engine|--model|--effort]
 //   node scripts/crew.mjs stop [director|characters [name]]   SIGTERM crew(s)
 //   node scripts/crew.mjs status                              Show running crews
 //
@@ -21,14 +22,21 @@
 // wait_for_world, exits after acting, and is relaunched after a short gap.
 // Continuity lives only in the director's memory file.
 //
+// Each director persona (agents/directors/<NAME>.md) opens with a frontmatter
+// block declaring its model, effort, and wake policy - the single source of
+// orchestration truth; CLI flags below override it per launch. A persona
+// without a wake block is not a seat and refuses to launch as a director.
+//
 // Seat options:
-//   --engine codex|claude      (default claude)
-//   --model NAME               (default haiku for characters and director)
-//   --effort low|medium|high|xhigh|max   (characters low; director medium)
+//   --engine codex|claude      (default persona frontmatter, else claude)
+//   --model NAME               (default persona frontmatter, else haiku)
+//   --effort low|medium|high|xhigh|max   (default persona frontmatter;
+//                              characters low, directors medium)
 //   --persona NAME             agents/characters|directors/<NAME>.md
 //   --name NAME                Explicit seat name (single character)
 //   --names A,B,C              Explicit seat names (multiple characters)
-//   --cadence-ticks N           Director relaunch cadence (0 = event-woken)
+//   --cadence-ticks N          Override the persona's wake cadence
+//                              (0 = event-woken)
 //   --no-ocean                 Skip the OCEAN personality roll (on by default)
 //   --instructions TEXT        Extra operator text appended to the prompt
 //   --url http://host:port     Server base (env AGENT_ISLAND_URL, default :3000)
@@ -44,8 +52,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
+  directorWake,
   parseDirectorCadenceTicks,
   parseMaxTicks,
+  parsePersona,
   targetTick,
 } from "./crew-policy.mjs";
 import { api, baseUrl } from "./world.mjs";
@@ -555,29 +565,60 @@ class Crew {
   async launch(request) {
     let role = request.role === "director" ? "director" : "character";
     let roleDefaults = CONFIG.defaults[role];
+    let count = Math.max(1, Math.floor(request.count ?? 1));
+    let persona = request.persona?.trim() || null;
+    if (persona && !/^[A-Za-z0-9_-]+$/.test(persona))
+      throw new Error(`Invalid persona name: ${persona}`);
+
+    // A director persona's frontmatter is the single orchestration source:
+    // model, effort, and its wake policy all live in the .md file, so resolve
+    // and parse it before computing engine defaults. A persona without a wake
+    // block is not a seat (the Illuminator is commissioned, never launched).
+    let personaMeta = {};
+    let wake = null;
+    if (role === "director") {
+      let file = persona
+        ? path.join(CONFIG.personasDir, `${persona}.md`)
+        : CONFIG.defaultDirectorPersona;
+      if (!fs.existsSync(file))
+        throw new Error(`persona file not found: ${file}`);
+      personaMeta = parsePersona(fs.readFileSync(file, "utf8")).meta;
+      wake = directorWake(personaMeta);
+      if (!wake)
+        throw new Error(
+          `${path.basename(file)} has no wake frontmatter - it is not a director seat. Add a wake block (events and/or every_ticks) to seat it.`,
+        );
+    }
+
     let engine = ["claude", "codex"].includes(request.engine ?? "")
       ? request.engine
-      : roleDefaults.engine;
+      : ["claude", "codex"].includes(personaMeta.engine ?? "")
+        ? personaMeta.engine
+        : roleDefaults.engine;
+    // Frontmatter model names are written for the persona's own engine
+    // (claude unless it says otherwise), so an --engine override past it
+    // falls back to that engine's stock model instead.
+    let personaEngine = personaMeta.engine ?? "claude";
     let model =
       request.model?.trim() ||
+      (engine === personaEngine && typeof personaMeta.model === "string"
+        ? personaMeta.model
+        : null) ||
       (engine === roleDefaults.engine
         ? roleDefaults.model
         : engine === "claude"
           ? CONFIG.defaults.claude.model
           : CONFIG.defaults.codex[role]);
-    let effort = ["low", "medium", "high", "xhigh", "max"].includes(
-      request.effort ?? "",
-    )
+    let effortLevels = ["low", "medium", "high", "xhigh", "max"];
+    let effort = effortLevels.includes(request.effort ?? "")
       ? request.effort
-      : roleDefaults.effort;
-    let count = Math.max(1, Math.floor(request.count ?? 1));
-    let persona = request.persona?.trim() || null;
+      : effortLevels.includes(personaMeta.effort ?? "")
+        ? personaMeta.effort
+        : roleDefaults.effort;
     let cadenceTicks =
       role === "director"
-        ? parseDirectorCadenceTicks(request.cadenceTicks, persona)
+        ? parseDirectorCadenceTicks(request.cadenceTicks, wake)
         : 0;
-    if (persona && !/^[A-Za-z0-9_-]+$/.test(persona))
-      throw new Error(`Invalid persona name: ${persona}`);
 
     let personaFile;
     let names;
@@ -672,6 +713,7 @@ class Crew {
         effort,
         personaFile,
         persona: persona ?? path.basename(personaFile, ".md"),
+        wake,
         cadenceTicks,
         instructions: request.instructions?.trim() ?? "",
         ocean: role === "character" && request.ocean !== false,
@@ -717,13 +759,25 @@ class Crew {
   }
 
   async buildPrompt(seat) {
-    let prompt = fs.readFileSync(seat.personaFile, "utf8");
+    // Frontmatter is launcher configuration, not persona prose - strip it.
+    // The body is re-read every spawn so persona edits land on the next pass;
+    // scheduling stays as parsed at launch.
+    let prompt = parsePersona(fs.readFileSync(seat.personaFile, "utf8")).body;
     // The director's cwd is its seat dir, not the repo, so the commissioner is
     // named by absolute path - the same path the seat's one Bash allow rule is
     // scoped to, so a relative invocation would simply be refused.
+    let wakeSpec = seat.wake ?? { events: [], everyTicks: null };
+    let armWith = [
+      wakeSpec.events.length
+        ? `events ${JSON.stringify(wakeSpec.events)}`
+        : "",
+      wakeSpec.everyTicks ? `everyTicks ${wakeSpec.everyTicks}` : "",
+    ]
+      .filter(Boolean)
+      .join(" and ");
     let directorCycle = seat.cadenceTicks
       ? `Run ONE scheduled pass immediately. Do not call wait_for_world: orient, act if warranted, write ./memory.md, and end your turn. Your supervisor will launch a fresh process every ${seat.cadenceTicks} world ticks.`
-      : "Run ONE wake cycle: park in wait_for_world once, act on what it returns, write ./memory.md, and end your turn. Do not re-arm wait_for_world; your supervisor relaunches you for the next wake.";
+      : `Run ONE wake cycle: park in wait_for_world once${armWith ? ` with ${armWith}` : ""}, act on what it returns, write ./memory.md, and end your turn. Do not re-arm wait_for_world; your supervisor relaunches you for the next wake.`;
     let lead =
       seat.role === "director"
         ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect and join_as_gm. ${directorCycle} ./memory.md is the only thing that survives between processes.\nYour Illuminator commissioner is \`node ${ILLUMINATE_BIN}\` - the only shell command you may run.`
@@ -836,7 +890,12 @@ class Crew {
       let child = spawn(plan.command, plan.args, {
         cwd: seatDir,
         stdio: ["ignore", "pipe", "pipe"],
-        env: process.env,
+        // A seat's MCP tools are its whole surface, and every pass is short:
+        // deferred tool loading makes each fresh process spend turns on
+        // ToolSearch before it can act (an Oracle pass was observed burning
+        // eight of them re-discovering its own tools). Preload every schema
+        // instead - the tool count is small and latency is the enemy.
+        env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
       });
       child.stdout?.pipe(out);
       child.stderr?.pipe(err);
@@ -1286,6 +1345,102 @@ async function cmdCharacters(opts) {
   await supervise(crew, opts, "characters", limit, launched);
 }
 
+// The Worldsmith is the one persona that runs BEFORE a world exists: a
+// one-shot authoring session whose deliverable is a scenario file plus its
+// baked map, not a seat at a live table. So it inverts every director rule:
+// cwd is the repo root (it edits config/scenarios/ and runs the repo's own
+// renderer and map bake), it gets a real shell and file tools, and it gets no
+// MCP config - there is no server to reach. No supervision, no cadence, no
+// batch file: launch, wait, and the final message printed is the operator
+// report.
+async function cmdWorldsmith(opts) {
+  let personaFile = path.join(CONFIG.personasDir, "worldsmith.md");
+  let { meta, body } = parsePersona(fs.readFileSync(personaFile, "utf8"));
+  if (directorWake(meta) !== null)
+    throw new Error(
+      "worldsmith.md declares a wake policy, which makes it a seat - launch it with `crew.mjs director --persona worldsmith` instead.",
+    );
+  let engine = opts.engine ?? "claude";
+  let model =
+    opts.model ??
+    (engine === "claude"
+      ? (meta.model ?? "opus")
+      : CONFIG.defaults.codex.director);
+  let effort = opts.effort ?? meta.effort ?? "high";
+  let repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+  );
+  let commission =
+    (opts.commission ?? opts.instructions)?.trim() || "none - invent freely.";
+  let prompt =
+    `${body}\n\n---\n\n` +
+    `Operator directives: you are launched at the repo root (your current ` +
+    `directory). Work only under it, plus temp files for sprite render ` +
+    `checks. Your final message is the operator report.\n\n` +
+    `Commission: ${commission}`;
+
+  let plan =
+    engine === "claude"
+      ? {
+          command: "claude",
+          args: [
+            "-p",
+            "--no-session-persistence",
+            "--setting-sources",
+            "",
+            "--model",
+            model,
+            "--effort",
+            effort,
+            // File edits land without prompts and the shell is open - the
+            // Worldsmith's whole job is writing repo files and running the
+            // sprite renderer and generate-map. Sub-agents, scheduling, and
+            // the web stay blocked so the persona's prohibitions are
+            // load-bearing; --strict-mcp-config with no server config means
+            // no MCP surface at all.
+            "--permission-mode",
+            "acceptEdits",
+            "--allowedTools",
+            "Bash",
+            "--disallowedTools",
+            "Agent,Task,TaskCreate,Workflow,ScheduleWakeup,WebFetch,WebSearch",
+            "--strict-mcp-config",
+            prompt,
+          ],
+        }
+      : {
+          command: "codex",
+          args: [
+            "exec",
+            "--ephemeral",
+            "--ignore-user-config",
+            "--model",
+            model,
+            "-c",
+            `model_reasoning_effort=${effort}`,
+            "--sandbox",
+            "workspace-write",
+            prompt,
+          ],
+        };
+
+  console.log(
+    `[crew] worldsmith launched (${engine}/${model} effort ${effort}) - authoring a scenario; the report prints when it finishes.`,
+  );
+  let child = spawn(plan.command, plan.args, {
+    cwd: repoRoot,
+    stdio: ["ignore", "inherit", "inherit"],
+    // Preload all tool schemas - one-shot pass, ToolSearch turns are pure latency.
+    env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
+  });
+  let code = await new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("exit", (exitCode) => resolve(exitCode ?? 1));
+  });
+  if (code !== 0) throw new Error(`worldsmith exited with code ${code}`);
+}
+
 let ROLES = ["director", "characters"];
 
 async function cmdStop(target, name) {
@@ -1338,8 +1493,14 @@ pause/resume) lives in scripts/world.mjs.
 USAGE
   node scripts/crew.mjs director   [--cadence-ticks N] [--max-ticks N] [seat options]
   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
+  node scripts/crew.mjs worldsmith [--commission TEXT] [--engine|--model|--effort]
   node scripts/crew.mjs stop [director|characters [name]]
   node scripts/crew.mjs status
+
+The worldsmith is a one-shot scenario author, not a seat: it needs no running
+server, works at the repo root, and exits after writing a new scenario under
+config/scenarios/ plus its baked map. --commission sets its theme brief
+(default: invent freely).
 
 Crews are additive: run the command again to add another character batch or a
 different director. \`stop <role> <name>\` stops only that seat's crew.
@@ -1347,7 +1508,7 @@ different director. \`stop <role> <name>\` stops only that seat's crew.
 SEAT OPTIONS
   --engine codex|claude   --model NAME   --effort low|medium|high|xhigh|max
   --persona NAME          --name NAME    --names A,B,C   --no-ocean
-  --cadence-ticks N       Director launch cadence; 0 means event-woken
+  --cadence-ticks N       Override the persona's wake cadence; 0 = event-woken
   --instructions TEXT     --url http://host:port
 
 Without --name/--names, characters auto-pick names: idle colonists already
@@ -1355,10 +1516,11 @@ alive in the world come first (reliably reclaimed on a restart), then
 previously-played names with local evidence, then fresh ones.
 
 DEFAULTS
-  characters: codex / gpt-5.4-mini / low, OCEAN on
-  director:   codex / gpt-5.6-luna / medium, persona oracle
-  both run for 2000 ticks after launch (--max-ticks off = unbounded)
-  director cadence: oracle event-woken with a 50-tick heartbeat; all others heartbeat-driven`);
+  characters: claude / haiku / low, OCEAN on
+  directors:  model, effort, and wake policy come from the persona's
+              frontmatter in agents/directors/<NAME>.md; a persona without a
+              wake block (the Illuminator) is not a seat
+  both run for 2000 ticks after launch (--max-ticks off = unbounded)`);
 }
 
 async function main() {
@@ -1368,6 +1530,8 @@ async function main() {
       return cmdDirector(opts);
     case "characters":
       return cmdCharacters(opts);
+    case "worldsmith":
+      return cmdWorldsmith(opts);
     case "stop":
       return cmdStop(process.argv[3], process.argv[4]);
     case "status":
