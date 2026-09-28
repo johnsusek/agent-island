@@ -6,7 +6,7 @@
 // restart-storm guard, and the token report on drain.
 //
 // Usage:
-//   node scripts/crew.mjs director   [--cadence-ticks N] [--max-ticks N] [seat options]
+//   node scripts/crew.mjs director   [--cadence-ticks N] [--min-wake-ms N] [--max-ticks N] [seat options]
 //   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
 //   node scripts/crew.mjs worldsmith [--commission TEXT] [--engine|--model|--effort]
 //   node scripts/crew.mjs stop [director|characters [name]]   SIGTERM crew(s)
@@ -19,7 +19,8 @@
 // A director runs one pass per LLM process and exits. The lightweight crew
 // supervisor waits for that director's next launch tick, then starts a fresh
 // process. A cadence of 0 is event-woken: the process parks once in
-// wait_for_world, exits after acting, and is relaunched after a short gap.
+// wait_for_world, exits after acting, and is relaunched after a short gap - or
+// after that seat's wake throttle, when its persona sets one.
 // Continuity lives only in the director's memory file.
 //
 // Each director persona (agents/directors/<NAME>.md) opens with a frontmatter
@@ -37,6 +38,8 @@
 //   --names A,B,C              Explicit seat names (multiple characters)
 //   --cadence-ticks N          Override the persona's wake cadence
 //                              (0 = event-woken)
+//   --min-wake-ms N            Floor between an event-woken director's passes
+//                              (default persona wake.min_interval_ms)
 //   --no-ocean                 Skip the OCEAN personality roll (on by default)
 //   --instructions TEXT        Extra operator text appended to the prompt
 //   --url http://host:port     Server base (env AGENT_ISLAND_URL, default :3000)
@@ -53,10 +56,14 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
   directorWake,
+  disallowedTools,
   parseDirectorCadenceTicks,
   parseMaxTicks,
+  parseMinWakeMs,
+  parsePassTicks,
   parsePersona,
   targetTick,
+  wakeDelayMs,
 } from "./crew-policy.mjs";
 import { api, baseUrl } from "./world.mjs";
 
@@ -118,6 +125,9 @@ const CONFIG = {
     characters: homePath(".crew-characters"),
     director: homePath(".crew-directors"),
   },
+  // World time one character pass covers before it wraps up and exits; see
+  // parsePassTicks in crew-policy.mjs for why 150. 0 = unbounded.
+  characterPassTicks: numEnv("AGENT_ISLAND_CHARACTER_PASS_TICKS", 150),
   relaunchDelayMs: numEnv("AGENT_ISLAND_CREW_RELAUNCH_MS", 3000),
   directorPollMs: numEnv("AGENT_ISLAND_DIRECTOR_POLL_MS", 1000),
   launchStaggerMs: numEnv("AGENT_ISLAND_CREW_STAGGER_MS", 3000),
@@ -207,20 +217,18 @@ function planClaude(options) {
       options.effort,
       "--permission-mode",
       CONFIG.defaults.claude.permissionMode,
-      // Pre-approve every Agent Island tool; hard-block sub-agents and
-      // scheduling so the prohibitions in the persona are load-bearing. A
-      // director additionally gets the one Bash rule above and nothing else:
-      // Bash has to leave the disallow list for the allow rule to mean
-      // anything, and any other command then falls through to a permission
-      // prompt, which a headless seat refuses.
+      // Pre-approve every Agent Island tool; hard-block sub-agents, scheduling
+      // and the dead harness surface (see crew-policy.mjs) so the prohibitions
+      // in the persona are load-bearing. A director additionally gets the one
+      // Bash rule above and nothing else: Bash has to leave the disallow list
+      // for the allow rule to mean anything, and any other command then falls
+      // through to a permission prompt, which a headless seat refuses.
       "--allowedTools",
       options.role === "director"
         ? `mcp__agent-island,Bash(node ${ILLUMINATE_BIN}:*)`
         : "mcp__agent-island",
       "--disallowedTools",
-      options.role === "director"
-        ? "Agent,Task,TaskCreate,Workflow,ScheduleWakeup"
-        : "Bash,Agent,Task,TaskCreate,Workflow,ScheduleWakeup",
+      disallowedTools(options.role === "director" ? [] : ["Bash"]),
       "--mcp-config",
       mcpConfig,
       "--strict-mcp-config",
@@ -518,25 +526,19 @@ function usageBlockClaude(u) {
   };
 }
 
-function readSeatUsage(seatDir) {
+// Seat log dirs persist across crew invocations, so the report reads only the
+// logs this process wrote (recorded at spawn) - otherwise every run reports the
+// seat's whole history.
+function readRunUsage(logs) {
   let total = zeroUsage();
-  for (let engine of ["codex", "claude"]) {
-    let dir = path.join(seatDir, "logs", engine);
-    for (let entry of safeReaddir(dir)) {
-      if (
-        !entry.isFile() ||
-        !entry.name.startsWith("play-") ||
-        !entry.name.endsWith(".jsonl")
-      )
-        continue;
-      let lines = safeReadFile(path.join(dir, entry.name)).split("\n");
-      addUsage(
-        total,
-        engine === "claude"
-          ? usageFromClaudeLog(lines)
-          : usageFromCodexLog(lines),
-      );
-    }
+  for (let { path: file, engine } of logs) {
+    let lines = safeReadFile(file).split("\n");
+    addUsage(
+      total,
+      engine === "claude"
+        ? usageFromClaudeLog(lines)
+        : usageFromCodexLog(lines),
+    );
   }
   return total;
 }
@@ -558,6 +560,9 @@ class Crew {
   constructor(opts) {
     this.opts = opts;
     this.seats = new Map();
+    // seat name -> [{ path, engine }] for every pass this process spawned.
+    // Keyed off the map so a retired seat's usage still lands in the report.
+    this.runLogs = new Map();
     this.livenessTimer = null;
     this.draining = false;
   }
@@ -618,6 +623,16 @@ class Crew {
     let cadenceTicks =
       role === "director"
         ? parseDirectorCadenceTicks(request.cadenceTicks, wake)
+        : 0;
+    // Only an event-woken director throttles; a scheduled seat's rate is its
+    // tick cadence already.
+    let minWakeMs =
+      role === "director" && cadenceTicks === 0
+        ? parseMinWakeMs(request.minWakeMs, wake)
+        : 0;
+    let passTicks =
+      role === "character"
+        ? parsePassTicks(request.passTicks, CONFIG.characterPassTicks)
         : 0;
 
     let personaFile;
@@ -715,6 +730,8 @@ class Crew {
         persona: persona ?? path.basename(personaFile, ".md"),
         wake,
         cadenceTicks,
+        minWakeMs,
+        passTicks,
         instructions: request.instructions?.trim() ?? "",
         ocean: role === "character" && request.ocean !== false,
         child: null,
@@ -723,6 +740,7 @@ class Crew {
         childPid: null,
         lastLaunchTick: null,
         nextLaunchTick: null,
+        nextLaunchAt: null,
         everJoined: false,
         stopping: false,
         restartTimes: [],
@@ -768,9 +786,7 @@ class Crew {
     // scoped to, so a relative invocation would simply be refused.
     let wakeSpec = seat.wake ?? { events: [], everyTicks: null };
     let armWith = [
-      wakeSpec.events.length
-        ? `events ${JSON.stringify(wakeSpec.events)}`
-        : "",
+      wakeSpec.events.length ? `events ${JSON.stringify(wakeSpec.events)}` : "",
       wakeSpec.everyTicks ? `everyTicks ${wakeSpec.everyTicks}` : "",
     ]
       .filter(Boolean)
@@ -778,10 +794,16 @@ class Crew {
     let directorCycle = seat.cadenceTicks
       ? `Run ONE scheduled pass immediately. Do not call wait_for_world: orient, act if warranted, write ./memory.md, and end your turn. Your supervisor will launch a fresh process every ${seat.cadenceTicks} world ticks.`
       : `Run ONE wake cycle: park in wait_for_world once${armWith ? ` with ${armWith}` : ""}, act on what it returns, write ./memory.md, and end your turn. Do not re-arm wait_for_world; your supervisor relaunches you for the next wake.`;
+    // A character pass is bounded in world time, not turns: every observation
+    // it gets opens with the current tick, so a tick target is something it can
+    // actually check against rather than bookkeeping it has to carry.
+    let characterCycle = seat.passTicks
+      ? `Play a stretch of about ${seat.passTicks} ticks, then wrap up. Note the tick in your first observation; once the tick has climbed roughly ${seat.passTicks} past it, finish what you are in the middle of, consolidate ./memory.md, call leave_game, and end your turn. A fresh process picks you up under the same name and carries on from your memory, so this is a breath between stretches of one life, not the end of it. Landing near the mark is the point - do not cut a stretch short, and do not run far past it.`
+      : `Keep running continuously.`;
     let lead =
       seat.role === "director"
         ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect and join_as_gm. ${directorCycle} ./memory.md is the only thing that survives between processes.\nYour Illuminator commissioner is \`node ${ILLUMINATE_BIN}\` - the only shell command you may run.`
-        : `Your launcher gives you this character name: ${seat.name}\nKeep running continuously. Keep your memory current when durable knowledge or your intent changes.`;
+        : `Your launcher gives you this character name: ${seat.name}\n${characterCycle} Keep your memory current when durable knowledge or your intent changes.`;
     let base = `${lead}\n\n${prompt}`;
     // Characters always learn the world's ongoing dynamics (the flow rules'
     // descriptions) - passive mechanics like hunger are physics a resident
@@ -812,6 +834,7 @@ class Crew {
     if (this.draining || seat.stopping || !this.seats.has(seat.name)) return;
     seat.state = "starting";
     seat.nextLaunchTick = null;
+    seat.nextLaunchAt = null;
     seat.childPid = null;
     this.notifySeat(seat);
 
@@ -859,6 +882,9 @@ class Crew {
         runStamp = `${stamp}-worker-${worker}`;
       }
       let eventsPath = path.join(logDir, `play-${runStamp}.jsonl`);
+      let seatLogs = this.runLogs.get(seat.name);
+      if (!seatLogs) this.runLogs.set(seat.name, (seatLogs = []));
+      seatLogs.push({ path: eventsPath, engine: plan.logSubdir });
       try {
         fs.writeFileSync(
           `${eventsPath}.meta`,
@@ -890,11 +916,12 @@ class Crew {
       let child = spawn(plan.command, plan.args, {
         cwd: seatDir,
         stdio: ["ignore", "pipe", "pipe"],
-        // A seat's MCP tools are its whole surface, and every pass is short:
-        // deferred tool loading makes each fresh process spend turns on
-        // ToolSearch before it can act (an Oracle pass was observed burning
-        // eight of them re-discovering its own tools). Preload every schema
-        // instead - the tool count is small and latency is the enemy.
+        // Preload tool schemas. Once the dead harness tools are cut (see
+        // DEAD_HARNESS_TOOLS in crew-policy.mjs) a seat's whole surface is
+        // small enough that preloading and deferring produce the same prefix -
+        // measured at ~11.17K either way - so deferring buys no prefix back
+        // and still costs the ToolSearch turns a fresh process would spend
+        // rediscovering its own tools before it can act.
         env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
       });
       child.stdout?.pipe(out);
@@ -982,13 +1009,16 @@ class Crew {
           CONFIG.relaunchDelayMs,
         );
       } else {
+        // An unhealthy exit keeps the short gap so a broken CLI reaches the
+        // storm guard promptly; only a completed pass pays the wake throttle.
+        let delay = healthy
+          ? wakeDelayMs(seat.minWakeMs, ranMs, CONFIG.relaunchDelayMs)
+          : CONFIG.relaunchDelayMs;
         seat.state = "relaunching";
         seat.nextLaunchTick = null;
+        seat.nextLaunchAt = now + delay;
         this.notifySeat(seat);
-        seat.relaunchTimer = setTimeout(
-          () => this.spawnSeat(seat),
-          CONFIG.relaunchDelayMs,
-        );
+        seat.relaunchTimer = setTimeout(() => this.spawnSeat(seat), delay);
       }
       return;
     }
@@ -1101,16 +1131,13 @@ class Crew {
 
   async drain() {
     this.draining = true;
-    let names = [...this.seats.keys()];
-    let dirs = new Map(
-      [...this.seats.values()].map((seat) => [seat.name, this.seatDir(seat)]),
-    );
     await Promise.all(
       [...this.seats.values()].map((seat) => this.stopSeat(seat)),
     );
+    let names = [...this.runLogs.keys()];
     let totals = zeroUsage();
     for (let name of names) {
-      let usage = readSeatUsage(dirs.get(name));
+      let usage = readRunUsage(this.runLogs.get(name) ?? []);
       addUsage(totals, usage);
       let line = formatUsage(usage);
       if (line) console.log(`[crew] ${name}: ${line}`);
@@ -1221,6 +1248,8 @@ function seatRequest(opts, role) {
     effort: opts.effort,
     persona: opts.persona,
     cadenceTicks: opts["cadence-ticks"],
+    minWakeMs: opts["min-wake-ms"],
+    passTicks: opts["pass-ticks"],
     name: opts.name,
     names: opts.names
       ? opts.names
@@ -1296,10 +1325,12 @@ async function cmdDirector(opts) {
         names: [seat.name],
         persona: seat.persona,
         cadenceTicks: seat.cadenceTicks,
+        minWakeMs: seat.minWakeMs,
         state: seat.state,
         childPid: seat.childPid,
         lastLaunchTick: seat.lastLaunchTick,
         nextLaunchTick: seat.nextLaunchTick,
+        nextLaunchAt: seat.nextLaunchAt,
         ...limit,
       }),
   });
@@ -1315,7 +1346,9 @@ async function cmdDirector(opts) {
   console.log(
     seat.cadenceTicks > 0
       ? `[crew] ${seat.name} launches every ${seat.cadenceTicks} world ticks.`
-      : `[crew] ${seat.name} is event-woken.`,
+      : seat.minWakeMs > 0
+        ? `[crew] ${seat.name} is event-woken, at most once every ${(seat.minWakeMs / 1000).toFixed(seat.minWakeMs % 1000 ? 1 : 0)}s.`
+        : `[crew] ${seat.name} is event-woken.`,
   );
   await supervise(crew, opts, "director", limit, launched);
 }
@@ -1395,16 +1428,16 @@ async function cmdWorldsmith(opts) {
             effort,
             // File edits land without prompts and the shell is open - the
             // Worldsmith's whole job is writing repo files and running the
-            // sprite renderer and generate-map. Sub-agents, scheduling, and
-            // the web stay blocked so the persona's prohibitions are
-            // load-bearing; --strict-mcp-config with no server config means
-            // no MCP surface at all.
+            // sprite renderer and generate-map. Sub-agents, scheduling, the
+            // web and the rest of the dead harness surface stay blocked so the
+            // persona's prohibitions are load-bearing; --strict-mcp-config
+            // with no server config means no MCP surface at all.
             "--permission-mode",
             "acceptEdits",
             "--allowedTools",
             "Bash",
             "--disallowedTools",
-            "Agent,Task,TaskCreate,Workflow,ScheduleWakeup,WebFetch,WebSearch",
+            disallowedTools(),
             "--strict-mcp-config",
             prompt,
           ],
@@ -1431,7 +1464,9 @@ async function cmdWorldsmith(opts) {
   let child = spawn(plan.command, plan.args, {
     cwd: repoRoot,
     stdio: ["ignore", "inherit", "inherit"],
-    // Preload all tool schemas - one-shot pass, ToolSearch turns are pure latency.
+    // Preload tool schemas, as the seats do - one-shot pass, and with the dead
+    // harness tools cut there is little left to defer, so ToolSearch turns
+    // would be pure latency.
     env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
   });
   let code = await new Promise((resolve, reject) => {
@@ -1509,6 +1544,16 @@ SEAT OPTIONS
   --engine codex|claude   --model NAME   --effort low|medium|high|xhigh|max
   --persona NAME          --name NAME    --names A,B,C   --no-ocean
   --cadence-ticks N       Override the persona's wake cadence; 0 = event-woken
+  --min-wake-ms N         Floor between an event-woken director's passes, in
+                          wall-clock ms (default: the persona's
+                          wake.min_interval_ms, else unthrottled; off = none).
+                          Measured from the last pass's start, so a slow pass
+                          pays nothing. Events queue during the wait, so a
+                          throttled seat batches the backlog into one pass.
+  --pass-ticks N          World time one character pass covers before it wraps
+                          up and relaunches (default 150, off = unbounded).
+                          Context cost grows with the square of a pass's turns,
+                          so long passes are far more expensive than short ones.
   --instructions TEXT     --url http://host:port
 
 Without --name/--names, characters auto-pick names: idle colonists already
@@ -1516,11 +1561,11 @@ alive in the world come first (reliably reclaimed on a restart), then
 previously-played names with local evidence, then fresh ones.
 
 DEFAULTS
-  characters: claude / haiku / low, OCEAN on
+  characters: claude / haiku / low, OCEAN on, 150-tick passes
   directors:  model, effort, and wake policy come from the persona's
               frontmatter in agents/directors/<NAME>.md; a persona without a
               wake block (the Illuminator) is not a seat
-  both run for 2000 ticks after launch (--max-ticks off = unbounded)`);
+  both run for 500 ticks after launch (--max-ticks off = unbounded)`);
 }
 
 async function main() {

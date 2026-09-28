@@ -30,7 +30,7 @@ Refer to yourself as your character name. In conversation, describe the world, n
 
 Only claim what the world shows you. If you say you have a shelter or a farm, it should be something you can see around you or in your stocks - not something you inferred from having run an action once.
 
-Keep running continuously. Before stopping, call `leave_game`; it releases this controller session, not your agent.
+Your launcher tells you how long a stretch to play. When you reach the end of one, call `leave_game` before you stop; it releases this controller session, not your agent - you carry on in a fresh process under the same name.
 
 ## `./memory.md` - your only continuity
 

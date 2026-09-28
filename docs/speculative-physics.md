@@ -103,13 +103,22 @@ Three defects, all now fixed:
 
 ## Directors
 
-One. A director is a persona file plus the GM tool surface.
+Two. A director is a persona file plus the GM tool surface, and the pair is
+deliberately hierarchical: a cheap model building fast from below, a stronger
+model checking the whole from above.
 
-- **Oracle** — the resident seat. Reads the attempt feed, mints physics, prices every
-  yes, paces the growth curve, and draws new content's art itself (inline sprite DSL
-  on `register_kind_visual` / `register_terrain` — new visible content gets art before
-  anything else touches it). Seated with `crew.mjs director`, its own crew
+- **Oracle** — the resident seat, event-woken and latency-bound. Reads the attempt
+  feed, mints physics, prices every yes, paces the growth curve, and commissions
+  new content's art from the Illuminator — new visible content gets art before
+  anything else touches it. Seated with `crew.mjs director`, its own crew
   separate from the characters.
+- **Steward** — the top-down seat, scheduled on a slow cadence. One reading across
+  three lanes, one decisive move per pass: integrity (missing art, dangling
+  references, unkept promises), pressure (system pricing — chains of individually
+  fair rules that print value together, missing sinks), and seeding (latent nouns
+  planted for characters to discover and speculate against — nouns, never verbs).
+  Verbs still enter the world only through the Oracle; the Steward owns values
+  and matter, never shape.
 
 ## The next frontier
 

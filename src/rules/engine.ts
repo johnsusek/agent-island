@@ -232,7 +232,7 @@ export interface Pulse {
 // ticks after the last real attempt.
 export interface InventionPulse {
   // Ticks since the last unknown-verb attempt / unknown-noun reach. Rising past
-  // a few hundred is the flatline the Seeder exists to break; null if none yet.
+  // a few hundred is the flatline the Steward exists to break; null if none yet.
   ticksSinceLastSpeculativeAttempt: number | null;
   ticksSinceLastNounAttempt: number | null;
   // Verb ideas tried and neither ratified nor rejected - the Oracle's open work.
@@ -252,7 +252,7 @@ export interface InventionPulse {
   ruleUseCounts: Record<string, number>;
   // Minted (non-baseline) action rules that have never been used and are past a
   // grace window since their mint - affordances that exist but nobody enters.
-  // Each is a candidate for the Seeder's "verb waiting on a noun" inference.
+  // Each is a candidate for the Steward's "verb waiting on a noun" inference.
   unusedRuleIds: string[];
 }
 
@@ -278,7 +278,7 @@ export interface DormantVerb {
   spawns: string[];
 }
 
-// The Seeder's dormant-verb report: every dead verb with its missing nouns, plus
+// The Steward's dormant-verb report: every dead verb with its missing nouns, plus
 // a rollup ranking the hard-missing nouns by how many verbs each would unblock.
 export interface DormantAnalysis {
   verbs: DormantVerb[];
@@ -290,7 +290,7 @@ export interface DormantAnalysis {
 // selector `where` clauses, and the holds/colocated/nearTerrain selectors. A
 // templated string ({{...}}) is resolved at runtime, not a literal noun, so it
 // is skipped. cmp/stock conditions are left out on purpose: a stock is a pack
-// quantity to be gathered, not an entity the Seeder would spawn to unblock a verb.
+// quantity to be gathered, not an entity the Steward would spawn to unblock a verb.
 function collectRequireReferents(cond: unknown, out: DormantReferent[]) {
   if (!cond || typeof cond !== "object") return;
   let c = cond as Record<string, unknown>;
@@ -685,7 +685,7 @@ export function createWorld(scenario: Scenario) {
   // canonical id (aliases collapse - see commitPrimitiveIntent's `type`). This
   // is the adoption signal the invention pulse reads: a minted verb nobody ever
   // reaches for (genesis cb263000's `tame_animal`) reads as 0 here, which is
-  // what tells the Seeder the verb is waiting on a noun. Persisted, so the count
+  // what tells the Steward the verb is waiting on a noun. Persisted, so the count
   // is a run's whole history rather than the in-memory log tail.
   let actionUseCount: Map<string, number>;
   // Petition-to-rule latencies (in ticks), one sample per idea the moment a mint
@@ -3741,13 +3741,13 @@ export function createWorld(scenario: Scenario) {
     return out;
   }
 
-  // The deterministic half of the Seeder's "verb waiting on a noun" inference.
+  // The deterministic half of the Steward's "verb waiting on a noun" inference.
   // For every dormant verb, read the nouns its `requires` gate names and split
   // them by whether the world can satisfy them: a `hardMissing` referent (no live
-  // instance AND no rule can ever produce it) is a real missing noun the Seeder
+  // instance AND no rule can ever produce it) is a real missing noun the Steward
   // can seed to unblock the verb outright; an `absentButProducible` one is a
   // stalled production chain, not an invention gap. `spawns` is the softer hint -
-  // what the verb makes - for the catalyst inference the Seeder itself judges (a
+  // what the verb makes - for the catalyst inference the Steward itself judges (a
   // verb that spawns a "companion" is waiting on an "animal" that appears in no
   // gate). Genesis cb263000's `tame_animal` and `collect_from_companion` are the
   // motivating cases: minted, awesome, and never used because the world held
@@ -3834,7 +3834,7 @@ export function createWorld(scenario: Scenario) {
     }
 
     // Rank the hard-missing nouns by how many dormant verbs each would unblock,
-    // so the Seeder seeds the highest-leverage root of a stalled subtree first.
+    // so the Steward seeds the highest-leverage root of a stalled subtree first.
     let leverage = new Map<string, DormantReferent & { blocks: string[] }>();
     for (let verb of verbs)
       for (let ref of verb.hardMissing) {

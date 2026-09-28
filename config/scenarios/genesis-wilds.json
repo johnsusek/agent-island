@@ -1,0 +1,2291 @@
+{
+  "name": "genesis-wilds",
+  "description": "Genesis with a landscape worth crossing. The same speculative physics (docs/speculative-physics.md) and the same two clocks - thirst three times faster than hunger, neither with a remedy - but the ground under them is now six terrains deep: wild grasslands, forest, lake, boggy marsh, open hills, and impassable crag. Every feature sits where it plausibly belongs. Outcrops, flint, and the copper and tin veins break out of the hills, not the grass; a spring rises where the rock does; reeds and clay are marsh things; deadwood, thickets, mushrooms, and the rare bead of tree resin are forest things; brambles want the open edge. Copper and tin are separate veins and neither is worth anything alone. Two kinds of beast graze it and neither will let you close: deer drift, band up, and bolt at four tiles; hares sit still and bolt at five. Nothing here carries a stock and nothing here has a verb. It is a world of nouns, arranged so that where you are stops being the same question as where you stand - which is the whole point, because a physics precipitated out of a flat plain and a physics precipitated out of country are not the same physics. One thing in the ground itself gives: grassland that is walked over often enough wears down into a dirt path, so the routes people actually use surface on the map as lines - the country keeping its own record of habit. Two harmless world clocks cycle underneath it all: time of day turns over roughly every two hundred ticks, time of year roughly every two thousand.",
+  "recommendedPlayers": {
+    "min": 3,
+    "max": 10
+  },
+  "include": [],
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "satiation-falls",
+        "description": "Everyone's satiation drains, slowly - about two thousand ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.05,
+        "channel": "satiation.fall"
+      },
+      {
+        "id": "starving",
+        "description": "Fires once when someone first becomes starving.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving, and nothing in this world feeds you yet - finding or making a way to eat is now your only task"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving wears the body down slowly - thousands of ticks, not hundreds.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -0.025
+            }
+          }
+        ]
+      },
+      {
+        "id": "hydration-falls",
+        "description": "Everyone's hydration drains, three times faster than satiation - about seven hundred ticks from slaked to parched.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "hydration",
+        "rate": -0.15,
+        "channel": "hydration.fall"
+      },
+      {
+        "id": "parched",
+        "description": "Fires once when someone first becomes parched.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "hydration"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "parched",
+          "interrupt": "you are parched, and nothing in this world lets you drink yet - the water is right there and you cannot touch it; finding or making a way to drink is now your only task"
+        }
+      },
+      {
+        "id": "dehydration-hurts",
+        "description": "Being parched wears the body down twice as fast as starving does.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "hydration"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -0.05
+            }
+          }
+        ]
+      },
+      {
+        "id": "critical",
+        "description": "Fires once when someone's health first drops to a critical level.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 25
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "health"
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "critical",
+          "interrupt": "your health is critical - stop and see to your survival before anything else"
+        }
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die: untagged out of the living and left as a corpse.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "grow-north",
+        "description": "The map extends north as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": {
+                "canSeeMapEdge": {
+                  "edge": "north",
+                  "within": 12
+                }
+              }
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "growWorld": {
+              "by": 12,
+              "direction": "north"
+            }
+          }
+        ]
+      },
+      {
+        "id": "grow-east",
+        "description": "The map extends east as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": {
+                "canSeeMapEdge": {
+                  "edge": "east",
+                  "within": 12
+                }
+              }
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "growWorld": {
+              "by": 12,
+              "direction": "east"
+            }
+          }
+        ]
+      },
+      {
+        "id": "grow-south",
+        "description": "The map extends south as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": {
+                "canSeeMapEdge": {
+                  "edge": "south",
+                  "within": 12
+                }
+              }
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "growWorld": {
+              "by": 12,
+              "direction": "south"
+            }
+          }
+        ]
+      },
+      {
+        "id": "grow-west",
+        "description": "The map extends west as soon as someone can see that edge.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "where": {
+                "canSeeMapEdge": {
+                  "edge": "west",
+                  "within": 12
+                }
+              }
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "growWorld": {
+              "by": 12,
+              "direction": "west"
+            }
+          }
+        ]
+      },
+      {
+        "id": "deer-grazes",
+        "description": "A deer drifts a tile at a time while it feeds - unhurried, and never while it is standing in the lake.",
+        "phase": "transition",
+        "each": {
+          "kind": "deer"
+        },
+        "chance": 0.12,
+        "when": {
+          "not": {
+            "nearTerrain": {
+              "type": "water"
+            }
+          }
+        },
+        "do": [
+          {
+            "move": {
+              "of": "self",
+              "dx": {
+                "rand": [
+                  -1.5,
+                  1.5,
+                  "graze-x"
+                ]
+              },
+              "dy": {
+                "rand": [
+                  -1.5,
+                  1.5,
+                  "graze-y"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "deer-herds",
+        "description": "A deer with no company inside two tiles closes on the nearest of its own - the reason they end up in loose bands rather than scattered singly.",
+        "phase": "transition",
+        "each": {
+          "kind": "deer"
+        },
+        "chance": 0.2,
+        "when": {
+          "all": [
+            {
+              "not": {
+                "colocated": {
+                  "kind": "deer",
+                  "range": 2
+                }
+              }
+            },
+            {
+              "colocated": {
+                "kind": "deer",
+                "range": 12
+              }
+            }
+          ]
+        },
+        "do": [
+          {
+            "moveToward": {
+              "of": "self",
+              "target": {
+                "colocated": {
+                  "kind": "deer",
+                  "range": 12,
+                  "pick": "nearest"
+                }
+              },
+              "steps": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "deer-bolts",
+        "description": "A deer breaks away from anyone inside five tiles - two tiles at a go, but no oftener than every third tick. The cooldown is the whole balance of the thing: a deer that fled every tick could never be reached by anything, and a resource nobody can ever reach is scenery. This one outpaces a walk on open ground and loses that edge to patience, cover, or something thrown.",
+        "phase": "transition",
+        "each": {
+          "kind": "deer"
+        },
+        "cooldown": 3,
+        "when": {
+          "colocated": {
+            "tag": "agent",
+            "range": 5
+          }
+        },
+        "do": [
+          {
+            "move": {
+              "of": "self",
+              "dx": {
+                "add": [
+                  {
+                    "mul": [
+                      2,
+                      {
+                        "sign": {
+                          "sub": [
+                            {
+                              "posX": "self"
+                            },
+                            {
+                              "posX": {
+                                "colocated": {
+                                  "tag": "agent",
+                                  "range": 5,
+                                  "pick": "nearest"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "rand": [
+                      -0.75,
+                      0.75,
+                      "deer-bolt-x"
+                    ]
+                  }
+                ]
+              },
+              "dy": {
+                "add": [
+                  {
+                    "mul": [
+                      2,
+                      {
+                        "sign": {
+                          "sub": [
+                            {
+                              "posY": "self"
+                            },
+                            {
+                              "posY": {
+                                "colocated": {
+                                  "tag": "agent",
+                                  "range": 5,
+                                  "pick": "nearest"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "rand": [
+                      -0.75,
+                      0.75,
+                      "deer-bolt-y"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "hare-shifts",
+        "description": "A hare sits still far more than it moves; when it does move it is one tile and no further.",
+        "phase": "transition",
+        "each": {
+          "kind": "hare"
+        },
+        "chance": 0.06,
+        "when": {
+          "not": {
+            "nearTerrain": {
+              "type": "water"
+            }
+          }
+        },
+        "do": [
+          {
+            "move": {
+              "of": "self",
+              "dx": {
+                "rand": [
+                  -1.5,
+                  1.5,
+                  "hare-x"
+                ]
+              },
+              "dy": {
+                "rand": [
+                  -1.5,
+                  1.5,
+                  "hare-y"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "hare-bolts",
+        "description": "A hare is the opposite bet to a deer. It backs its stillness and lets you come all the way to arm's reach, then goes three tiles at once. So a hare is easy to walk up on and almost impossible to keep hold of - the reverse of the deer's problem, and it wants a different answer.",
+        "phase": "transition",
+        "each": {
+          "kind": "hare"
+        },
+        "cooldown": 2,
+        "when": {
+          "colocated": {
+            "tag": "agent",
+            "range": 1
+          }
+        },
+        "do": [
+          {
+            "move": {
+              "of": "self",
+              "dx": {
+                "add": [
+                  {
+                    "mul": [
+                      3,
+                      {
+                        "sign": {
+                          "sub": [
+                            {
+                              "posX": "self"
+                            },
+                            {
+                              "posX": {
+                                "colocated": {
+                                  "tag": "agent",
+                                  "range": 1,
+                                  "pick": "nearest"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "rand": [
+                      -0.75,
+                      0.75,
+                      "hare-bolt-x"
+                    ]
+                  }
+                ]
+              },
+              "dy": {
+                "add": [
+                  {
+                    "mul": [
+                      3,
+                      {
+                        "sign": {
+                          "sub": [
+                            {
+                              "posY": "self"
+                            },
+                            {
+                              "posY": {
+                                "colocated": {
+                                  "tag": "agent",
+                                  "range": 1,
+                                  "pick": "nearest"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "rand": [
+                      -0.75,
+                      0.75,
+                      "hare-bolt-y"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "trampled-path",
+        "description": "Grass that is walked on wears down, a footfall at a time, into a dirt path. Slow enough that one crossing leaves nothing, steady enough that a route used every day becomes visible as a line on the country - the map recording how it is used.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "chance": 0.05,
+        "when": {
+          "nearTerrain": {
+            "type": "wild grasslands",
+            "range": 0
+          }
+        },
+        "do": [
+          {
+            "setTerrain": {
+              "to": "dirt path"
+            }
+          }
+        ]
+      },
+      {
+        "id": "beasts-leave-the-water",
+        "description": "An animal that bolted into the lake founders there until it finds its way back out. The one rule that is allowed to move a beast off water, so nothing can end up stranded mid-lake.",
+        "phase": "transition",
+        "each": {
+          "tag": "animal"
+        },
+        "when": {
+          "nearTerrain": {
+            "type": "water"
+          }
+        },
+        "do": [
+          {
+            "move": {
+              "of": "self",
+              "dx": {
+                "rand": [
+                  -1.5,
+                  1.5,
+                  "flounder-x"
+                ]
+              },
+              "dy": {
+                "rand": [
+                  -1.5,
+                  1.5,
+                  "flounder-y"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "timeofday-turns",
+        "description": "The day turns over, about two hundred ticks from dawn back to dawn.",
+        "phase": "flow",
+        "each": {
+          "tag": "world"
+        },
+        "target": "timeofday",
+        "rate": 0.5,
+        "channel": "timeofday.turn"
+      },
+      {
+        "id": "timeofday-wraps",
+        "description": "At the far edge of the day, it wraps back to dawn.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "timeofday"
+          },
+          "right": 100
+        },
+        "do": [
+          {
+            "set": {
+              "target": "timeofday",
+              "to": 0
+            }
+          }
+        ],
+        "emit": {
+          "type": "timeofday-wraps",
+          "global": true,
+          "text": "night gives way to dawn again"
+        }
+      },
+      {
+        "id": "timeofyear-turns",
+        "description": "The year turns over, about two thousand ticks from one thaw to the next.",
+        "phase": "flow",
+        "each": {
+          "tag": "world"
+        },
+        "target": "timeofyear",
+        "rate": 0.05,
+        "channel": "timeofyear.turn"
+      },
+      {
+        "id": "timeofyear-wraps",
+        "description": "At the far edge of the year, it wraps back to the start of the cycle.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "timeofyear"
+          },
+          "right": 100
+        },
+        "do": [
+          {
+            "set": {
+              "target": "timeofyear",
+              "to": 0
+            }
+          }
+        ],
+        "emit": {
+          "type": "timeofyear-wraps",
+          "global": true,
+          "text": "the year turns over into another cycle of seasons"
+        }
+      }
+    ],
+    "removedBaseIds": [],
+    "worldStocks": {
+      "timeofday": {
+        "value": 0,
+        "min": 0,
+        "max": 100,
+        "icon": "energy",
+        "color": "#f4c95d",
+        "role": "stat",
+        "label": "time of day"
+      },
+      "timeofyear": {
+        "value": 0,
+        "min": 0,
+        "max": 100,
+        "icon": "warmth",
+        "color": "#c98a3e",
+        "role": "stat",
+        "label": "time of year"
+      }
+    },
+    "setup": [
+      {
+        "scatter": {
+          "kind": "outcrop",
+          "namePrefix": "outcrop",
+          "tags": [
+            "stone"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "hills"
+          ],
+          "density": 0.35,
+          "minSpacing": 3,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "occupancy": "tile",
+          "kind": "copper_vein",
+          "namePrefix": "copper",
+          "tags": [
+            "stone",
+            "metal",
+            "ore",
+            "copper"
+          ],
+          "onTerrain": [
+            "hills"
+          ],
+          "density": 0.09,
+          "minSpacing": 8,
+          "spawnKeepout": 6
+        }
+      },
+      {
+        "scatter": {
+          "occupancy": "tile",
+          "kind": "tin_vein",
+          "namePrefix": "tin",
+          "tags": [
+            "stone",
+            "metal",
+            "ore",
+            "tin"
+          ],
+          "onTerrain": [
+            "hills"
+          ],
+          "density": 0.05,
+          "minSpacing": 10,
+          "spawnKeepout": 6
+        }
+      },
+      {
+        "scatter": {
+          "occupancy": "tile",
+          "kind": "flint",
+          "namePrefix": "flint",
+          "tags": [
+            "stone",
+            "flint",
+            "toolstone"
+          ],
+          "onTerrain": [
+            "hills"
+          ],
+          "density": 0.22,
+          "minSpacing": 3,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "kind": "spring",
+          "namePrefix": "spring",
+          "tags": [
+            "water",
+            "spring"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "hills"
+          ],
+          "density": 0.08,
+          "minSpacing": 9,
+          "spawnKeepout": 5
+        }
+      },
+      {
+        "scatter": {
+          "kind": "deadwood",
+          "namePrefix": "deadwood",
+          "tags": [
+            "wood",
+            "deadwood"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "forest"
+          ],
+          "density": 0.3,
+          "minSpacing": 3,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "occupancy": "tile",
+          "kind": "resin",
+          "namePrefix": "resin",
+          "tags": [
+            "resin",
+            "sap",
+            "tree"
+          ],
+          "onTerrain": [
+            "forest"
+          ],
+          "density": 0.05,
+          "minSpacing": 9,
+          "spawnKeepout": 5
+        }
+      },
+      {
+        "scatter": {
+          "occupancy": "tile",
+          "kind": "mushroom",
+          "namePrefix": "mushroom",
+          "tags": [
+            "fungus",
+            "forage"
+          ],
+          "onTerrain": [
+            "forest"
+          ],
+          "density": 0.28,
+          "minSpacing": 3,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "kind": "thicket",
+          "namePrefix": "thicket",
+          "tags": [
+            "brush",
+            "cover"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "forest"
+          ],
+          "density": 0.4,
+          "minSpacing": 3,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "kind": "bramble",
+          "namePrefix": "bramble",
+          "tags": [
+            "brush",
+            "fruit",
+            "forage"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "wild grasslands",
+            "forest"
+          ],
+          "density": 0.35,
+          "minSpacing": 4,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "kind": "reedbed",
+          "namePrefix": "reeds",
+          "tags": [
+            "reed",
+            "fiber",
+            "forage"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "marsh"
+          ],
+          "density": 0.3,
+          "minSpacing": 2,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "kind": "clay_bank",
+          "namePrefix": "clay",
+          "tags": [
+            "clay",
+            "earth"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "marsh"
+          ],
+          "density": 0.14,
+          "minSpacing": 5,
+          "spawnKeepout": 4
+        }
+      },
+      {
+        "scatter": {
+          "kind": "deer",
+          "namePrefix": "deer",
+          "tags": [
+            "animal",
+            "prey",
+            "grazer"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "wild grasslands",
+            "forest"
+          ],
+          "density": 0.25,
+          "minSpacing": 4,
+          "spawnKeepout": 7
+        }
+      },
+      {
+        "scatter": {
+          "kind": "hare",
+          "namePrefix": "hare",
+          "tags": [
+            "animal",
+            "prey",
+            "burrower"
+          ],
+          "occupancy": "tile",
+          "onTerrain": [
+            "wild grasslands",
+            "hills"
+          ],
+          "density": 0.2,
+          "minSpacing": 5,
+          "spawnKeepout": 5
+        }
+      }
+    ],
+    "fixtures": [],
+    "defaultTerrain": "wild grasslands",
+    "terrainLayers": [
+      {
+        "terrain": "marsh",
+        "gen": {
+          "noise": {
+            "scale": 10,
+            "above": 0.7,
+            "octaves": 2
+          }
+        },
+        "where": {
+          "on": [
+            "wild grasslands"
+          ]
+        }
+      },
+      {
+        "terrain": "water",
+        "gen": {
+          "noise": {
+            "scale": 14,
+            "above": 0.66,
+            "octaves": 2
+          }
+        }
+      },
+      {
+        "terrain": "hills",
+        "gen": {
+          "noise": {
+            "scale": 17,
+            "above": 0.62,
+            "octaves": 2
+          }
+        },
+        "where": {
+          "on": [
+            "wild grasslands"
+          ]
+        }
+      },
+      {
+        "terrain": "crag",
+        "gen": {
+          "blobs": {
+            "density": 0.5,
+            "maxRadius": 2
+          }
+        },
+        "where": {
+          "on": [
+            "hills"
+          ]
+        }
+      },
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": [
+            "wild grasslands"
+          ]
+        }
+      }
+    ],
+    "connect": true,
+    "worldWidth": 1024,
+    "worldHeight": 1024,
+    "terrainSpecs": {
+      "wild grasslands": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [
+              16,
+              16
+            ],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "g": "#547e64",
+              "d": "#374e4a",
+              "l": "#92a984"
+            },
+            "grid": [
+              "gggggggggggggggg",
+              "ggdgggggggglgggg",
+              "gggggggggggggggg",
+              "glggggggdggggggg",
+              "ggggggggggggggdg",
+              "ggggglgggggggggg",
+              "ggggggggggdggggg",
+              "gdgggggggggggglg",
+              "gggggggglggggggg",
+              "ggggdggggggggggg",
+              "glgggggggggdgggg",
+              "gggggggggggggggg",
+              "ggggggglgggggggg",
+              "gggdgggggggggggg",
+              "gggggggggggglggg",
+              "gggggggggdgggggg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#42583a"
+        }
+      },
+      "water": {
+        "passable": false,
+        "visual": {
+          "sprite": {
+            "size": [
+              16,
+              16
+            ],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "b": "#484a77",
+              "r": "#4d65b4",
+              "k": "#323353"
+            },
+            "grid": [
+              "bbbbbbbbbbbbbbbb",
+              "bbbrrbbbbbbbbbbb",
+              "bbbbbbbbbbrrrbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bkbbbbbbbbbbbbbb",
+              "bbbbbbrrbbbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbbbbbbbbbbrrb",
+              "bbrrbbbbbbbbbbbb",
+              "bbbbbbbbbkbbbbbb",
+              "bbbbbbbrrrbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "brrbbbbbbbbbbkbb",
+              "bbbbbbbbbrrbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbrrbbbbbbbbbb"
+            ],
+            "mirror": "none"
+          },
+          "color": "#2b4a6b"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [
+              16,
+              16
+            ],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "g": "#547e64",
+              "c": "#1f3b2c",
+              "t": "#4a3524"
+            },
+            "grid": [
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggccccggggggg",
+              "ggggccccccgggggg",
+              "ggggccccccgggggg",
+              "gggggccccggggggg",
+              "ggggggttgggggggg",
+              "ggggggttgggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg",
+              "gggggggggggggggg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#2f4a35"
+        }
+      },
+      "hills": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [
+              16,
+              16
+            ],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "g": "#547e64",
+              "d": "#374e4a",
+              "m": "#7f708a",
+              "k": "#625565",
+              "l": "#9babb2"
+            },
+            "grid": [
+              "gggggggggggggggg",
+              "ggggglmmgggggggg",
+              "ggggkmmmlggggggg",
+              "gggggkkmmggggggg",
+              "gggggggkkgggddgg",
+              "gggggggggggggggg",
+              "ggdggggggggggggg",
+              "ggggggggggglmmgg",
+              "gggggggggglmmmlg",
+              "ggggggggggkkmmmg",
+              "ggggddggggggkkgg",
+              "gggggggggggggggg",
+              "gglmmggggggggdgg",
+              "gkmmmlgggggggggg",
+              "ggkkmmgggggggggg",
+              "gggkkggggggggggg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#4a5a52"
+        }
+      },
+      "marsh": {
+        "moveCost": 3,
+        "visual": {
+          "sprite": {
+            "size": [
+              16,
+              16
+            ],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "d": "#374e4a",
+              "b": "#484a77",
+              "r": "#676633",
+              "m": "#547e64"
+            },
+            "grid": [
+              "dddddddddddddddd",
+              "ddddbbbdddddrddd",
+              "dddbbbbbdddrrddd",
+              "ddddbbbdddddrddd",
+              "dddddddddmdddddd",
+              "ddrddddddddbbddd",
+              "drrdddddddbbbbdd",
+              "ddrdddddddbbbddd",
+              "dddddddddddddddd",
+              "ddddddmdddddrddd",
+              "dbbbdddddddrrddd",
+              "bbbbbddddddddddd",
+              "dbbbdddddddmdddd",
+              "dddddddddddddddd",
+              "ddrrddddddbbbddd",
+              "ddrdddddddbbdddd"
+            ],
+            "mirror": "none"
+          },
+          "color": "#2f4340"
+        }
+      },
+      "dirt path": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [
+              16,
+              16
+            ],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "t": "#7a5f3d",
+              "d": "#5c462c",
+              "l": "#96794f",
+              "g": "#547e64"
+            },
+            "grid": [
+              "gtttttttttttttlg",
+              "ttttdttttttttttt",
+              "ttttttttlttttttt",
+              "tdtttttttttttdtt",
+              "tttttltttttttttt",
+              "ttttttttttdttttt",
+              "ttdttttttttttltt",
+              "tttttttltttttttt",
+              "ttttdttttttttttt",
+              "tttttttttldttttt",
+              "tlttttttttttttdt",
+              "ttttttdttttttttt",
+              "ttttttttttltdttt",
+              "tdtttltttttttttt",
+              "ttttttttdttttttt",
+              "gltttttttttttttg"
+            ],
+            "mirror": "none"
+          },
+          "color": "#5e4b30"
+        }
+      },
+      "crag": {
+        "passable": false,
+        "visual": {
+          "sprite": {
+            "size": [
+              16,
+              16
+            ],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "c": "#625565",
+              "k": "#3e3546",
+              "l": "#7f708a",
+              "x": "#2e222f"
+            },
+            "grid": [
+              "llcccckccccclccc",
+              "lccccckcccccccck",
+              "ccccckkkccccccck",
+              "cckkkkccccclllck",
+              "ckkccccccclllcck",
+              "ccccccccccllcccc",
+              "cccclccccccccccc",
+              "kkkkkkkkccccxxxx",
+              "cccccckkkkkkcccc",
+              "cclllccccccccccc",
+              "clllccccccckkkcc",
+              "ccllccccckkkcccc",
+              "cccccckkkkccccll",
+              "ccccckkccccccllc",
+              "ccckkkcccccccccc",
+              "ckkcccccclcccccc"
+            ],
+            "mirror": "none"
+          },
+          "color": "#4a4352"
+        }
+      }
+    },
+    "kindVisuals": {
+      "outcrop": {
+        "icon": "stone-pile",
+        "color": "#9aa3ab",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "d": "#4c5158",
+            "m": "#767d86",
+            "l": "#a8b0b9",
+            "h": "#cdd4db"
+          },
+          "grid": [
+            "................",
+            "................",
+            ".......ll.......",
+            "......lhhl......",
+            ".....lhhhml.....",
+            "....mlhhmmld....",
+            "...mlmmmmmldd...",
+            "..dmlmmmmmmldd..",
+            "..dmmmmmmmmmdd..",
+            ".dmmmmmmmmmmmdd.",
+            ".dmmmmmmmmmmmmd.",
+            "ddmmmmmmmmmmmmdd",
+            "ddmmmmmmmmmmmmdd",
+            "dddmmmmmmmmmmddd",
+            "..ddddddddddddd.",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "agent": {
+        "sprite": {
+          "size": [
+            16,
+            32
+          ],
+          "kind": "token",
+          "mirror": "horizontal",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "h": "#4c3e24",
+            "s": "#ab947a",
+            "S": "#966c6c",
+            "e": "#e6904e",
+            "c": "#cd683d",
+            "m": "#9e4539",
+            "p": "#3e3546"
+          },
+          "grid": [
+            "........",
+            "........",
+            "........",
+            ".....khh",
+            "....khhs",
+            "....khks",
+            "....ksss",
+            ".....kSs",
+            "......Ss",
+            "...keccc",
+            "..keeccc",
+            "..kccccc",
+            "..kccccc",
+            "..kccccc",
+            "..kccccc",
+            "..kkkkkk",
+            "..kmmmmm",
+            "..kmmmmm",
+            "..kmmmmm",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kppk.",
+            "...kkkk.",
+            "...kkkk."
+          ]
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "b": "#b9985f",
+            "B": "#9c7b45",
+            "e": "#6f5638",
+            "t": "#3e3222",
+            "p": "#7a5d3a",
+            "P": "#4f3d28"
+          },
+          "grid": [
+            "................",
+            "...eebbbbbbee...",
+            "..ebBBBBBBBBbe..",
+            "..ebBttttttBbe..",
+            "..ebBBBBBBBBbe..",
+            "..ebBttttttBbe..",
+            "..ebBBBBBBBBbe..",
+            "..eebbbbbbbbee..",
+            "......pPPp......",
+            "......pPPp......",
+            "......pPPp......",
+            "......pPPp......",
+            "......pPPp......",
+            ".....ePPPPe.....",
+            "....PPeeeePP....",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "fire": {
+        "icon": "campfire",
+        "color": "#e8843a",
+        "label": "fire",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "s": "#7a7a8c",
+            "f": "#e8843a",
+            "y": "#f7c95c"
+          },
+          "grid": [
+            "........",
+            "........",
+            "........",
+            "...yy...",
+            "..yffy..",
+            "..ffff..",
+            ".sffffs.",
+            ".ssffss.",
+            ".ssssss.",
+            "ssssssss",
+            "ssssssss",
+            ".ssssss.",
+            "..ssss..",
+            "........",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "shelter": {
+        "icon": "tepee",
+        "color": "#a67c4e",
+        "label": "shelter",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "r": "#6b4a2b",
+            "w": "#a67c4e",
+            "d": "#2a1f16"
+          },
+          "grid": [
+            ".......r",
+            "......rr",
+            ".....rrr",
+            "....rrrr",
+            "...rrrrr",
+            "..rrrrrr",
+            ".rrrrrrr",
+            "wwwwwwww",
+            "wwwwwwww",
+            "wwwwwwdd",
+            "wwwwwwdd",
+            "wwwwwwdd",
+            "wwwwwwdd",
+            "wwwwwwww",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "berry": {
+        "icon": "berries",
+        "color": "#c23b3b",
+        "label": "berry",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "g": "#3e7c3e",
+            "r": "#c23b3b",
+            "h": "#e8635c",
+            "s": "#6b4a2b"
+          },
+          "grid": [
+            "........",
+            "........",
+            "...gg...",
+            "..gggg..",
+            ".ggrrgg.",
+            ".grrrrg.",
+            ".rrhrrr.",
+            "grrrrrrg",
+            "grhrrrrg",
+            ".rrrrrr.",
+            ".rrhrr..",
+            "..rrrr..",
+            "...ss...",
+            "...ss...",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "roasted_berry": {
+        "icon": "berries",
+        "color": "#8b3a1f",
+        "label": "roasted berry",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "g": "#5b4632",
+            "r": "#8b3a1f",
+            "h": "#c2703c",
+            "s": "#4a3320"
+          },
+          "grid": [
+            "........",
+            "........",
+            "...gg...",
+            "..gggg..",
+            ".ggrrgg.",
+            ".grrrrg.",
+            ".rrhrrr.",
+            "grrrrrrg",
+            "grhrrrrg",
+            ".rrrrrr.",
+            ".rrhrr..",
+            "..rrrr..",
+            "...ss...",
+            "...ss...",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "spear": {
+        "icon": "spear-head",
+        "color": "#6b4a2b",
+        "label": "spear",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "t": "#9aa3ab",
+            "w": "#6b4a2b",
+            "b": "#3a2a1a"
+          },
+          "grid": [
+            ".......t",
+            "......tt",
+            "......tt",
+            "......bb",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "......ww",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "stone_tool": {
+        "icon": "stone-axe",
+        "color": "#9aa3ab",
+        "label": "stone tool",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "g": "#9aa3ab",
+            "d": "#5f6870"
+          },
+          "grid": [
+            "........",
+            "......gg",
+            ".....ggg",
+            "....gggg",
+            "....gggg",
+            "....gdgg",
+            "....gggg",
+            ".....ggg",
+            ".....ggg",
+            "......gg",
+            "......gg",
+            ".......g",
+            ".......g",
+            "........",
+            "........",
+            "........"
+          ],
+          "mirror": "horizontal"
+        }
+      },
+      "copper_vein": {
+        "icon": "ore",
+        "color": "#cd683d",
+        "label": "copper vein",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#3e3546",
+            "m": "#625565",
+            "l": "#7f708a",
+            "o": "#cd683d",
+            "e": "#e6904e",
+            "v": "#30e1b9"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            ".....kkkk.......",
+            "....klllmkkk....",
+            "...klmmeommdk...",
+            "..klmmeeoommdk..",
+            "..kmmeommmmmdk..",
+            ".kdmmommlmmmddk.",
+            ".kdmmmmllmoemdk.",
+            "kddmmmmmmmoemddk",
+            "kdmmmmmmmmvvmddk",
+            "kdmmmmmmmmmmmddk",
+            ".kddmmmmmmmmdkk.",
+            "..kkkddddddkkk..",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "tin_vein": {
+        "icon": "minerals",
+        "color": "#9babb2",
+        "label": "tin vein",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#3e3546",
+            "m": "#625565",
+            "l": "#7f708a",
+            "s": "#9babb2",
+            "w": "#c7dcd0"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "................",
+            "......kkkkk.....",
+            "....kkllmmmkk...",
+            "...klwwlmmmmdk..",
+            "..klwwslmmmmmdk.",
+            ".kdlwslmmswmmddk",
+            ".kdmmmmmmswmmddk",
+            "kddmmmmmmmsmmddk",
+            "kdmmmmmmmmmmmddk",
+            ".kddmmmmmmmmddk.",
+            "..kkkdddddddkk..",
+            "................",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "flint": {
+        "icon": "flint-spark",
+        "color": "#7f708a",
+        "label": "flint",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "h": "#9babb2",
+            "m": "#625565",
+            "d": "#3e3546"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            ".........kkk....",
+            "........khhdk...",
+            ".......khhhddk..",
+            "......khhhdddk..",
+            ".....khhhddddk..",
+            ".....khhhdddddk.",
+            ".....khhhddddddk",
+            ".....khhdddddddk",
+            ".kk..khddddddmmk",
+            "khdk.kdddddddmmk",
+            "khdk.kdddddddmmk",
+            ".kk...kkkkkkkkk.",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "deadwood": {
+        "icon": "log",
+        "color": "#ab947a",
+        "label": "deadwood",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#4c3e24",
+            "b": "#ab947a",
+            "e": "#e6904e",
+            "g": "#547e64"
+          },
+          "grid": [
+            "................",
+            "................",
+            "..........k.....",
+            ".........kdk....",
+            "......kkkkdk....",
+            ".....kddddk.....",
+            "....kdbbbddkkk..",
+            "...kebbbbbdddk..",
+            "..kebbdddddddk..",
+            "..kekdddddddk...",
+            "..kkkgddddkk....",
+            "....kggdkkk.....",
+            ".....kggk.......",
+            "......kk........",
+            "................",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "resin": {
+        "icon": "dripping-honey",
+        "color": "#f79617",
+        "label": "tree resin",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#4c3e24",
+            "b": "#ab947a",
+            "a": "#cd683d",
+            "o": "#f79617",
+            "y": "#fbb954"
+          },
+          "grid": [
+            "................",
+            "..kkkkkkkkkkkk..",
+            "..kdbbbbbbbbdk..",
+            "..kdbbbbbbbbdk..",
+            "..kkdbbbbbbdkk..",
+            "....kkdbbdkk....",
+            "......kaak......",
+            ".....kayoak.....",
+            ".....kyooak.....",
+            "....kayooaak....",
+            "....kyoooaak....",
+            "....kaooooak....",
+            "....kaoooaak....",
+            ".....kaaaak.....",
+            "......kkkk......",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "mushroom": {
+        "icon": "mushroom",
+        "color": "#b33831",
+        "label": "mushroom",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "h": "#ea4f36",
+            "c": "#b33831",
+            "r": "#7a3045",
+            "w": "#fdcbb0",
+            "s": "#c7dcd0",
+            "S": "#9babb2"
+          },
+          "grid": [
+            "................",
+            "................",
+            ".....kkkk.......",
+            "...kkhhhck......",
+            "..kchhhccck.....",
+            ".kchwhcccwck....",
+            ".kcccccccccrk...",
+            "..kkksskkkkk....",
+            "....ksSk...kk...",
+            "....ksSk.kkhck..",
+            "....ksSk.kchwck.",
+            "....ksSk.kccccrk",
+            "....ksSk..kksskk",
+            "...kksSkk..ksSk.",
+            "...kkkkkk..kkkk.",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "thicket": {
+        "icon": "bush",
+        "color": "#239063",
+        "label": "thicket",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#165a4c",
+            "m": "#239063",
+            "h": "#1ebc73",
+            "s": "#4c3e24"
+          },
+          "grid": [
+            "................",
+            "......kk........",
+            ".....khhk..kk...",
+            "....khhmhkkhhk..",
+            "...khhmmmhhmmhk.",
+            "..khmmmmmmmmmdk.",
+            ".khmmmmdmmmmmddk",
+            ".kmmmdddmmmdmddk",
+            "kmmmddddmmdddddk",
+            "kmmdddsdddsddddk",
+            "kdddddsdddsdddk.",
+            ".kdddksdddskdk..",
+            "..kkkksdddsk....",
+            ".....ksdddsk....",
+            "......kkkkk.....",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "bramble": {
+        "icon": "bramble",
+        "color": "#e83b3b",
+        "label": "bramble",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#165a4c",
+            "m": "#239063",
+            "h": "#91db69",
+            "r": "#e83b3b",
+            "p": "#f68181"
+          },
+          "grid": [
+            "................",
+            ".......kk.......",
+            "....kkkhhkkk....",
+            "...khhmmmmhhk...",
+            "..khmmrpmmmmhk..",
+            "..kmmmrrmmrpmk..",
+            ".kmmmmmmmmrrmmk.",
+            ".kmmdmmmmmmmmdk.",
+            "kmmddmmrpmmdddmk",
+            "kmdddmmrrmdddddk",
+            "kdddmmmdddmmdddk",
+            ".kddmrpmddmmddk.",
+            "..kddmrrmdddkk..",
+            "...kkddmmdkk....",
+            "......kkkk......",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "reedbed": {
+        "icon": "reeds",
+        "color": "#a2a947",
+        "label": "reedbed",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#4c3e24",
+            "m": "#676633",
+            "h": "#a2a947",
+            "t": "#cd683d"
+          },
+          "grid": [
+            "................",
+            ".....t....t.....",
+            "....tt...tth....",
+            "....th...th.....",
+            "..t.h..t.h......",
+            ".tt.h.tt.h...t..",
+            ".th.m.th.m...tt.",
+            ".h..m.h..m...th.",
+            ".m..m.m..m.k.h..",
+            ".m.km.m.km.k.m..",
+            "km.km.m.km.km.k.",
+            "km.km.m.km.km.k.",
+            "km.km.mkkm.km.k.",
+            "kmkkmkkmkmkkmkk.",
+            "kkskskskskskskk.",
+            "..kksksksksk...."
+          ],
+          "mirror": "none"
+        }
+      },
+      "clay_bank": {
+        "icon": "clay",
+        "color": "#cd683d",
+        "label": "clay bank",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#9e4539",
+            "m": "#cd683d",
+            "h": "#e6904e",
+            "w": "#484a77"
+          },
+          "grid": [
+            "................",
+            "................",
+            "................",
+            "........kkkk....",
+            "......kkhhhmkk..",
+            "....kkhhhmmmmdk.",
+            "..kkhhhmmmmmmddk",
+            ".khhmmmmmmmmdddk",
+            ".khmmmmmmmmddddk",
+            "kdmmmmmmmdddddwk",
+            "kdmmmmmmddddwwwk",
+            "kddmmmdddddwwwdk",
+            "kdddddddddwwwddk",
+            ".kdddddddwwwddk.",
+            "..kkkkkkkwwkkk..",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "spring": {
+        "icon": "spring",
+        "color": "#30e1b9",
+        "label": "spring",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#625565",
+            "l": "#7f708a",
+            "w": "#0b8a8f",
+            "b": "#30e1b9",
+            "h": "#8ff8e2"
+          },
+          "grid": [
+            "................",
+            "................",
+            "......kkk.......",
+            ".....klbhk......",
+            "....klbhbhk.....",
+            "...kllbhbwlk....",
+            "..kslwbhbwslk...",
+            "..kslwwbwwsslk..",
+            ".kssllwbwllsslk.",
+            ".kssslwbwlsssslk",
+            "kssssswbwssssslk",
+            "kssssswwwssssslk",
+            "kslsssswsssssslk",
+            ".kssssswwsssskk.",
+            "..kkkksswskkkk..",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "deer": {
+        "icon": "deer",
+        "color": "#cd683d",
+        "label": "deer",
+        "sprite": {
+          "size": [
+            32,
+            32
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "s": "#9e4539",
+            "b": "#cd683d",
+            "h": "#e6904e",
+            "w": "#c7dcd0",
+            "a": "#ab947a"
+          },
+          "grid": [
+            "................................",
+            ".........................ka.....",
+            "..................ka.....kak.k..",
+            ".........ka.......kak....kakka..",
+            "........kak.......kak....kakak..",
+            "........kak.....kakakk...kakak..",
+            "........kakk....kakaak...kaak...",
+            ".........kaak....kaaak....kak...",
+            "..........kak.....kaak....ka....",
+            "...........kak.....kaak..kak....",
+            "............kakk....kaakkka.....",
+            ".............kkkkk...kkkkk......",
+            "..........kkkkkkkkkkkkkkkk......",
+            "........kkbbbbbbbbbbbbbbhkk.....",
+            ".......kbbbbbbbbbbbbbbbhhhbk....",
+            "......kbbbbhhhhhhhhbbbbhwwhbk...",
+            "kk...kbbhhhhhhhhhhhhhbbbhwwhbk..",
+            "kwkkkbbhhhhhhhhhhhhhhhbbhkwkhbk.",
+            ".kwwkbhhhhhhhhhhhhhhhhhbbhkkkhbk",
+            "..kwkbhhhhhhhhhhhhhhhhhhbbbbbbbk",
+            "...kkbhhhhhhhhhhhhhhhhhhhhbbbbk.",
+            "....kbshhhhhhhhhhhhhhhhhhhbbkk..",
+            "....kbsshhhhhhhhhhhhhhhhhbbk....",
+            "....kbsswwwwwwwwwwwwwwwwsbk.....",
+            "....kbsk...kss.....ksskkkbk.....",
+            "....kbk....kbs.....kbsk..k......",
+            "....kbk....kbs.....kbsk.........",
+            "....kbk....kbs.....kbsk.........",
+            "....kbk....kbs.....kbsk.........",
+            "....kbk....kbs.....kbsk.........",
+            "....kkk....kks.....kksk.........",
+            "................................"
+          ],
+          "mirror": "none"
+        }
+      },
+      "hare": {
+        "icon": "hare",
+        "color": "#ab947a",
+        "label": "hare",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "palette": {
+            ".": "none",
+            "k": "#2e222f",
+            "d": "#4c3e24",
+            "b": "#ab947a",
+            "h": "#c7dcd0",
+            "e": "#966c6c"
+          },
+          "grid": [
+            "................",
+            "...k......k.....",
+            "..kek....kek....",
+            "..kek....kek....",
+            "..kbk....kbk....",
+            "..kbk...kbk.....",
+            "...kbk.kbk......",
+            "....kbbbbk......",
+            "...kbhhhbkk.....",
+            "..kbhbbbbbbkk...",
+            ".kdbbbbbbbbbbk..",
+            ".kdbbbbbbbbbbbk.",
+            "kddbbbbbbbbbhbk.",
+            "kdbdbbbbbbdbbdk.",
+            ".kkk.kddk.kddk..",
+            "................"
+          ],
+          "mirror": "none"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find food soon.",
+          "critical": "You are starving. Eat now, or getting food is your only task."
+        }
+      },
+      "hydration": {
+        "value": 100,
+        "icon": "water",
+        "color": "#5c9fd4",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "hydration",
+        "bands": {
+          "pressing": "You are thirsty.",
+          "serious": "You are parched - find water soon.",
+          "critical": "You are dying of thirst. Drink now, or getting water is your only task."
+        }
+      }
+    }
+  }
+}

@@ -30,8 +30,8 @@
 //   --icon SLUG        Terrain map icon, restated
 //   --cells WxH        Size in 16px cells, 1-4 each (default 1x1 = 16x16)
 //   --anchor X,Y       Anchor override as fractions (default bottom-center)
-//   --engine claude|codex   (default claude)
-//   --model NAME       (default opus for claude, gpt-5.6-luna for codex)
+//   --engine claude|codex   (default codex)
+//   --model NAME       (default opus for claude, gpt-5.6-terra for codex)
 //   --effort low|medium|high|xhigh|max   (default medium)
 //   --timeout-ms N     Drawing-session wall clock (default 600000)
 //   --url http://host:port   Server base (env AGENT_ISLAND_URL, default :3000)
@@ -60,6 +60,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
+import { disallowedTools } from "./crew-policy.mjs";
 import { baseUrl } from "./world.mjs";
 
 const SELF = fileURLToPath(import.meta.url);
@@ -94,15 +95,13 @@ const CONFIG = {
     process.env.AGENT_ISLAND_COMMISSIONS_DIR ??
       path.join(agentIslandHome(), "commissions"),
   ),
-  // Defaults to CLAUDE at OPUS, unlike characters and directors: art quality is
-  // the whole point of this seat, and a live shake-out showed the cheaper models
-  // draw muddy sprites while claude draws clean ones. Every knob overrides with
-  // AGENT_ISLAND_ILLUMINATOR_* or a flag.
-  engine: process.env.AGENT_ISLAND_ILLUMINATOR_ENGINE ?? "claude",
+  // Defaults to CODEX at gpt-5.6-terra, effort medium. Every knob overrides
+  // with AGENT_ISLAND_ILLUMINATOR_* or a flag.
+  engine: process.env.AGENT_ISLAND_ILLUMINATOR_ENGINE ?? "codex",
   model: process.env.AGENT_ISLAND_ILLUMINATOR_MODEL ?? null,
   effort: process.env.AGENT_ISLAND_ILLUMINATOR_EFFORT ?? "medium",
   timeoutMs: Number(process.env.AGENT_ISLAND_ILLUMINATOR_TIMEOUT_MS ?? 600_000),
-  defaultModel: { claude: "opus", codex: "gpt-5.6-luna" },
+  defaultModel: { claude: "opus", codex: "gpt-5.6-terra" },
 };
 
 // --- argument parsing ---------------------------------------------------
@@ -407,7 +406,7 @@ function planSpawn(record, prompt) {
         "--allowedTools",
         "Bash,Read,Write,Edit",
         "--disallowedTools",
-        "Agent,Task,TaskCreate,Workflow,ScheduleWakeup,WebFetch,WebSearch",
+        disallowedTools(),
         "--permission-mode",
         "acceptEdits",
         prompt,
@@ -455,7 +454,8 @@ function runCommand(plan, cwd, timeoutMs) {
     let child = spawn(plan.command, plan.args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
-      // Preload all tool schemas: a drawing session is one short pass, and
+      // Preload tool schemas, as the seats do: a drawing session is one short
+      // pass and the surface is small once the dead harness tools are cut, so
       // spending turns on ToolSearch discovery is pure latency.
       env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
     });

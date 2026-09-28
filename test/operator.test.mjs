@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 // prettier-ignore
-import { directorWake, parseDirectorCadenceTicks, parseMaxTicks, parsePersona, targetTick, wakeCadenceTicks } from "../scripts/crew-policy.mjs";
+import { directorWake, parseDirectorCadenceTicks, parseMaxTicks, parseMinWakeMs, parsePersona, targetTick, wakeCadenceTicks, wakeDelayMs } from "../scripts/crew-policy.mjs";
 // prettier-ignore
 import { detailText, filterSeats, headerText, reconcileSelection, rosterItems, seatHeading } from "../src/operator/presentation.ts";
 import {
@@ -75,6 +75,33 @@ test("persona wake policy drives director cadence and run ticks measure from lau
   assert.equal(targetTick(4200, 2000), 6200);
 });
 
+test("an event-woken seat's wake throttle rate-limits passes without delaying slow ones", () => {
+  let throttled = directorWake({
+    wake: { events: ["speculative_attempt"], min_interval_ms: 30000 },
+  });
+  assert.equal(throttled.minIntervalMs, 30000);
+  // Frontmatter is the default; the flag overrides it, `off` removes it.
+  assert.equal(parseMinWakeMs(undefined, throttled), 30000);
+  assert.equal(parseMinWakeMs("5000", throttled), 5000);
+  assert.equal(parseMinWakeMs("off", throttled), 0);
+  // A persona with no floor is unthrottled.
+  let plain = directorWake({ wake: { events: ["speculative_attempt"] } });
+  assert.equal(plain.minIntervalMs, null);
+  assert.equal(parseMinWakeMs(undefined, plain), 0);
+  assert.throws(() =>
+    directorWake({ wake: { events: ["x"], min_interval_ms: 0 } }),
+  );
+  assert.throws(() => parseMinWakeMs("-1", plain));
+
+  // The floor is measured from the last pass's START: a 4s pass waits out the
+  // rest of the 30s window, a 45s pass already outran it and pays only the
+  // ordinary gap, and an unthrottled seat always pays only the gap.
+  assert.equal(wakeDelayMs(30000, 4000, 3000), 26000);
+  assert.equal(wakeDelayMs(30000, 45000, 3000), 3000);
+  assert.equal(wakeDelayMs(30000, 28000, 3000), 3000);
+  assert.equal(wakeDelayMs(0, 4000, 3000), 3000);
+});
+
 test("shipped director personas declare their seats in frontmatter", () => {
   let personaDir = new URL("../agents/directors/", import.meta.url);
   let read = (name) =>
@@ -82,9 +109,9 @@ test("shipped director personas declare their seats in frontmatter", () => {
   let oracle = directorWake(read("oracle").meta);
   assert.deepEqual(oracle.events, ["speculative_attempt", "noun_attempt"]);
   assert.equal(wakeCadenceTicks(oracle), 0);
-  assert.equal(wakeCadenceTicks(directorWake(read("auditor").meta)), 600);
-  assert.equal(wakeCadenceTicks(directorWake(read("seeder").meta)), 400);
-  assert.equal(wakeCadenceTicks(directorWake(read("tuner").meta)), 250);
+  // The Oracle wakes on every attempt, but at most twice a minute.
+  assert.equal(oracle.minIntervalMs, 30000);
+  assert.equal(wakeCadenceTicks(directorWake(read("steward").meta)), 250);
   // The Illuminator is commissioned, never seated: no wake frontmatter.
   assert.equal(directorWake(read("illuminator").meta), null);
 });
@@ -244,8 +271,8 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     paths.directorPersonasDir = path.join(home, "director-personas");
     fs.mkdirSync(paths.directorPersonasDir, { recursive: true });
     fs.writeFileSync(
-      path.join(paths.directorPersonasDir, "auditor.md"),
-      "---\nwake:\n  every_ticks: 600\n---\n# Auditor",
+      path.join(paths.directorPersonasDir, "steward.md"),
+      "---\nwake:\n  every_ticks: 600\n---\n# Steward",
     );
     fs.writeFileSync(
       path.join(paths.directorPersonasDir, "oracle.md"),
@@ -262,7 +289,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     fs.mkdirSync(path.join(paths.charactersDir, "Previous", "logs", "codex"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(paths.directorsDir, "Auditor", "logs", "codex"), {
+    fs.mkdirSync(path.join(paths.directorsDir, "Steward", "logs", "codex"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(paths.directorsDir, "Retired", "logs", "codex"), {
@@ -299,8 +326,8 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
       path.join(paths.directorBatchesDir, `${process.pid}.json`),
       JSON.stringify({
         pid: process.pid,
-        names: ["Auditor"],
-        persona: "auditor",
+        names: ["Steward"],
+        persona: "steward",
         cadenceTicks: 500,
         state: "scheduled",
         nextLaunchTick: 542,
@@ -355,7 +382,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     );
     let directorLog = path.join(
       paths.directorsDir,
-      "Auditor",
+      "Steward",
       "logs",
       "codex",
       "play-1.jsonl",
@@ -364,7 +391,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     fs.writeFileSync(
       `${directorLog}.meta`,
       JSON.stringify({
-        name: "Auditor",
+        name: "Steward",
         role: "director",
         engine: "codex",
         model: "gpt-director",
@@ -379,7 +406,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
       undefined,
     );
     let linden = snapshot.seats.find((seat) => seat.name === "Linden");
-    let auditor = snapshot.seats.find((seat) => seat.name === "Auditor");
+    let steward = snapshot.seats.find((seat) => seat.name === "Steward");
     let oracle = snapshot.seats.find((seat) => seat.name === "Oracle");
     let previous = snapshot.seats.find((seat) => seat.name === "Previous");
     let retired = snapshot.seats.find((seat) => seat.name === "Retired");
@@ -390,15 +417,15 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     assert.equal(linden.model, "gpt-test");
     assert.match(linden.memory, /Remember the quarry/);
     assert.equal(linden.usage.total.cachedInputTokens, 80);
-    assert.equal(auditor.persona, "auditor");
-    assert.equal(auditor.processRunning, true);
-    assert.equal(auditor.state, "scheduled");
-    assert.equal(auditor.cadenceTicks, 500);
-    assert.equal(auditor.nextLaunchTick, 542);
+    assert.equal(steward.persona, "steward");
+    assert.equal(steward.processRunning, true);
+    assert.equal(steward.state, "scheduled");
+    assert.equal(steward.cadenceTicks, 500);
+    assert.equal(steward.nextLaunchTick, 542);
     assert.equal(oracle.persona, "oracle");
     assert.equal(oracle.processRunning, true);
     assert.equal(oracle.state, "running");
-    assert.notEqual(oracle.pid, auditor.pid);
+    assert.notEqual(oracle.pid, steward.pid);
     assert.equal(previous, undefined);
     assert.equal(retired, undefined);
   } finally {

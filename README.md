@@ -77,14 +77,14 @@ the characters as separate crews so seat options never bleed across roles:
 ./scripts/world.mjs reset
 ./scripts/world.mjs clock --ms 2000
 ./scripts/crew.mjs director                 # Oracle first, own terminal (one wake per process, relaunched)
-./scripts/crew.mjs director --persona auditor   # cadence, model, and effort come
-./scripts/crew.mjs director --persona tuner     # from each persona's frontmatter;
-./scripts/crew.mjs director --persona seeder    # --cadence-ticks N overrides per launch
+./scripts/crew.mjs director --persona steward   # the top-down seat; cadence, model, and
+                                                  # effort come from the persona's frontmatter;
+                                                  # --cadence-ticks N overrides per launch
 ./scripts/crew.mjs characters --count 4     # characters, own terminal
 ./scripts/world.mjs resume
 ```
 
-Each crew runs for 2000 world ticks from when that crew launches, then drains
+Each crew runs for 500 world ticks from when that crew launches, then drains
 and prints per-seat token usage. Common variants:
 
 ```sh
@@ -94,7 +94,7 @@ and prints per-seat token usage. Common variants:
 ./scripts/crew.mjs characters --names Alba,Anders               # explicit seats, by name
 ./scripts/crew.mjs characters --count 1                         # add one more, or refill an
                                                                   # empty seat - no need to stop
-./scripts/crew.mjs stop director Auditor                       # drain one director
+./scripts/crew.mjs stop director Steward                       # drain one director
 ./scripts/crew.mjs stop director                               # drain every director
 ./scripts/crew.mjs stop characters Alba                        # drain just that seat's batch
 ```
@@ -131,6 +131,18 @@ with only `every_ticks` is scheduled: one pass, exit, process-free until its
 next launch tick. A persona with no `wake` at all (the Illuminator) is not a
 seat - it is commissioned by the others and never launched as a director.
 Every director has its own supervisor.
+
+An event-woken seat can also set `wake.min_interval_ms` (the Oracle uses
+30000): a wall-clock floor between its passes, overridable per launch with
+`--min-wake-ms N` (`off` to remove it). Without one, a busy attempt feed spends
+a whole process per attempt, and the seat's re-orientation cost - join,
+`list_rules`, `list_speculative_attempts` - is paid every time; a 397-tick
+two-character run woke the Oracle ten times and made it the most expensive seat
+on the island despite being the cheapest model. The floor is measured from the
+previous pass's start, so it is a rate limit and not an added delay: a pass
+that already ran longer than the interval relaunches on the ordinary gap.
+Nothing is missed while a seat is held - attempts queue in the world, so the
+next pass reads the whole backlog and ratifies the cluster at once.
 
 For scripts and monitoring, `npm run operator -- --snapshot` prints the same
 runtime model once without requiring a TTY. `--url`, `--home`, `--agent`,

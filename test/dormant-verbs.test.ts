@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createColony } from "../src/coordinator.js";
 import { makeSurvivalEngine } from "./helpers.js";
 
-// getDormantVerbs is the deterministic half of the Seeder's "verb waiting on a
+// getDormantVerbs is the deterministic half of the Steward's "verb waiting on a
 // noun" inference (docs deliverable 3): for each minted verb nobody has used, it
 // names the nouns its `requires` gate asks for and splits them by whether the
 // world can ever supply them. Genesis cb263000 minted `tame_animal` and

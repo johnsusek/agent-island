@@ -111,7 +111,7 @@ test("starting a minted action counts as a use and clears it from the dead list"
 
   // Age it past the grace window untouched: a stillborn verb surfaces (alongside
   // any scenario affordance no one has exercised either - a dead verb is dead
-  // whatever minted it, which is exactly what the Seeder wants to see).
+  // whatever minted it, which is exactly what the Steward wants to see).
   for (let i = 0; i < 101; i += 1) engine.tick();
   assert.ok(
     engine.getInventionPulse().unusedRuleIds.includes("beat_drum"),
