@@ -111,7 +111,6 @@ test("shipped director personas declare their seats in frontmatter", () => {
   assert.equal(wakeCadenceTicks(oracle), 0);
   // The Oracle wakes on every attempt, but at most twice a minute.
   assert.equal(oracle.minIntervalMs, 30000);
-  assert.equal(wakeCadenceTicks(directorWake(read("steward").meta)), 250);
 });
 
 test("log store normalizes Codex and Claude usage and renders their tool activity", () => {
@@ -269,8 +268,8 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     paths.directorPersonasDir = path.join(home, "director-personas");
     fs.mkdirSync(paths.directorPersonasDir, { recursive: true });
     fs.writeFileSync(
-      path.join(paths.directorPersonasDir, "steward.md"),
-      "---\nwake:\n  every_ticks: 600\n---\n# Steward",
+      path.join(paths.directorPersonasDir, "keeper.md"),
+      "---\nwake:\n  every_ticks: 600\n---\n# Keeper",
     );
     fs.writeFileSync(
       path.join(paths.directorPersonasDir, "oracle.md"),
@@ -287,7 +286,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     fs.mkdirSync(path.join(paths.charactersDir, "Previous", "logs", "codex"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(paths.directorsDir, "Steward", "logs", "codex"), {
+    fs.mkdirSync(path.join(paths.directorsDir, "Keeper", "logs", "codex"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(paths.directorsDir, "Retired", "logs", "codex"), {
@@ -324,8 +323,8 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
       path.join(paths.directorBatchesDir, `${process.pid}.json`),
       JSON.stringify({
         pid: process.pid,
-        names: ["Steward"],
-        persona: "steward",
+        names: ["Keeper"],
+        persona: "keeper",
         cadenceTicks: 500,
         state: "scheduled",
         nextLaunchTick: 542,
@@ -380,7 +379,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     );
     let directorLog = path.join(
       paths.directorsDir,
-      "Steward",
+      "Keeper",
       "logs",
       "codex",
       "play-1.jsonl",
@@ -389,7 +388,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     fs.writeFileSync(
       `${directorLog}.meta`,
       JSON.stringify({
-        name: "Steward",
+        name: "Keeper",
         role: "director",
         engine: "codex",
         model: "gpt-director",
@@ -404,7 +403,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
       undefined,
     );
     let linden = snapshot.seats.find((seat) => seat.name === "Linden");
-    let steward = snapshot.seats.find((seat) => seat.name === "Steward");
+    let keeper = snapshot.seats.find((seat) => seat.name === "Keeper");
     let oracle = snapshot.seats.find((seat) => seat.name === "Oracle");
     let previous = snapshot.seats.find((seat) => seat.name === "Previous");
     let retired = snapshot.seats.find((seat) => seat.name === "Retired");
@@ -415,15 +414,15 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     assert.equal(linden.model, "gpt-test");
     assert.match(linden.memory, /Remember the quarry/);
     assert.equal(linden.usage.total.cachedInputTokens, 80);
-    assert.equal(steward.persona, "steward");
-    assert.equal(steward.processRunning, true);
-    assert.equal(steward.state, "scheduled");
-    assert.equal(steward.cadenceTicks, 500);
-    assert.equal(steward.nextLaunchTick, 542);
+    assert.equal(keeper.persona, "keeper");
+    assert.equal(keeper.processRunning, true);
+    assert.equal(keeper.state, "scheduled");
+    assert.equal(keeper.cadenceTicks, 500);
+    assert.equal(keeper.nextLaunchTick, 542);
     assert.equal(oracle.persona, "oracle");
     assert.equal(oracle.processRunning, true);
     assert.equal(oracle.state, "running");
-    assert.notEqual(oracle.pid, steward.pid);
+    assert.notEqual(oracle.pid, keeper.pid);
     assert.equal(previous, undefined);
     assert.equal(retired, undefined);
   } finally {

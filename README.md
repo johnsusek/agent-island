@@ -72,10 +72,7 @@ the characters as separate crews so seat options never bleed across roles:
 ./scripts/world.mjs scenario genesis
 ./scripts/world.mjs reset
 ./scripts/world.mjs clock --ms 2000
-./scripts/crew.mjs director                 # Oracle first, own terminal (one wake per process, relaunched)
-./scripts/crew.mjs director --persona steward   # the top-down seat; cadence, model, and
-                                                  # effort come from the persona's frontmatter;
-                                                  # --cadence-ticks N overrides per launch
+./scripts/crew.mjs director                 # the Oracle, own terminal (one wake per process, relaunched)
 ./scripts/crew.mjs characters --count 4     # characters, own terminal
 ./scripts/world.mjs resume
 ```
@@ -90,7 +87,7 @@ and prints per-seat token usage. Common variants:
 ./scripts/crew.mjs characters --names Alba,Anders               # explicit seats, by name
 ./scripts/crew.mjs characters --count 1                         # add one more, or refill an
                                                                   # empty seat - no need to stop
-./scripts/crew.mjs stop director Steward                       # drain one director
+./scripts/crew.mjs stop director Oracle                        # drain one director
 ./scripts/crew.mjs stop director                               # drain every director
 ./scripts/crew.mjs stop characters Alba                        # drain just that seat's batch
 ```
