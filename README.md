@@ -1,24 +1,31 @@
 # Agent Island
 
-A spatial world whose physics its inhabitants speculate into being.
+A shared world where LLM agents live together and people watch.
 
-LLM characters play a game that mostly doesn't exist: they attempt verbs they
-expect a world like this to support (`drink_water`, `build_shelter`), the world
-softly refuses ("nothing happens... yet"), and a resident director - the Oracle -
-ratifies plausible attempts into real, executable rules. Physics precipitates
-out of practice. See [docs/speculative-physics.md](docs/speculative-physics.md).
+Characters are LLM processes that connect over MCP, each with a private view of
+the map, its own `memory.md`, and a life that can end. They move, talk within
+earshot, whisper, leave signs, trade, and try to stay alive. A deterministic
+rules engine runs the world; a single director, the Clerk, keeps those rules
+honest. The observatory shows it all to spectators.
+
+**Where this is going:** a prebuilt town where the residents propose laws,
+vote on them at the town hall, and passed laws become real, enforced rules -
+the Clerk's job will be compiling them. None of that is built yet. The
+project previously explored "speculative physics" (agents' attempted verbs
+ratified into rules); those docs are in [docs/archive/](docs/archive/), and
+the run retros that informed the change are in `results/`.
 
 ## Architecture
 
 Everything meets over MCP; the server never launches an LLM.
 
 - **`src/`** - the world server: tick clock, grid world, the rules DSL engine,
-  and two MCP surfaces - `/mcp` (characters) and `/gm` (the Oracle and the
+  and two MCP surfaces - `/mcp` (characters) and `/gm` (the Clerk and the
   operator). Plus a small read API (`/api/state`, `/api/map`, `/api/fog`) that
   feeds the observatory, and world ops (`/api/reset`, `/api/restore`,
   `/api/runs`, `/api/pause`, `/api/clock`).
 - **`agents/`** - who the agents are: persona prompt files for characters and
-  directors. The launch layer reads these; the server never does.
+  the Clerk. The launch layer reads these; the server never does.
 - **`scripts/crew.mjs`** - the crew supervisor: launches one `codex exec` /
   `claude -p` per seat with the right MCP config, seeds `memory.md` (plus an
   optional OCEAN temperament), tees transcripts to
@@ -33,10 +40,9 @@ Everything meets over MCP; the server never launches an LLM.
   slices the world's starting view from that file and reveals more of it as
   `growWorld` rules fire, instead of generating terrain live.
 - **`web/`** - the observatory: a read-mostly spectator UI. Map center (PixiJS),
-  the Ledger right (laws minted, open speculations), the feed below. The clock
+  the Ledger right (laws added at runtime), the feed below. The clock
   strip's population count opens a roster; click a character for their dossier,
   or click a map token to pin its card.
-- **`.claude/skills/genesis-run`** - the experiment protocol, end to end.
 
 ## Running
 
@@ -64,15 +70,17 @@ After hand-editing a scenario, re-bake its map:
 npm run generate-map -- <scenario-name>
 ```
 
-Run a full genesis experiment (other terminals - each crew stays in the
-foreground supervising its children). World setup first, then the Oracle and
-the characters as separate crews so seat options never bleed across roles:
+Run a world (other terminals - each crew stays in the foreground supervising
+its children). World setup first, then the Clerk and the characters as
+separate crews so seat options never bleed across roles. `genesis` is a
+placeholder until the town scenario exists: thirst and hunger drain and
+nothing remedies them yet.
 
 ```sh
 ./scripts/world.mjs scenario genesis
 ./scripts/world.mjs reset
 ./scripts/world.mjs clock --ms 2000
-./scripts/crew.mjs director                 # the Oracle, own terminal (one wake per process, relaunched)
+./scripts/crew.mjs director                 # the Clerk, own terminal (one pass per process, relaunched)
 ./scripts/crew.mjs characters --count 4     # characters, own terminal
 ./scripts/world.mjs resume
 ```
@@ -82,12 +90,11 @@ and prints per-seat token usage. Common variants:
 
 ```sh
 ./scripts/crew.mjs characters --count 4 --max-ticks off        # unbounded
-./scripts/crew.mjs characters --count 2                        # no Oracle: measure refusal
 ./scripts/crew.mjs characters --count 2 --persona character-minimal  # prompt variant
 ./scripts/crew.mjs characters --names Alba,Anders               # explicit seats, by name
 ./scripts/crew.mjs characters --count 1                         # add one more, or refill an
                                                                   # empty seat - no need to stop
-./scripts/crew.mjs stop director Oracle                        # drain one director
+./scripts/crew.mjs stop director Clerk                         # drain one director
 ./scripts/crew.mjs stop director                               # drain every director
 ./scripts/crew.mjs stop characters Alba                        # drain just that seat's batch
 ```
@@ -98,8 +105,8 @@ Watch it:
 npm run operator                                    # full terminal operator console
 ./scripts/crew.mjs status                          # crew pids
 ./scripts/world.mjs status                         # world tick/clock/actives
-curl -s localhost:3000/api/state | jq '{tick: .state.tick, oracle: .liveness.gmConnected,
-  laws: [.rules[] | select(.kind == "action") | .id], speculations: [.speculative[].verb]}'
+curl -s localhost:3000/api/state | jq '{tick: .state.tick, gm: .liveness.gmConnected,
+  actions: [.rules[] | select(.kind == "action") | .id]}'
 tail -q -n +1 -F ~/.agent-island/characters/*/logs/claude/play-*.jsonl \
   | jq --unbuffered -rf scripts/watch-log-claude.jq         # a seat's mind, live
 tail -q -n +1 -F ~/.agent-island/characters/*/logs/codex/play-*.jsonl \
@@ -125,17 +132,10 @@ next launch tick. A persona with no `wake` at all is not a seat and is never
 launched as a director.
 Every director has its own supervisor.
 
-An event-woken seat can also set `wake.min_interval_ms` (the Oracle uses
-30000): a wall-clock floor between its passes, overridable per launch with
-`--min-wake-ms N` (`off` to remove it). Without one, a busy attempt feed spends
-a whole process per attempt, and the seat's re-orientation cost - join,
-`list_rules`, `list_speculative_attempts` - is paid every time; a 397-tick
-two-character run woke the Oracle ten times and made it the most expensive seat
-on the island despite being the cheapest model. The floor is measured from the
-previous pass's start, so it is a rate limit and not an added delay: a pass
-that already ran longer than the interval relaunches on the ordinary gap.
-Nothing is missed while a seat is held - attempts queue in the world, so the
-next pass reads the whole backlog and ratifies the cluster at once.
+An event-woken seat can also set `wake.min_interval_ms`: a wall-clock floor
+between its passes, overridable per launch with `--min-wake-ms N` (`off` to
+remove it). Events queue in the world while a seat is held, so the next pass
+reads the whole backlog.
 
 For scripts and monitoring, `npm run operator -- --snapshot` prints the same
 runtime model once without requiring a TTY. `--url`, `--home`, `--agent`,
@@ -153,8 +153,7 @@ Stop and steer:
 ```
 
 The `.mcp.json` in this repo seats a Claude Code operator session on the GM
-surface directly; the `genesis-run` skill codifies the whole loop, retro
-included.
+surface directly.
 
 ## Tests
 
@@ -164,6 +163,4 @@ npm run typecheck && npm run typecheck:web
 ```
 
 The `survival` scenario (test/survival.json) is an engine test fixture, not a
-played world; played
-worlds run `genesis` - a near-empty map with two clocks (hunger, thirst) and no
-remedies. Every remedy is for the characters to speculate into being.
+played world.
