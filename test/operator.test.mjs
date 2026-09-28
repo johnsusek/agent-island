@@ -106,11 +106,9 @@ test("shipped director personas declare their seats in frontmatter", () => {
   let personaDir = new URL("../agents/directors/", import.meta.url);
   let read = (name) =>
     parsePersona(fs.readFileSync(new URL(`${name}.md`, personaDir), "utf8"));
-  let oracle = directorWake(read("oracle").meta);
-  assert.deepEqual(oracle.events, ["speculative_attempt", "noun_attempt"]);
-  assert.equal(wakeCadenceTicks(oracle), 0);
-  // The Oracle wakes on every attempt, but at most twice a minute.
-  assert.equal(oracle.minIntervalMs, 30000);
+  let clerk = directorWake(read("clerk").meta);
+  assert.deepEqual(clerk.events, []);
+  assert.equal(wakeCadenceTicks(clerk), 200);
 });
 
 test("log store normalizes Codex and Claude usage and renders their tool activity", () => {

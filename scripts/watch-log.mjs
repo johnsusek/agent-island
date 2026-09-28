@@ -10,7 +10,7 @@
 // Usage:
 //   scripts/watch-log.mjs Linden                 Newest log for that seat
 //   scripts/watch-log.mjs character Linden       Same, role made explicit
-//   scripts/watch-log.mjs director Oracle
+//   scripts/watch-log.mjs director Clerk
 //   scripts/watch-log.mjs                        The most recently written seat
 //   scripts/watch-log.mjs --list                 Seats and their latest logs
 //

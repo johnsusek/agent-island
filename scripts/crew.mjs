@@ -111,7 +111,7 @@ const CONFIG = {
       "agents/characters/character-minimal.md",
   ),
   defaultDirectorPersona: path.resolve(
-    process.env.AGENT_ISLAND_DIRECTOR_PROMPT ?? "agents/directors/oracle.md",
+    process.env.AGENT_ISLAND_DIRECTOR_PROMPT ?? "agents/directors/clerk.md",
   ),
   namesFile: path.resolve(
     process.env.AGENT_ISLAND_NAMES_FILE ?? "agents/characters/names.txt",
