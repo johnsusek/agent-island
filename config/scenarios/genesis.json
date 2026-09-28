@@ -1,6 +1,6 @@
 {
   "name": "genesis",
-  "description": "Speculative physics (docs/speculative-physics.md): a near-empty world of plains, water, and forest. No verbs beyond travel/speak/whisper/inscribe/give - characters attempt whatever they expect a world like this to support, and the Oracle turns repeated attempts into real rules. The one thing the world does on its own is make them thirsty and hungry, with no way to drink or eat yet: two clocks and a reason to petition. Thirst runs three times faster than hunger, and its remedy is visible - the lake is right there, untouchable - so it sets the order of the asking. Physics precipitates out of practice.",
+  "description": "A near-empty world of plains, water, and forest - a placeholder until the town scenario exists. No verbs beyond travel/speak/whisper/inscribe/give. Thirst and hunger drain on their own and nothing yet remedies them, so everyone eventually dies unless the GM adds a way to drink and eat.",
   "recommendedPlayers": {
     "min": 3,
     "max": 10
