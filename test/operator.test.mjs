@@ -52,9 +52,9 @@ test("persona frontmatter parses into meta and stripped body", () => {
   assert.equal(meta.wake.every_ticks, 50);
   assert.equal(body, "You are the Oracle.");
   // No frontmatter: the whole file is body and there is no wake policy.
-  let plain = parsePersona("You are the Illuminator.");
+  let plain = parsePersona("You are a helper.");
   assert.deepEqual(plain.meta, {});
-  assert.equal(plain.body, "You are the Illuminator.");
+  assert.equal(plain.body, "You are a helper.");
   assert.equal(directorWake(plain.meta), null);
 });
 
@@ -112,8 +112,6 @@ test("shipped director personas declare their seats in frontmatter", () => {
   // The Oracle wakes on every attempt, but at most twice a minute.
   assert.equal(oracle.minIntervalMs, 30000);
   assert.equal(wakeCadenceTicks(directorWake(read("steward").meta)), 250);
-  // The Illuminator is commissioned, never seated: no wake frontmatter.
-  assert.equal(directorWake(read("illuminator").meta), null);
 });
 
 test("log store normalizes Codex and Claude usage and renders their tool activity", () => {
@@ -278,10 +276,10 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
       path.join(paths.directorPersonasDir, "oracle.md"),
       "---\nwake:\n  events: [speculative_attempt]\n---\n# Oracle",
     );
-    // No wake frontmatter: a commissioned helper, never listed as a seat.
+    // No wake frontmatter: not a seat, never listed.
     fs.writeFileSync(
-      path.join(paths.directorPersonasDir, "illuminator.md"),
-      "# Illuminator",
+      path.join(paths.directorPersonasDir, "helper.md"),
+      "# Helper",
     );
     fs.mkdirSync(path.join(paths.charactersDir, "Linden", "logs", "codex"), {
       recursive: true,
@@ -402,7 +400,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
 
     let snapshot = await createRuntime(options, paths).refresh();
     assert.equal(
-      snapshot.seats.find((seat) => seat.name === "Illuminator"),
+      snapshot.seats.find((seat) => seat.name === "Helper"),
       undefined,
     );
     let linden = snapshot.seats.find((seat) => seat.name === "Linden");

@@ -2,7 +2,7 @@ import { Texture } from "pixi.js";
 import type { SpriteSpec } from "./types";
 
 // The sprite baker: turns an inline sprite spec (palette + character grid, the
-// same DSL the Illuminator authors) into a Pixi texture via an offscreen
+// DSL register_kind_visual / register_terrain take) into a Pixi texture via an offscreen
 // canvas. This replaced the asset-pack catalog when sprites moved inline into
 // the scenario's visuals - there are no PNGs or atlases; the grid is the art.
 //

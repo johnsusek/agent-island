@@ -58,14 +58,10 @@ throwaway world). The bundled starter scenarios stay tracked in
 `config/scenarios/`; `save_scenario` writes new ones into
 `~/.agent-island/scenarios/`, and both are read at load time.
 
-Authoring a new scenario is a one-shot, out-of-band step - no server needed:
-the Worldsmith is a genesis author, not a director seat, so it runs with a
-real shell and no MCP surface, writes a new scenario under
-`config/scenarios/`, bakes its map, and exits.
+After hand-editing a scenario, re-bake its map:
 
 ```sh
-./scripts/crew.mjs worldsmith --commission "a half-drowned quarry"
-npm run generate-map -- <scenario-name>   # re-bake a map after hand-editing a scenario
+npm run generate-map -- <scenario-name>
 ```
 
 Run a full genesis experiment (other terminals - each crew stays in the
@@ -128,8 +124,8 @@ orchestration a new seat needs. A `wake` with `events` is event-woken: that
 process parks once in `wait_for_world` (with the frontmatter's events and
 heartbeat), acts, exits, and is relaunched fresh for the next wake. A `wake`
 with only `every_ticks` is scheduled: one pass, exit, process-free until its
-next launch tick. A persona with no `wake` at all (the Illuminator) is not a
-seat - it is commissioned by the others and never launched as a director.
+next launch tick. A persona with no `wake` at all is not a seat and is never
+launched as a director.
 Every director has its own supervisor.
 
 An event-woken seat can also set `wake.min_interval_ms` (the Oracle uses

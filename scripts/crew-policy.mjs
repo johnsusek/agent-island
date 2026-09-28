@@ -23,9 +23,8 @@
 // many wall-clock milliseconds - a busy event feed then batches into fewer,
 // fuller passes instead of one process per attempt. It is ignored by a
 // scheduled seat, whose rate is already its tick cadence.
-// A persona with no `wake` at all is not a seat - the Illuminator is a
-// commissioned helper other seats invoke, and dropping a new .md into
-// agents/directors/ without `wake` keeps it launchable-by-hand only.
+// A persona with no `wake` at all is not a seat - dropping a new .md into
+// agents/directors/ without `wake` keeps it out of the director roster.
 
 // Harness tools that sub-agents, scheduling and delegation ride in on. These
 // stay blocked everywhere so the prohibitions written into each persona are
@@ -38,10 +37,8 @@ export const BLOCKED_TOOLS = [
   "ScheduleWakeup",
 ];
 
-// Harness tools no seat here can use. A character's whole surface is its MCP
-// tools plus Read/Write/Edit for ./memory.md; a director adds one narrowly
-// scoped Bash rule for the Illuminator commissioner; the Illuminator and the
-// Worldsmith get files and a shell. Nothing in this list serves any of them,
+// Harness tools no seat here can use. A seat's whole surface is its MCP
+// tools plus Read/Write/Edit for ./memory.md. Nothing in this list serves it,
 // and every entry is weight either way - a full schema in the process prefix
 // when schemas are preloaded, a name to search past when they are deferred.
 export const DEAD_HARNESS_TOOLS = [
@@ -67,9 +64,8 @@ export const DEAD_HARNESS_TOOLS = [
   "WebSearch",
 ];
 
-// The --disallowedTools value for a seat. `extra` carries whatever else this
-// role must not reach - a character gets no shell at all, while a director's
-// Bash has to stay allowed for the one Illuminator rule to mean anything.
+// The --disallowedTools value for a seat. `extra` carries whatever else the
+// seat must not reach - today, the shell.
 export function disallowedTools(extra = []) {
   return [...BLOCKED_TOOLS, ...DEAD_HARNESS_TOOLS, ...extra].join(",");
 }

@@ -493,7 +493,7 @@ function markdownNames(directory: string): string[] {
 }
 
 // A director persona is a seat only when its frontmatter declares a wake
-// policy; wake-less personas (the Illuminator) are commissioned helpers.
+// policy; wake-less personas are not seats.
 // Mirrors parsePersona in scripts/crew-policy.mjs, which plain-node scripts
 // use and this TS module cannot import.
 function personaIsSeat(file: string): boolean {

@@ -8,7 +8,6 @@
 // Usage:
 //   node scripts/crew.mjs director   [--cadence-ticks N] [--min-wake-ms N] [--max-ticks N] [seat options]
 //   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
-//   node scripts/crew.mjs worldsmith [--commission TEXT] [--engine|--model|--effort]
 //   node scripts/crew.mjs stop [director|characters [name]]   SIGTERM crew(s)
 //   node scripts/crew.mjs status                              Show running crews
 //
@@ -52,7 +51,6 @@ import { spawn, execFile } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
   directorWake,
@@ -177,18 +175,6 @@ function planSpawn(engine, options) {
   return planCodex(options);
 }
 
-// The one shell command a director may run: the Illuminator commissioner. A
-// director needs art it cannot author cheaply itself, and commissioning is a
-// detached CLI rather than an MCP tool because the server knows nothing about
-// LLMs. Everything else stays blocked - a general shell would let a director
-// bypass the MCP surface entirely, and the persona's prohibitions have to stay
-// load-bearing - so Bash leaves the disallow list only for this seat and comes
-// back as a single narrowly-scoped allow rule.
-export const ILLUMINATE_BIN = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "illuminate.mjs",
-);
-
 function planClaude(options) {
   let mcpConfig = JSON.stringify({
     mcpServers: { "agent-island": { type: "http", url: options.mcpUrl } },
@@ -217,18 +203,13 @@ function planClaude(options) {
       options.effort,
       "--permission-mode",
       CONFIG.defaults.claude.permissionMode,
-      // Pre-approve every Agent Island tool; hard-block sub-agents, scheduling
-      // and the dead harness surface (see crew-policy.mjs) so the prohibitions
-      // in the persona are load-bearing. A director additionally gets the one
-      // Bash rule above and nothing else: Bash has to leave the disallow list
-      // for the allow rule to mean anything, and any other command then falls
-      // through to a permission prompt, which a headless seat refuses.
+      // Pre-approve every Agent Island tool; hard-block the shell, sub-agents,
+      // scheduling and the dead harness surface (see crew-policy.mjs) so the
+      // prohibitions in the persona are load-bearing.
       "--allowedTools",
-      options.role === "director"
-        ? `mcp__agent-island,Bash(node ${ILLUMINATE_BIN}:*)`
-        : "mcp__agent-island",
+      "mcp__agent-island",
       "--disallowedTools",
-      disallowedTools(options.role === "director" ? [] : ["Bash"]),
+      disallowedTools(["Bash"]),
       "--mcp-config",
       mcpConfig,
       "--strict-mcp-config",
@@ -578,7 +559,7 @@ class Crew {
     // A director persona's frontmatter is the single orchestration source:
     // model, effort, and its wake policy all live in the .md file, so resolve
     // and parse it before computing engine defaults. A persona without a wake
-    // block is not a seat (the Illuminator is commissioned, never launched).
+    // block is not a seat and cannot be launched as a director.
     let personaMeta = {};
     let wake = null;
     if (role === "director") {
@@ -781,9 +762,6 @@ class Crew {
     // The body is re-read every spawn so persona edits land on the next pass;
     // scheduling stays as parsed at launch.
     let prompt = parsePersona(fs.readFileSync(seat.personaFile, "utf8")).body;
-    // The director's cwd is its seat dir, not the repo, so the commissioner is
-    // named by absolute path - the same path the seat's one Bash allow rule is
-    // scoped to, so a relative invocation would simply be refused.
     let wakeSpec = seat.wake ?? { events: [], everyTicks: null };
     let armWith = [
       wakeSpec.events.length ? `events ${JSON.stringify(wakeSpec.events)}` : "",
@@ -802,7 +780,7 @@ class Crew {
       : `Keep running continuously.`;
     let lead =
       seat.role === "director"
-        ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect and join_as_gm. ${directorCycle} ./memory.md is the only thing that survives between processes.\nYour Illuminator commissioner is \`node ${ILLUMINATE_BIN}\` - the only shell command you may run.`
+        ? `Your launcher seats you as the resident director named ${seat.name}.\nConnect and join_as_gm. ${directorCycle} ./memory.md is the only thing that survives between processes.`
         : `Your launcher gives you this character name: ${seat.name}\n${characterCycle} Keep your memory current when durable knowledge or your intent changes.`;
     let base = `${lead}\n\n${prompt}`;
     // Characters always learn the world's ongoing dynamics (the flow rules'
@@ -1378,104 +1356,6 @@ async function cmdCharacters(opts) {
   await supervise(crew, opts, "characters", limit, launched);
 }
 
-// The Worldsmith is the one persona that runs BEFORE a world exists: a
-// one-shot authoring session whose deliverable is a scenario file plus its
-// baked map, not a seat at a live table. So it inverts every director rule:
-// cwd is the repo root (it edits config/scenarios/ and runs the repo's own
-// renderer and map bake), it gets a real shell and file tools, and it gets no
-// MCP config - there is no server to reach. No supervision, no cadence, no
-// batch file: launch, wait, and the final message printed is the operator
-// report.
-async function cmdWorldsmith(opts) {
-  let personaFile = path.join(CONFIG.personasDir, "worldsmith.md");
-  let { meta, body } = parsePersona(fs.readFileSync(personaFile, "utf8"));
-  if (directorWake(meta) !== null)
-    throw new Error(
-      "worldsmith.md declares a wake policy, which makes it a seat - launch it with `crew.mjs director --persona worldsmith` instead.",
-    );
-  let engine = opts.engine ?? "claude";
-  let model =
-    opts.model ??
-    (engine === "claude"
-      ? (meta.model ?? "opus")
-      : CONFIG.defaults.codex.director);
-  let effort = opts.effort ?? meta.effort ?? "high";
-  let repoRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "..",
-  );
-  let commission =
-    (opts.commission ?? opts.instructions)?.trim() || "none - invent freely.";
-  let prompt =
-    `${body}\n\n---\n\n` +
-    `Operator directives: you are launched at the repo root (your current ` +
-    `directory). Work only under it, plus temp files for sprite render ` +
-    `checks. Your final message is the operator report.\n\n` +
-    `Commission: ${commission}`;
-
-  let plan =
-    engine === "claude"
-      ? {
-          command: "claude",
-          args: [
-            "-p",
-            "--no-session-persistence",
-            "--setting-sources",
-            "",
-            "--model",
-            model,
-            "--effort",
-            effort,
-            // File edits land without prompts and the shell is open - the
-            // Worldsmith's whole job is writing repo files and running the
-            // sprite renderer and generate-map. Sub-agents, scheduling, the
-            // web and the rest of the dead harness surface stay blocked so the
-            // persona's prohibitions are load-bearing; --strict-mcp-config
-            // with no server config means no MCP surface at all.
-            "--permission-mode",
-            "acceptEdits",
-            "--allowedTools",
-            "Bash",
-            "--disallowedTools",
-            disallowedTools(),
-            "--strict-mcp-config",
-            prompt,
-          ],
-        }
-      : {
-          command: "codex",
-          args: [
-            "exec",
-            "--ephemeral",
-            "--ignore-user-config",
-            "--model",
-            model,
-            "-c",
-            `model_reasoning_effort=${effort}`,
-            "--sandbox",
-            "workspace-write",
-            prompt,
-          ],
-        };
-
-  console.log(
-    `[crew] worldsmith launched (${engine}/${model} effort ${effort}) - authoring a scenario; the report prints when it finishes.`,
-  );
-  let child = spawn(plan.command, plan.args, {
-    cwd: repoRoot,
-    stdio: ["ignore", "inherit", "inherit"],
-    // Preload tool schemas, as the seats do - one-shot pass, and with the dead
-    // harness tools cut there is little left to defer, so ToolSearch turns
-    // would be pure latency.
-    env: { ...process.env, ENABLE_TOOL_SEARCH: "false" },
-  });
-  let code = await new Promise((resolve, reject) => {
-    child.on("error", reject);
-    child.on("exit", (exitCode) => resolve(exitCode ?? 1));
-  });
-  if (code !== 0) throw new Error(`worldsmith exited with code ${code}`);
-}
-
 let ROLES = ["director", "characters"];
 
 async function cmdStop(target, name) {
@@ -1528,14 +1408,8 @@ pause/resume) lives in scripts/world.mjs.
 USAGE
   node scripts/crew.mjs director   [--cadence-ticks N] [--max-ticks N] [seat options]
   node scripts/crew.mjs characters [--count N] [--max-ticks N] [seat options]
-  node scripts/crew.mjs worldsmith [--commission TEXT] [--engine|--model|--effort]
   node scripts/crew.mjs stop [director|characters [name]]
   node scripts/crew.mjs status
-
-The worldsmith is a one-shot scenario author, not a seat: it needs no running
-server, works at the repo root, and exits after writing a new scenario under
-config/scenarios/ plus its baked map. --commission sets its theme brief
-(default: invent freely).
 
 Crews are additive: run the command again to add another character batch or a
 different director. \`stop <role> <name>\` stops only that seat's crew.
@@ -1564,7 +1438,7 @@ DEFAULTS
   characters: claude / haiku / low, OCEAN on, 150-tick passes
   directors:  model, effort, and wake policy come from the persona's
               frontmatter in agents/directors/<NAME>.md; a persona without a
-              wake block (the Illuminator) is not a seat
+              wake block is not a seat
   both run for 500 ticks after launch (--max-ticks off = unbounded)`);
 }
 
@@ -1575,8 +1449,6 @@ async function main() {
       return cmdDirector(opts);
     case "characters":
       return cmdCharacters(opts);
-    case "worldsmith":
-      return cmdWorldsmith(opts);
     case "stop":
       return cmdStop(process.argv[3], process.argv[4]);
     case "status":
