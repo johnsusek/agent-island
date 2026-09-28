@@ -10,7 +10,7 @@
 //   model: haiku
 //   effort: medium
 //   wake:
-//     events: [speculative_attempt, noun_attempt]
+//     events: [death]
 //     every_ticks: 50
 //     min_interval_ms: 30000
 //   ---
@@ -186,8 +186,8 @@ export function parseMinWakeMs(value, wake) {
 // throttle is a rate limit rather than an added delay: a pass that already
 // took longer than the interval relaunches on the ordinary gap and pays
 // nothing. Events are never lost to the wait - the world keeps queuing
-// speculative attempts while nobody is parked, so a throttled seat reads the
-// whole backlog on its next pass instead of one attempt per process.
+// events while nobody is parked, so a throttled seat reads the
+// whole backlog on its next pass instead of one event per process.
 export function wakeDelayMs(minWakeMs, ranMs, gapMs) {
   if (!minWakeMs) return gapMs;
   return Math.max(gapMs, minWakeMs - Math.max(0, ranMs));

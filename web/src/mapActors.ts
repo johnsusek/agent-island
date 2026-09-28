@@ -266,17 +266,13 @@ function slotOffset(index: number, count: number, unit: number): Position {
 }
 
 // The nameplate's first line: the action type plus a short detail (goal,
-// direction, or arg), matching the roster's inline activity. Speculative
-// expectation prose is intentionally omitted. Idle or absent actions return ""
-// so the caller can hide the line entirely.
+// direction, or arg), matching the roster's inline activity. Idle or absent
+// actions return "" so the caller can hide the line entirely.
 function activityLabel(action: ActionView | null | undefined): string {
   let type = action?.type;
   if (!type || type === "idle") return "";
   let argDetail = action?.args
-    ? Object.entries(action.args)
-        .filter(([name]) => name !== "expectation")
-        .map(([, value]) => value)
-        .join(" ")
+    ? Object.values(action.args).join(" ")
     : "";
   let detail = action?.goal ?? action?.direction ?? argDetail ?? "";
   return [type, detail].filter(Boolean).join(" • ");

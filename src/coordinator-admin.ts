@@ -92,13 +92,6 @@ export function buildAdminPayload(context: AdminPayloadContext) {
     eventLog: engine.recentEvents(200),
     history: engine.getHistory(),
     rules: engine.getRules(),
-    // The speculative-physics feed, same clusters the Oracle reads: verbs
-    // characters tried that no rule defines (or that a mint later answered).
-    // The observatory's Ledger is built from these plus the GM audit log.
-    speculative: engine.getSpeculativeAttempts(),
-    // The noun companion: things characters reached for that don't exist yet,
-    // clustered by noun (see engine.getSpeculativeNouns).
-    speculativeNouns: engine.getSpeculativeNouns(),
     ruleMeta: {
       ...ruleMeta,
       customIds: overlayRuleIds(customRules),

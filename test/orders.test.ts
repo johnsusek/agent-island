@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { normalizeOrderInput } from "../src/rules/orders.js";
-import { assertSpeculative, makeSurvivalEngine } from "./helpers.js";
+import { makeSurvivalEngine } from "./helpers.js";
 
 function survival() {
   return makeSurvivalEngine();
@@ -113,7 +113,7 @@ test("an invalid replacement leaves the current order running", () => {
   assert.deepEqual(engine.getOrder("ara").order, before);
 });
 
-test("an unrecognized manual action is a speculative attempt, not a throw, and leaves the current order running", () => {
+test("an unrecognized manual action throws and leaves the current order running", () => {
   let engine = survival();
   engine.addAgent("ara");
   engine.setOrder("ara", {
@@ -123,8 +123,9 @@ test("an unrecognized manual action is a speculative attempt, not a throw, and l
   });
   let before = engine.getOrder("ara").order;
 
-  let attempt = engine.commitIntent("ara", { type: "typo" });
-  assertSpeculative(attempt);
-  assert.equal(attempt.verb, "typo");
+  assert.throws(
+    () => engine.commitIntent("ara", { type: "typo" }),
+    /Unknown action "typo"/,
+  );
   assert.deepEqual(engine.getOrder("ara").order, before);
 });

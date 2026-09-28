@@ -3,7 +3,6 @@
 // step()/commit() without the host. This mirrors exactly what createWorld() does
 // internally — the host has no special knowledge the scenario doesn't carry.
 
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -316,25 +315,6 @@ export function runToIdle(engine: WorldEngine, id: string, safety = 80) {
 
 export function makeSurvivalSpace(): Space {
   return makeSpace(TEST_SPAWN, survivalWorldGen);
-}
-
-// Narrow a commitIntent/commitPrimitiveIntent result to the speculative-attempt
-// branch (see docs/speculative-physics.md). The `speculative` field only
-// exists on that branch, so this doubles as an assertion that the call really
-// took the soft-fail path instead of a recognized action.
-export function assertSpeculative(result: unknown): asserts result is {
-  accepted: false;
-  speculative: true;
-  approaching: boolean;
-  verb: string;
-  message: string;
-} {
-  assert.ok(
-    typeof result === "object" &&
-      result !== null &&
-      (result as { speculative?: unknown }).speculative === true,
-    "expected a speculative-attempt outcome",
-  );
 }
 
 // Reveal the spawn surroundings plus the nearest food source. Production no longer

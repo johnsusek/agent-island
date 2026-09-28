@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { makeSurvivalEngine, placeAt, runToIdle } from "./helpers.js";
 
-// Genesis run cc3d1956: the Oracle minted build-shelter with
+// Genesis run cc3d1956: the director minted build-shelter with
 // `spawn.id: "shelter-{{self}}-{{tick}}"`, and the substrate used that string
 // verbatim. One entity was created, literally named "shelter-{{self}}-{{tick}}";
 // the second builder passed the gate, paid 5 stone, and hit "already exists".
@@ -11,7 +11,7 @@ import { makeSurvivalEngine, placeAt, runToIdle } from "./helpers.js";
 // shelter-{{self}}-{{tick}}") and both characters started routing to the broken
 // name as if it were a landmark.
 //
-// The Oracle reaches for this syntax because `{{ ... }}` renders everywhere else
+// A director reaches for this syntax because `{{ ... }}` renders everywhere else
 // in the system, so the fix makes the reflex work rather than training it away.
 
 function addBuildRule(
@@ -94,7 +94,7 @@ test("an unknown placeholder in a spawn id is refused, not baked in", () => {
 
 // Shape-level authoring check: a constant id is legal (some things there is
 // genuinely one of) but for a build verb it is the singleton trap, so the
-// Oracle hears about it at mint time rather than at the second builder.
+// director hears about it at mint time rather than at the second builder.
 test("a build action with a fixed spawn id is flagged at dry run", () => {
   let engine = makeSurvivalEngine();
   engine.addAgent("Ara");

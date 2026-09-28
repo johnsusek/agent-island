@@ -54,35 +54,6 @@ export function createGmCommands(context: GmCommandContext) {
     return { rules: context.engine.getRules() };
   }
 
-  // Speculative-physics feed (docs/speculative-physics.md): attempts at verbs
-  // no rule defines yet, clustered by verb. This is the synthesis seat's raw
-  // material for deciding what to add_rule into existence. `nouns` is the
-  // companion feed - THINGS characters reached for that don't exist yet
-  // (an unknown resource on a real verb, or an unknown arg on an unknown
-  // verb), clustered by noun - so the Oracle can mint a resource the same way
-  // it mints a verb.
-  function gmSpeculativeAttempts(sessionId: string) {
-    context.requireGm(sessionId);
-    return {
-      clusters: context.engine.getSpeculativeAttempts(),
-      nouns: context.engine.getSpeculativeNouns(),
-    };
-  }
-
-  function gmRejectSpeculation(
-    sessionId: string,
-    verb: string,
-    reason: string,
-  ) {
-    context.requireGm(sessionId);
-    let result = context.engine.rejectSpeculation(verb, reason);
-    return finishGmEdit(
-      `* GM rejected speculation ${verb}: ${result.rejected}`,
-      { ok: true, ...result },
-      { rulesChanged: false },
-    );
-  }
-
   function tryDryRun(id: string) {
     try {
       return context.engine.dryRunRule(id);
@@ -123,13 +94,8 @@ export function createGmCommands(context: GmCommandContext) {
     context.requireGm(sessionId);
     let result = context.engine.addRule(rule);
     let dryRun = tryDryRun(result.id);
-    // Who this mint answers: the attempters it just woke, named in the audit
-    // line so an operator sees the speculation and the grant meet.
-    let redeemed = result.redeemed?.length
-      ? `, redeemed for ${result.redeemed.join(", ")}`
-      : "";
     return finishGmEdit(
-      `* GM added rule ${result.id}${redeemed}${dryRunSuffix(dryRun)}`,
+      `* GM added rule ${result.id}${dryRunSuffix(dryRun)}`,
       {
         ok: true,
         ...result,
@@ -289,8 +255,6 @@ export function createGmCommands(context: GmCommandContext) {
     joinAsGm,
     gmInspect,
     gmRules,
-    gmSpeculativeAttempts,
-    gmRejectSpeculation,
     gmAddRule,
     gmRemoveRule,
     gmPatchRule,

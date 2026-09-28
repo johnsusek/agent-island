@@ -161,7 +161,6 @@ export function buildInspection(
     history: () => engine.getHistory(),
     controllers: () => controllersView(engine, seats),
     pulse: () => engine.getPulse(),
-    dormant: () => engine.getDormantVerbs(),
   };
   let includeNames = query.include?.includes("all")
     ? Object.keys(fullSections)

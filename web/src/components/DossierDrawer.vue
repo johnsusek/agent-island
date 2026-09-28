@@ -9,12 +9,7 @@ import type {
   StockRole,
   VisualSpec,
 } from "../types";
-import type {
-  ChatItem,
-  FeedItem,
-  LawCard,
-  SpeculationCard,
-} from "../useWorldState";
+import type { ChatItem, FeedItem } from "../useWorldState";
 
 const props = defineProps<{
   agent: AgentView;
@@ -22,8 +17,6 @@ const props = defineProps<{
   kindVisuals: Record<string, VisualSpec>;
   chat: ChatItem[];
   feed: FeedItem[];
-  laws: LawCard[];
-  speculations: SpeculationCard[];
 }>();
 
 defineEmits<{ (event: "close"): void }>();
@@ -77,17 +70,6 @@ let pack = computed(() =>
     })),
 );
 let held = computed(() => props.agent.held ?? []);
-
-// This character's own speculations: standing ones plus the laws their speculating
-// helped mint.
-let mySpeculations = computed(() =>
-  props.speculations.filter((spec) =>
-    spec.speculators.includes(props.agent.name),
-  ),
-);
-let myLaws = computed(() =>
-  props.laws.filter((law) => law.speculators.includes(props.agent.name)),
-);
 
 let recentTalk = computed(() =>
   props.chat.filter((item) => item.speakerId === props.agent.id).slice(-6),
@@ -191,27 +173,6 @@ let activity = computed(() => {
             {{ packItem.label }}
           </span>
           <span class="dossier__pack-value">{{ packItem.value }}</span>
-        </div>
-      </section>
-
-      <section v-if="mySpeculations.length" class="dossier__section">
-        <h3 class="ledger__heading">Speculating</h3>
-        <div
-          v-for="spec in mySpeculations"
-          :key="spec.verb"
-          class="dossier__spec"
-        >
-          <b class="row__verb">{{ spec.verb }}</b>
-          <span v-if="spec.expectation" class="row__hope">
-            "{{ spec.expectation }}"</span
-          >
-        </div>
-      </section>
-
-      <section v-if="myLaws.length" class="dossier__section">
-        <h3 class="ledger__heading">Made real</h3>
-        <div v-for="law in myLaws" :key="law.id" class="dossier__spec">
-          <b class="row__verb">{{ law.id }}</b>
         </div>
       </section>
 

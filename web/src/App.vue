@@ -22,12 +22,6 @@ let selectedAgent = computed(() => {
   return id ? (world.agents.value[id] ?? null) : null;
 });
 
-function selectByName(name: string) {
-  let match = Object.values(world.agents.value).find(
-    (agent) => agent.name === name,
-  );
-  if (match) selectedAgentId.value = match.id;
-}
 </script>
 
 <template>
@@ -70,15 +64,11 @@ function selectByName(name: string) {
           :kind-visuals="world.kindVisuals.value"
           :chat="world.chat.value"
           :feed="world.feed.value"
-          :laws="world.laws.value"
-          :speculations="world.speculations.value"
           @close="selectedAgentId = null"
         />
         <LedgerRail
           v-else
           :laws="world.laws.value"
-          :speculations="world.speculations.value"
-          @select-name="selectByName"
         />
       </div>
     </main>

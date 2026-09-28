@@ -44,13 +44,13 @@ test("operator arguments and help expose only viewer controls", () => {
 
 test("persona frontmatter parses into meta and stripped body", () => {
   let { meta, body } = parsePersona(
-    "---\nmodel: haiku\neffort: medium\nwake:\n  events: [speculative_attempt, noun_attempt]\n  every_ticks: 50\n---\nYou are the Oracle.",
+    "---\nmodel: haiku\neffort: medium\nwake:\n  events: [death, motion_passed]\n  every_ticks: 50\n---\nYou are the Clerk.",
   );
   assert.equal(meta.model, "haiku");
   assert.equal(meta.effort, "medium");
-  assert.deepEqual(meta.wake.events, ["speculative_attempt", "noun_attempt"]);
+  assert.deepEqual(meta.wake.events, ["death", "motion_passed"]);
   assert.equal(meta.wake.every_ticks, 50);
-  assert.equal(body, "You are the Oracle.");
+  assert.equal(body, "You are the Clerk.");
   // No frontmatter: the whole file is body and there is no wake policy.
   let plain = parsePersona("You are a helper.");
   assert.deepEqual(plain.meta, {});
@@ -60,7 +60,7 @@ test("persona frontmatter parses into meta and stripped body", () => {
 
 test("persona wake policy drives director cadence and run ticks measure from launch", () => {
   let eventWoken = directorWake({
-    wake: { events: ["speculative_attempt"], every_ticks: 50 },
+    wake: { events: ["death"], every_ticks: 50 },
   });
   assert.equal(wakeCadenceTicks(eventWoken), 0);
   let scheduled = directorWake({ wake: { every_ticks: 600 } });
@@ -77,7 +77,7 @@ test("persona wake policy drives director cadence and run ticks measure from lau
 
 test("an event-woken seat's wake throttle rate-limits passes without delaying slow ones", () => {
   let throttled = directorWake({
-    wake: { events: ["speculative_attempt"], min_interval_ms: 30000 },
+    wake: { events: ["death"], min_interval_ms: 30000 },
   });
   assert.equal(throttled.minIntervalMs, 30000);
   // Frontmatter is the default; the flag overrides it, `off` removes it.
@@ -85,7 +85,7 @@ test("an event-woken seat's wake throttle rate-limits passes without delaying sl
   assert.equal(parseMinWakeMs("5000", throttled), 5000);
   assert.equal(parseMinWakeMs("off", throttled), 0);
   // A persona with no floor is unthrottled.
-  let plain = directorWake({ wake: { events: ["speculative_attempt"] } });
+  let plain = directorWake({ wake: { events: ["death"] } });
   assert.equal(plain.minIntervalMs, null);
   assert.equal(parseMinWakeMs(undefined, plain), 0);
   assert.throws(() =>
@@ -270,8 +270,8 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
       "---\nwake:\n  every_ticks: 600\n---\n# Keeper",
     );
     fs.writeFileSync(
-      path.join(paths.directorPersonasDir, "oracle.md"),
-      "---\nwake:\n  events: [speculative_attempt]\n---\n# Oracle",
+      path.join(paths.directorPersonasDir, "clerk.md"),
+      "---\nwake:\n  events: [death]\n---\n# Clerk",
     );
     // No wake frontmatter: not a seat, never listed.
     fs.writeFileSync(
@@ -334,8 +334,8 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
       path.join(paths.directorBatchesDir, `${process.ppid}.json`),
       JSON.stringify({
         pid: process.ppid,
-        names: ["Oracle"],
-        persona: "oracle",
+        names: ["Clerk"],
+        persona: "clerk",
         cadenceTicks: 0,
         state: "running",
         startTick: 42,
@@ -402,7 +402,7 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     );
     let linden = snapshot.seats.find((seat) => seat.name === "Linden");
     let keeper = snapshot.seats.find((seat) => seat.name === "Keeper");
-    let oracle = snapshot.seats.find((seat) => seat.name === "Oracle");
+    let clerk = snapshot.seats.find((seat) => seat.name === "Clerk");
     let previous = snapshot.seats.find((seat) => seat.name === "Previous");
     let retired = snapshot.seats.find((seat) => seat.name === "Retired");
     assert.equal(snapshot.online, false);
@@ -417,10 +417,10 @@ test("offline runtime reconciles saved agents, crew batches, and log metadata", 
     assert.equal(keeper.state, "scheduled");
     assert.equal(keeper.cadenceTicks, 500);
     assert.equal(keeper.nextLaunchTick, 542);
-    assert.equal(oracle.persona, "oracle");
-    assert.equal(oracle.processRunning, true);
-    assert.equal(oracle.state, "running");
-    assert.notEqual(oracle.pid, keeper.pid);
+    assert.equal(clerk.persona, "clerk");
+    assert.equal(clerk.processRunning, true);
+    assert.equal(clerk.state, "running");
+    assert.notEqual(clerk.pid, keeper.pid);
     assert.equal(previous, undefined);
     assert.equal(retired, undefined);
   } finally {
@@ -443,23 +443,23 @@ test("operator presentation filters and builds TerminalKit widget content", () =
     {
       alive: null,
       controllerConnected: true,
-      id: "director:oracle",
+      id: "director:clerk",
       log: {
         entries: [
           { kind: "text", label: "agent", text: "Listening.", raw: "{}" },
         ],
-        file: "oracle.jsonl",
+        file: "clerk.jsonl",
         mtime: 1,
         size: 1,
         startedAt: 1,
       },
       logCount: 1,
-      memory: "# Oracle\n\nWatch the world.",
-      name: "Oracle",
-      persona: "oracle",
+      memory: "# Clerk\n\nWatch the world.",
+      name: "Clerk",
+      persona: "clerk",
       processRunning: true,
       role: "director",
-      seatDir: "/tmp/oracle",
+      seatDir: "/tmp/clerk",
       startedAt: 1,
       state: "running",
       updatedAt: 1,
@@ -497,17 +497,17 @@ test("operator presentation filters and builds TerminalKit widget content", () =
   ];
   assert.deepEqual(
     filterSeats(seats, "running", "").map((seat) => seat.name),
-    ["Oracle"],
+    ["Clerk"],
   );
   assert.deepEqual(
     filterSeats(seats, "all", "hai").map((seat) => seat.name),
     ["Linden"],
   );
   assert.deepEqual(
-    filterSeats(seats, "all", "earlier", "director:oracle", {
+    filterSeats(seats, "all", "earlier", "director:clerk", {
       entries: [{ label: "agent", text: "An earlier thought." }],
     }).map((seat) => seat.name),
-    ["Oracle"],
+    ["Clerk"],
   );
 
   let items = rosterItems(seats, 32);
@@ -515,7 +515,7 @@ test("operator presentation filters and builds TerminalKit widget content", () =
     items.filter((item) => item.disabled).map((item) => item.content),
     ["DIRECTORS", "CHARACTERS"],
   );
-  assert.match(seatHeading(seats[0]), /Oracle · running/);
+  assert.match(seatHeading(seats[0]), /Clerk · running/);
   assert.match(detailText(seats[0], "activity", null, ""), /Listening/);
   assert.match(detailText(seats[0], "memory", null, ""), /Watch/);
   assert.match(
@@ -530,5 +530,5 @@ test("operator presentation filters and builds TerminalKit widget content", () =
     }),
     /genesis · tick 12 · ONLINE/,
   );
-  assert.equal(reconcileSelection([], "director:oracle", null), null);
+  assert.equal(reconcileSelection([], "director:clerk", null), null);
 });

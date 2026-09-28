@@ -252,11 +252,6 @@ export interface EventView {
   agentId?: string;
   message?: string;
   target?: string;
-  // speculative_attempt / speculation_realized rows carry the word(s) involved
-  // and, for attempts, what the character expected to happen.
-  verb?: string;
-  verbs?: string[];
-  expectation?: string;
 }
 
 // An entry in the GM audit trail (mirrors the server's GmEvent).
@@ -274,7 +269,6 @@ export interface GmEventView {
     | "terrain_painted"
     | "world_regenerated"
     | "world_grew"
-    | "speculation_rejected"
     | "announced"
     | "game_over"
     | "gm_joined"
@@ -314,30 +308,6 @@ export interface RuleMeta {
   customSources?: Record<string, string>;
 }
 
-// One verb-cluster of the speculative-attempt feed - the same shape the
-// Oracle's list_speculative_attempts returns.
-export interface SpeculativeCluster {
-  verb: string;
-  count: number;
-  distinctActors: string[];
-  firstTick: number;
-  lastTick: number;
-  expectations: string[];
-  sampleArgs: Record<string, string | number>[];
-  rejected?: string;
-}
-
-// One noun-cluster of the companion feed - a thing characters reached for that
-// doesn't exist yet, with the verbs it was reached for through.
-export interface SpeculativeNoun {
-  noun: string;
-  count: number;
-  verbs: string[];
-  distinctActors: string[];
-  firstTick: number;
-  lastTick: number;
-}
-
 // Wall-clock health of the logical clock (see coordinator.getAdminPayload).
 export interface Liveness {
   running: boolean;
@@ -369,8 +339,6 @@ export interface AdminPayload {
   history: StockSample[];
   rules: RuleView[];
   ruleMeta: RuleMeta;
-  speculative: SpeculativeCluster[];
-  speculativeNouns: SpeculativeNoun[];
   liveness: Liveness;
 }
 

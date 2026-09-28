@@ -23,7 +23,6 @@ import {
   stock,
   validateRule,
   validInscription,
-  type ActionRule,
   type Args,
   type Entity,
   type KernelEvent,
@@ -104,7 +103,6 @@ import {
   intentArgs,
   isMovementActionName,
   listAvailableActions as availableActionsFor,
-  UnknownChoiceError,
   validateActionArgs,
   type ActionInput,
   type ActionDescriptor,
@@ -150,11 +148,6 @@ export interface GameEvent {
   global?: boolean; // opt in to colony-wide reach (world-level happenings)
   target?: string; // for whispers
   message?: string; // raw speech/whisper text
-  verb?: string; // speculative_attempt / speculation_realized: the word that was tried
-  verbs?: string[]; // speculation_realized: every synonym this one wake settles
-  expectation?: string; // speculative_attempt: what the actor said would happen
-  args?: Record<string, string | number>; // speculative_attempt: the rest of the attempted args
-  noun?: string; // noun_attempt: a thing a character reached for that doesn't exist
 }
 
 export interface VisibleEventsOptions {
@@ -181,7 +174,6 @@ export interface GmEvent {
     | "terrain_painted"
     | "world_regenerated"
     | "world_grew"
-    | "speculation_rejected"
     | "announced"
     | "game_over"
     | "gm_joined"
@@ -217,129 +209,7 @@ export interface Pulse {
   chatInWindow: number;
   ticksSinceLastGmAction: number | null;
   ticksSinceLastDecisionEvent: number | null;
-  // The invention digest, alongside the tension one. The tension fields above
-  // measure whether the world is alive; these measure whether it is still being
-  // AUTHORED - the read genesis cb263000's directors got wrong when they called
-  // 1,370 attempt-free ticks "healthy" off chat and travel volume.
-  invention: InventionPulse;
 }
-
-// Whether characters are still imagining new physics, and whether the Directors
-// are keeping up. Derived on demand from the same state a director could read by
-// hand (the event log, the attempt clusters, the intro-tick and use-count maps),
-// so it rides every pulse without a second poll. Judge invention by THESE, never
-// by general activity: `explore`/`travel`/chat can run hot for thousands of
-// ticks after the last real attempt.
-export interface InventionPulse {
-  // Ticks since the last unknown-verb attempt / unknown-noun reach. Rising past
-  // a few hundred is the flatline the Steward exists to break; null if none yet.
-  ticksSinceLastSpeculativeAttempt: number | null;
-  ticksSinceLastNounAttempt: number | null;
-  // Verb ideas tried and neither ratified nor rejected - the Oracle's open work.
-  // (A rejected cluster is a settled judgment, so it does not count as unanswered.)
-  unansweredPetitions: number;
-  // Age (in ticks) of the oldest unanswered petition; null when none stand open.
-  // A petition is part of a character's live plan - the older it gets, the more
-  // likely its need is gone by the time a rule finally arrives.
-  oldestPetitionAge: number | null;
-  // Ticks since the most recent action rule was introduced; null if none minted.
-  ticksSinceLastMint: number | null;
-  // Petition-to-rule latency over recorded mints: the design target is tens of
-  // ticks. null until at least one mint has answered an attempt.
-  medianMintLatency: number | null;
-  meanMintLatency: number | null;
-  // How many times each action rule has been started this run, by canonical id.
-  ruleUseCounts: Record<string, number>;
-  // Minted (non-baseline) action rules that have never been used and are past a
-  // grace window since their mint - affordances that exist but nobody enters.
-  // Each is a candidate for the Steward's "verb waiting on a noun" inference.
-  unusedRuleIds: string[];
-}
-
-// How long after a minted action rule may go unused before the invention pulse
-// calls it dead. Short enough to surface a stillborn verb within a director's
-// next few passes, long enough that a just-minted rule isn't flagged before
-// anyone could have reached it.
-const UNUSED_GRACE_TICKS = 100;
-
-// A noun a dormant verb's `requires` gate names: a kind, a tag, or a terrain.
-export interface DormantReferent {
-  ref: string;
-  type: "kind" | "tag" | "terrain";
-}
-
-// One dormant (minted, aged-out, never-used) verb and the nouns it is waiting on.
-// See getDormantVerbs for the hard-missing vs producible split and the `spawns`
-// catalyst hint.
-export interface DormantVerb {
-  id: string;
-  hardMissing: DormantReferent[];
-  absentButProducible: DormantReferent[];
-  spawns: string[];
-}
-
-// The Steward's dormant-verb report: every dead verb with its missing nouns, plus
-// a rollup ranking the hard-missing nouns by how many verbs each would unblock.
-export interface DormantAnalysis {
-  verbs: DormantVerb[];
-  missingNounLeverage: Array<DormantReferent & { blocks: string[] }>;
-}
-
-// Pull the noun referents out of an action's `requires` gate - the kinds, tags,
-// and terrains its conditions name. Recurses through aggregates (all/any/not),
-// selector `where` clauses, and the holds/colocated/nearTerrain selectors. A
-// templated string ({{...}}) is resolved at runtime, not a literal noun, so it
-// is skipped. cmp/stock conditions are left out on purpose: a stock is a pack
-// quantity to be gathered, not an entity the Steward would spawn to unblock a verb.
-function collectRequireReferents(cond: unknown, out: DormantReferent[]) {
-  if (!cond || typeof cond !== "object") return;
-  let c = cond as Record<string, unknown>;
-  let literal = (value: unknown): string | undefined =>
-    typeof value === "string" && !value.includes("{{") ? value : undefined;
-
-  let tag = literal(c.tag);
-  if (tag) out.push({ ref: tag, type: "tag" });
-  let kind = literal(c.kind);
-  if (kind) out.push({ ref: kind, type: "kind" });
-
-  if ("holds" in c) {
-    // holds is either a bare tag string or a {kind|tag|where} selector.
-    let held = literal(c.holds);
-    if (held) out.push({ ref: held, type: "tag" });
-    else collectRequireReferents(c.holds, out);
-  }
-  if (c.colocated && typeof c.colocated === "object")
-    collectRequireReferents(c.colocated, out);
-  if (c.nearTerrain && typeof c.nearTerrain === "object") {
-    let type = (c.nearTerrain as { type?: unknown }).type;
-    for (let name of Array.isArray(type) ? type : [type]) {
-      let terrain = literal(name);
-      if (terrain) out.push({ ref: terrain, type: "terrain" });
-    }
-  }
-  if (c.where) collectRequireReferents(c.where, out);
-  for (let key of ["all", "any"] as const)
-    if (Array.isArray(c[key]))
-      for (let sub of c[key] as unknown[]) collectRequireReferents(sub, out);
-  if (c.not) collectRequireReferents(c.not, out);
-}
-
-// The kinds an action's `do` spawns, descending through forEach bodies - the
-// catalyst hint half of a dormant verb's report.
-function collectSpawnKinds(effects: unknown, out: { kind?: unknown }[]) {
-  if (!Array.isArray(effects)) return;
-  for (let effect of effects) {
-    if (!effect || typeof effect !== "object") continue;
-    let e = effect as { spawn?: { kind?: unknown }; forEach?: { do?: unknown } };
-    if (e.spawn) out.push(e.spawn);
-    if (e.forEach?.do) collectSpawnKinds(e.forEach.do, out);
-  }
-}
-
-// The invention pulse keeps only the most recent petition-to-rule latencies. A
-// bounded window keeps a long run's median honest about how ratification is
-// pacing NOW rather than averaging in the fast early game forever.
-const MINT_LATENCY_CAP = 200;
 
 const idPattern = /^[a-z0-9][a-z0-9-]{0,19}$/;
 
@@ -380,7 +250,7 @@ const RECENT_CHAT_LIMIT = 8;
 // Everything else is directed (whispers) or colony-wide (chat, arrivals and
 // departures, the scenario's witnessed activity events).
 // Real capabilities that live on the MCP surface rather than in an order:
-// speak, whisper, inscribe, and sense. See commitSpeculativeAttempt.
+// speak, whisper, inscribe, and sense. See commitUnknownAction.
 const TOOL_VERBS = new Set(["speak", "whisper", "inscribe", "sense"]);
 
 const SUBSTRATE_ACTOR_ONLY = new Set([
@@ -394,10 +264,7 @@ const SUBSTRATE_ACTOR_ONLY = new Set([
   "order_cancelled",
   "arrived",
   "scanned",
-  "speculative_attempt",
-  "noun_attempt",
   "vitals_alarm",
-  "speculation_realized",
   "order_note",
 ]);
 
@@ -435,16 +302,6 @@ export interface EngineSnapshot {
   // recoverable).
   gmLog?: GmEvent[];
   nextGmSeq?: number;
-  // Exact speculative verbs the Oracle declined, with its in-fiction reason.
-  // Optional so older snapshots restore with no rejections.
-  rejectedSpeculations?: [string, string][];
-  // Per-action-rule start counts and the petition-to-rule latency ring, both
-  // read by the invention pulse. Optional so pre-InventionPulse snapshots restore
-  // with an empty count and no latency history. Unlike actionIntroTick (which the
-  // overlay re-stamps on restore), these are lifetime tallies with no other home,
-  // so they persist here to survive a restart.
-  actionUseCount?: [string, number][];
-  mintLatencies?: number[];
   // GM rule edits layered over the scenario's baseline rules. Optional and
   // absent in pre-GM snapshots, which restore to the pristine scenario rule set.
   // Persisting only the diff (not the whole live array) means edits to the
@@ -609,7 +466,6 @@ export function createWorld(scenario: Scenario) {
   // survives a restart, but reset with a new world - it is the story of this run.
   let gmLog: GmEvent[];
   let nextGmSeq: number;
-  let rejectedSpeculations: Map<string, string>;
   // The live rule set. Seeded from the scenario but engine-owned and mutable, so
   // a GM can add, drop, or tweak rules at runtime (see addRule/removeRule/
   // patchRule). A shallow copy keeps the shared scenario singleton untouched.
@@ -681,19 +537,7 @@ export function createWorld(scenario: Scenario) {
   // blending into a list it has skimmed a hundred times. Baseline and restored
   // actions are absent here and read as intro tick 0, so they never flash "new".
   let actionIntroTick: Map<string, number>;
-  // How many times each action rule has actually been started, keyed by its
-  // canonical id (aliases collapse - see commitPrimitiveIntent's `type`). This
-  // is the adoption signal the invention pulse reads: a minted verb nobody ever
-  // reaches for (genesis cb263000's `tame_animal`) reads as 0 here, which is
-  // what tells the Steward the verb is waiting on a noun. Persisted, so the count
-  // is a run's whole history rather than the in-memory log tail.
-  let actionUseCount: Map<string, number>;
-  // Petition-to-rule latencies (in ticks), one sample per idea the moment a mint
-  // first answers it - world.tick minus the earliest attempt that reached for it.
-  // A ring the invention pulse reduces to a median/mean, so a director can see
-  // ratification keeping pace (tens of ticks) or falling behind (cb263000's mean
-  // of ~500). Bounded so a long run doesn't grow it without limit.
-  let mintLatencies: number[];
+
 
   // The worldgen seed currently in effect. Starts at the scenario's own seed;
   // reset() can override it with a fresh one to reroll the map, spawn, and
@@ -754,7 +598,6 @@ export function createWorld(scenario: Scenario) {
     nextSeq = 0;
     gmLog = [];
     nextGmSeq = 0;
-    rejectedSpeculations = new Map();
     rules = [...scenario.rules];
     dirtyRuleIds = new Set();
     history = []; // fills from the first tick onward
@@ -765,8 +608,6 @@ export function createWorld(scenario: Scenario) {
     spawnedFixtures = [];
     appliedSetup = [];
     actionIntroTick = new Map();
-    actionUseCount = new Map();
-    mintLatencies = [];
     // Expand the scenario's terrain kinds last, once the world and grid exist:
     // each spec sets its grid passability and move cost. GM-registered terrain
     // rides the overlay and is layered back on afterward by applyOverlay, which
@@ -1092,269 +933,6 @@ export function createWorld(scenario: Scenario) {
     return structuredClone(log.slice(-limit));
   }
 
-  // Every verb the world has since learned to answer: the words already spent
-  // by a redemption, plus every name the current action registry responds to.
-  // Both halves are needed - a `speculation_realized` names the words it
-  // settled, but a verb minted before anyone tried it (or one whose redemption
-  // predates a later alias) is only visible in the registry.
-  function settledVerbs(): Set<string> {
-    let settled = new Set<string>();
-    for (let event of log) {
-      if (event.type !== "speculation_realized") continue;
-      if (event.verb) settled.add(event.verb);
-      for (let verb of event.verbs ?? []) settled.add(verb);
-    }
-    for (let action of actionRegistry()) {
-      settled.add(action.name);
-      for (let alias of action.aliases ?? []) settled.add(alias);
-    }
-    return settled;
-  }
-
-  // Speculative-physics feed: every attempt at a verb no rule defines yet,
-  // clustered by verb so a synthesis seat can see consensus at a glance
-  // instead of wading through the general event log for it. Reads the same
-  // `log` every other GM query draws from - no separate storage, and the
-  // usual 50k trim bounds it like everything else here.
-  //
-  // Answered verbs drop out. The log is append-only, so without this filter a
-  // cluster survives its own ratification forever: genesis run cc3d1956 reached
-  // t187 with six minted rules and six "open" clusters that were exactly the
-  // aliases of those six rules - the Oracle had answered everything and was
-  // being told, every turn, that it had answered nothing. That is a standing
-  // invitation to re-mint a settled concept under a synonym, and it makes the
-  // open-speculation count useless as a health signal.
-  function getSpeculativeAttempts() {
-    let settled = settledVerbs();
-    let clusters = new Map<
-      string,
-      {
-        verb: string;
-        count: number;
-        distinctActors: string[];
-        firstTick: number;
-        lastTick: number;
-        expectations: string[];
-        sampleArgs: Record<string, string | number>[];
-        rejected?: string;
-      }
-    >();
-    for (let event of log) {
-      if (event.type !== "speculative_attempt" || !event.verb) continue;
-      if (settled.has(event.verb)) continue;
-      let cluster = clusters.get(event.verb);
-      if (!cluster) {
-        cluster = {
-          verb: event.verb,
-          count: 0,
-          distinctActors: [],
-          firstTick: event.tick,
-          lastTick: event.tick,
-          expectations: [],
-          sampleArgs: [],
-          ...(rejectedSpeculations.has(event.verb)
-            ? { rejected: rejectedSpeculations.get(event.verb) }
-            : {}),
-        };
-        clusters.set(event.verb, cluster);
-      }
-      cluster.count += 1;
-      cluster.lastTick = event.tick;
-      if (event.agentId && !cluster.distinctActors.includes(event.agentId))
-        cluster.distinctActors.push(event.agentId);
-      if (
-        event.expectation &&
-        cluster.expectations.length < 8 &&
-        !cluster.expectations.includes(event.expectation)
-      )
-        cluster.expectations.push(event.expectation);
-      if (event.args && cluster.sampleArgs.length < 8)
-        cluster.sampleArgs.push(event.args);
-    }
-    return [...clusters.values()].sort((a, b) => b.count - a.count);
-  }
-
-  // Every noun the world already answers to - what a "reached-for noun" is
-  // checked against so only genuinely-absent things surface. The union of
-  // every name a character could plausibly have meant: declared stocks, live
-  // entity kinds and ids (and their display names), the kinds rules spawn, and
-  // terrain. Lower-cased for a forgiving match, since a character types
-  // "Clay"/"clay" without knowing the registry's casing.
-  function knownNounSet(): Set<string> {
-    let names = new Set<string>();
-    let add = (n: string | undefined) => {
-      if (n) names.add(n.toLowerCase());
-    };
-    for (let n of knownStockNames()) add(n);
-    for (let t of Object.keys(terrainSpecs)) add(t);
-    for (let e of Object.values(world.entities)) {
-      add(e.id);
-      add(e.kind);
-      add(displayName(e.id));
-    }
-    for (let spec of liveSpawnSpecs())
-      if (typeof spec.kind === "string") add(spec.kind);
-    return names;
-  }
-
-  // The longest a reached-for noun can be and still plausibly name a THING the
-  // world could contain. An arg is free text, so an unknown verb carries prose
-  // as often as nouns ("the sky gods", "until it stops raining"); a name the
-  // Oracle could mint a resource for is one or two words. Anything longer is
-  // sentence fragment, not petition, and would only bury the real nouns.
-  const MAX_NOUN_WORDS = 2;
-  const MAX_NOUN_LENGTH = 32;
-
-  // Whether a string a character used as an arg names something the world does
-  // NOT have - the one gate both noun paths use, so the event a character sees
-  // and the feed the Oracle reads can never disagree about what is missing.
-  // Checked at journal time as well as at read time: telling someone "no such
-  // thing answers here" about a thing that plainly exists (a stock a verb
-  // refused for some other reason) is a lie the world should never tell.
-  function isUnknownNoun(value: string, known: Set<string>): boolean {
-    let trimmed = value.trim();
-    if (!trimmed || trimmed.length > MAX_NOUN_LENGTH) return false;
-    if (trimmed.split(/\s+/).length > MAX_NOUN_WORDS) return false;
-    return !known.has(trimmed.toLowerCase());
-  }
-
-  // The noun-level companion to getSpeculativeAttempts: things characters
-  // reached for that don't exist. Two sources, both already in the log - a
-  // `noun_attempt` (a known verb given an unknown noun arg, journaled at
-  // commit) and the string arg values riding a `speculative_attempt` (an
-  // unknown verb whose args named a nonexistent thing). Clustered by noun, so
-  // "clay" reached for via smelt, shape, and fire shows as one entry the
-  // Oracle can mint a resource for. Kept as its own function (not folded into
-  // getSpeculativeAttempts' array) so the verb-cluster shape the dashboard and
-  // redemption path depend on is untouched.
-  function getSpeculativeNouns() {
-    let known = knownNounSet();
-    let clusters = new Map<
-      string,
-      {
-        noun: string;
-        count: number;
-        verbs: string[];
-        distinctActors: string[];
-        firstTick: number;
-        lastTick: number;
-      }
-    >();
-    let record = (
-      noun: string,
-      verb: string | undefined,
-      actor: string | undefined,
-      tick: number,
-    ) => {
-      if (!isUnknownNoun(noun, known)) return;
-      let trimmed = noun.trim();
-      let cluster = clusters.get(trimmed.toLowerCase());
-      if (!cluster) {
-        cluster = {
-          noun: trimmed,
-          count: 0,
-          verbs: [],
-          distinctActors: [],
-          firstTick: tick,
-          lastTick: tick,
-        };
-        clusters.set(trimmed.toLowerCase(), cluster);
-      }
-      cluster.count += 1;
-      cluster.lastTick = tick;
-      if (verb && !cluster.verbs.includes(verb)) cluster.verbs.push(verb);
-      if (actor && !cluster.distinctActors.includes(actor))
-        cluster.distinctActors.push(actor);
-    };
-    for (let event of log) {
-      if (event.type === "noun_attempt" && event.noun)
-        record(event.noun, event.verb, event.agentId, event.tick);
-      else if (event.type === "speculative_attempt" && event.args)
-        for (let value of Object.values(event.args))
-          if (typeof value === "string")
-            record(value, event.verb, event.agentId, event.tick);
-    }
-    return [...clusters.values()].sort((a, b) => b.count - a.count);
-  }
-
-  function rejectSpeculation(verb: string, reason: string) {
-    let rejected = reason.trim();
-    if (!rejected) throw new Error("A rejection needs a reason.");
-    let cluster = getSpeculativeAttempts().find(
-      (attempt) => attempt.verb === verb,
-    );
-    if (!cluster)
-      throw new Error(`No unresolved speculative attempt for "${verb}".`);
-    if (cluster.rejected === rejected) return { verb, rejected };
-    rejectedSpeculations.set(verb, rejected);
-    recordGm("speculation_rejected", `rejected speculation ${verb}`, {
-      target: verb,
-      detail: { reason: rejected },
-    });
-    return { verb, rejected };
-  }
-
-  // The other half of speculative physics: minting a verb has to reach the
-  // people who speculated it. An attempt is a standing intent, not a one-off -
-  // so when a rule arrives answering to a word someone tried, every living
-  // attempter is told, in fiction, that the world learned it.
-  //
-  // News, not an alarm. The event carries a `decision` wake, which is enough to
-  // pull a parked character out of wait_for_change on its own; their in-flight
-  // action and running order are left alone. Stopping their hands for this
-  // would be the world insisting they care right now, when a granted speculation is
-  // something to weigh against whatever they are already doing. For the same
-  // reason we do not replay the action for them: the attempt was made in a
-  // world that refused it, and re-forming the intent under the physics that now
-  // exists is the character's call. The telling is the whole fix - without it a
-  // granted speculation sits undiscovered (genesis run 5d121c3a: build_tower ratified
-  // at tick 2253 after three petitions, then used zero times in the 1,200 ticks
-  // that followed, because nobody told Haven).
-  //
-  // The event log is the ledger for both halves - attempts and their
-  // redemptions - so this survives a restore and cannot double-fire when a
-  // later tweak_rule re-sends the same alias list. A redemption records every
-  // word it settles in `verbs`, not just the one it names: somebody who tried
-  // three synonyms for one idea gets one wake, and all three words are spent.
-  function redeemSpeculativeAttempts(rule: Rule): string[] {
-    if (!("kind" in rule) || rule.kind !== "action") return [];
-    let names = new Set<string>([rule.id, ...(rule.aliases ?? [])]);
-    let claimed = new Set<string>();
-    for (let event of log) {
-      if (event.type !== "speculation_realized") continue;
-      if (event.verb) claimed.add(event.verb);
-      for (let verb of event.verbs ?? []) claimed.add(verb);
-    }
-    // Every unclaimed word each attempter tried, oldest first, so the news can
-    // name their most recent guess rather than the canonical name they never
-    // used - while still spending the earlier synonyms.
-    let owed = new Map<string, string[]>();
-    for (let event of log) {
-      if (event.type !== "speculative_attempt" || !event.verb) continue;
-      if (!names.has(event.verb) || claimed.has(event.verb)) continue;
-      if (!event.agentId || !isAlive(event.agentId)) continue;
-      let words = owed.get(event.agentId);
-      if (!words) owed.set(event.agentId, (words = []));
-      if (!words.includes(event.verb)) words.push(event.verb);
-    }
-    for (let [id, verbs] of owed) {
-      let verb = verbs[verbs.length - 1];
-      let news =
-        verb === rule.id
-          ? `the world has learned ${verb} - what you tried before will take now`
-          : `the world has learned ${rule.id}, the thing you were reaching for when you tried ${verb} - it will take now`;
-      push({
-        type: "speculation_realized",
-        agentId: id,
-        verb,
-        ...(verbs.length > 1 ? { verbs } : {}),
-        text: `${displayName(id)} feels the world give: ${news}.`,
-        wake: "decision",
-      });
-    }
-    return [...owed.keys()];
-  }
-
   // Append to the GM audit trail. Called by the god-power methods below (which
   // carry the before/after detail) and by the host for session bookends
   // (gm_joined / gm_left). Bounded like the character log, but far smaller - a GM
@@ -1596,8 +1174,7 @@ export function createWorld(scenario: Scenario) {
   }
 
   // Stop one agent's hands and force a decision wake. Shared by the watch-rule
-  // alarm above and by speculation redemption, which is the other thing in this
-  // world urgent enough to be worth breaking an order for.
+  // alarm above.
   function interruptAgent(id: string, reason: string) {
     if (!isAlive(id)) return;
     let actor = entity(id);
@@ -1939,7 +1516,7 @@ export function createWorld(scenario: Scenario) {
   // `warm-by-fire`, both minted with `do: []` because a threshold rule already
   // conferred the benefit on proximity, so "entering" had nothing left to do.
   // Tobias walked to the shelter, entered it, was told it worked, and stayed
-  // cold. The right answer there was to refuse the petition and explain that
+  // cold. The right answer there was to refuse the verb and explain that
   // standing there is already enough - so this is a throw, not a warning.
   //
   // Scoped to the GM mint path rather than kernel `validateRule` on purpose: a
@@ -1949,7 +1526,7 @@ export function createWorld(scenario: Scenario) {
     if (!("kind" in rule) || rule.kind !== "action") return;
     if (Array.isArray(rule.do) && rule.do.length > 0) return;
     throw new Error(
-      `Action "${rule.id}" has an empty body, so committing it would cost time and change nothing while telling the character it worked. If the benefit already comes from standing somewhere (a threshold rule keyed on proximity), this verb is not needed - refuse the speculation and say so. Otherwise give it the effect it promises.`,
+      `Action "${rule.id}" has an empty body, so committing it would cost time and change nothing while telling the character it worked. If the benefit already comes from standing somewhere (a threshold rule keyed on proximity), this verb is not needed. Otherwise give it the effect it promises.`,
     );
   }
 
@@ -2085,64 +1662,15 @@ export function createWorld(scenario: Scenario) {
     return null;
   }
 
-  // Speculative physics: the actor tried a verb no currently-loaded rule
-  // defines. Rather than hard-fail the order, journal the attempt (verb, the
-  // actor's stated expectation if it gave one, and the rest of its args) and
-  // hand back an in-fiction non-event - the world doesn't understand yet, but
-  // nothing breaks and the order carries on. A synthesis seat reads
-  // getSpeculativeAttempts() and may later add_rule the verb into existence;
-  // once that happens this same call path just finds a spec and proceeds
-  // normally. See docs/speculative-physics.md.
-  // Both events this can emit are decision-grade regardless of how the attempt
-  // arrived, so it takes no wake from its caller.
-  function commitSpeculativeAttempt(
-    id: string,
-    type: string,
-    action: ActionInput,
-  ) {
-    let { expectation, ...rest } = intentArgs(action) as Args & {
-      expectation?: string | number;
-    };
-    let name = displayName(id);
-    // Capabilities the actor already has, just not as order steps: reaching for
-    // one is a protocol slip, not a guess about physics. Correct it in fiction
-    // and keep it out of the attempt feed, which a director reads as demand.
-    if (TOOL_VERBS.has(type)) {
-      let text = `${name} means to ${type}, but that is something you do directly, not an order step.`;
-      // Decision-grade whatever the caller's wake was: a correction only works
-      // if the actor reads it, and routine churn is folded into a count.
-      push({ type: "order_note", agentId: id, text, wake: "decision" });
-      return {
-        accepted: false as const,
-        speculative: true as const,
-        approaching: false,
-        verb: type,
-        message: text,
-      };
-    }
-    let text = `${name} tries to ${type}. Nothing happens. The world does not respond to that... yet.`;
-    push({
-      type: "speculative_attempt",
-      agentId: id,
-      text,
-      // The speculation is the whole point of the paradigm, so the speculator must SEE
-      // that it went unanswered - an order step that folds into "(+2 routine)"
-      // reads as success, and the agent re-orders a verb that does not exist.
-      // Decision-grade regardless of how the attempt was made.
-      wake: "decision",
-      verb: type,
-      ...(expectation !== undefined
-        ? { expectation: String(expectation) }
-        : {}),
-      ...(Object.keys(rest).length ? { args: rest } : {}),
-    });
-    return {
-      accepted: false as const,
-      speculative: true as const,
-      approaching: false,
-      verb: type,
-      message: text,
-    };
+  // The actor tried a verb no loaded rule defines. Refuse it outright so the
+  // order blocks with a reason. A capability that lives on the MCP surface
+  // (speak, whisper, inscribe, sense) gets a pointer to the right tool.
+  function commitUnknownAction(type: string): never {
+    if (TOOL_VERBS.has(type))
+      throw new Error(
+        `${type} is something you do directly with its own tool, not an order step.`,
+      );
+    throw new Error(`Unknown action "${type}".`);
   }
 
   function commitPrimitiveIntent(
@@ -2158,47 +1686,18 @@ export function createWorld(scenario: Scenario) {
 
     let requested = action.type;
     let spec = findAction(requested);
-    if (!spec) return commitSpeculativeAttempt(id, requested, action);
+    if (!spec) return commitUnknownAction(requested);
     // A synonym resolves to the action's real name here, so everything
     // downstream - the kernel, the event text, order bookkeeping - only ever
     // sees canonical verbs, and the actor learns the world's word for it.
     let type = spec.name;
 
     let prior = entity(id).action;
-    let args: Args;
-    try {
-      // Validate before reading args: it normalizes an entity target from the
-      // display name the character was shown (Mica) to the id downstream expects
-      // (mica), so give/pick_up/drop and the kernel all see one canonical word.
-      validateActionArgs(actionContext(), id, spec, action);
-      args = intentArgs(action);
-    } catch (err) {
-      // A known verb reached for a noun the world does not have (an unknown
-      // enum value or entity target). The action still fails - the character
-      // still gets the refusal - but the reach is a noun-level speculation
-      // worth surfacing to the Oracle, exactly like an unknown verb is.
-      // Journal it, then rethrow so the order blocks as before.
-      //
-      // The isUnknownNoun gate is what keeps this honest: a verb refuses a
-      // valid choice for plenty of reasons that have nothing to do with the
-      // thing existing (giving away health, which is real but not givable),
-      // and telling a character "no such thing answers here" about a stock
-      // they can see on their own status line is a lie - and one that would
-      // then sit in the log forever, rescanned and re-discarded on every read.
-      if (
-        err instanceof UnknownChoiceError &&
-        isUnknownNoun(err.value, knownNounSet())
-      )
-        push({
-          type: "noun_attempt",
-          agentId: id,
-          verb: type,
-          noun: err.value,
-          text: `${displayName(id)} reaches for "${err.value}", but no such thing answers here... yet.`,
-          wake: "routine",
-        });
-      throw err;
-    }
+    // Validate before reading args: it normalizes an entity target from the
+    // display name the character was shown (Mica) to the id downstream expects
+    // (mica), so give/pick_up/drop and the kernel all see one canonical word.
+    validateActionArgs(actionContext(), id, spec, action);
+    let args = intentArgs(action);
     // give is a native hand-off, not a scenario stock rule: route it to its own
     // commit path, which transfers in arm's reach or walks to the recipient.
     if (spec.kind === "give")
@@ -2258,12 +1757,6 @@ export function createWorld(scenario: Scenario) {
         : `${name} begins to ${type} (${duration}s).`,
       wake,
     });
-    // Count the real start of an action rule, not the travel leg of an implicit
-    // approach (that fires again as a genuine start on arrival). `type` is the
-    // canonical id, so aliases collapse onto one tally - the adoption signal the
-    // invention pulse reads to tell a live verb from a stillborn one.
-    if (spec.kind === "stock" && approachTo === null)
-      actionUseCount.set(type, (actionUseCount.get(type) ?? 0) + 1);
 
     return {
       accepted: true,
@@ -3643,243 +3136,12 @@ export function createWorld(scenario: Scenario) {
       chatInWindow,
       ticksSinceLastGmAction,
       ticksSinceLastDecisionEvent,
-      invention: getInventionPulse(),
     };
-  }
-
-  // The invention digest (see InventionPulse). Like getPulse it derives every
-  // field on demand - the event log for attempt/noun recency, the open attempt
-  // clusters for the petition backlog, the mint-latency ring, and the intro-tick
-  // and use-count maps for adoption - so a director reads "is the world still
-  // being authored?" without a second poll.
-  function getInventionPulse(): InventionPulse {
-    let tick = world.tick;
-
-    // Most-recent-first scan for the two speculation signals. One pass, stopping
-    // once both are found.
-    let ticksSinceLastSpeculativeAttempt: number | null = null;
-    let ticksSinceLastNounAttempt: number | null = null;
-    for (let i = log.length - 1; i >= 0; i -= 1) {
-      let event = log[i];
-      if (
-        ticksSinceLastSpeculativeAttempt === null &&
-        event.type === "speculative_attempt"
-      )
-        ticksSinceLastSpeculativeAttempt = tick - event.tick;
-      if (ticksSinceLastNounAttempt === null && event.type === "noun_attempt")
-        ticksSinceLastNounAttempt = tick - event.tick;
-      if (
-        ticksSinceLastSpeculativeAttempt !== null &&
-        ticksSinceLastNounAttempt !== null
-      )
-        break;
-    }
-
-    // Open petitions: attempt clusters neither ratified (they drop out of the
-    // feed on redemption) nor rejected (a settled judgment, not open work).
-    let open = getSpeculativeAttempts().filter((cluster) => !cluster.rejected);
-    let oldestPetitionAge: number | null = null;
-    for (let cluster of open) {
-      let age = tick - cluster.firstTick;
-      if (oldestPetitionAge === null || age > oldestPetitionAge)
-        oldestPetitionAge = age;
-    }
-
-    let ticksSinceLastMint: number | null = null;
-    for (let introTick of actionIntroTick.values()) {
-      let since = tick - introTick;
-      if (ticksSinceLastMint === null || since < ticksSinceLastMint)
-        ticksSinceLastMint = since;
-    }
-
-    let medianMintLatency: number | null = null;
-    let meanMintLatency: number | null = null;
-    if (mintLatencies.length) {
-      let sorted = [...mintLatencies].sort((a, b) => a - b);
-      let mid = Math.floor(sorted.length / 2);
-      medianMintLatency =
-        sorted.length % 2 === 0
-          ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
-          : sorted[mid];
-      meanMintLatency = Math.round(
-        sorted.reduce((sum, v) => sum + v, 0) / sorted.length,
-      );
-    }
-
-    let ruleUseCounts: Record<string, number> = {};
-    for (let [id, count] of actionUseCount) ruleUseCounts[id] = count;
-
-    let unusedRuleIds = unusedMintedActions().map((rule) => rule.id);
-
-    return {
-      ticksSinceLastSpeculativeAttempt,
-      ticksSinceLastNounAttempt,
-      unansweredPetitions: open.length,
-      oldestPetitionAge,
-      ticksSinceLastMint,
-      medianMintLatency,
-      meanMintLatency,
-      ruleUseCounts,
-      unusedRuleIds,
-    };
-  }
-
-  // The minted (non-baseline) action rules that have been introduced, are past
-  // the grace window, and have never been started. Shared by the invention pulse
-  // (which reports their ids) and getDormantVerbs (which reads their requires to
-  // name the noun each is waiting on), so the two never disagree on what is dead.
-  function unusedMintedActions(): ActionRule[] {
-    let tick = world.tick;
-    let out: ActionRule[] = [];
-    for (let rule of actionRules(rules)) {
-      if (baselineIds.has(rule.id)) continue;
-      if ((actionUseCount.get(rule.id) ?? 0) > 0) continue;
-      let introTick = actionIntroTick.get(rule.id) ?? 0;
-      if (tick - introTick < UNUSED_GRACE_TICKS) continue;
-      out.push(rule);
-    }
-    return out;
-  }
-
-  // The deterministic half of the Steward's "verb waiting on a noun" inference.
-  // For every dormant verb, read the nouns its `requires` gate names and split
-  // them by whether the world can satisfy them: a `hardMissing` referent (no live
-  // instance AND no rule can ever produce it) is a real missing noun the Steward
-  // can seed to unblock the verb outright; an `absentButProducible` one is a
-  // stalled production chain, not an invention gap. `spawns` is the softer hint -
-  // what the verb makes - for the catalyst inference the Steward itself judges (a
-  // verb that spawns a "companion" is waiting on an "animal" that appears in no
-  // gate). Genesis cb263000's `tame_animal` and `collect_from_companion` are the
-  // motivating cases: minted, awesome, and never used because the world held
-  // nothing to prompt them.
-  function getDormantVerbs(): DormantAnalysis {
-    // What the world can satisfy right now, and what its rules could ever make.
-    let presentKinds = new Set<string>();
-    let presentTags = new Set<string>();
-    for (let entity of Object.values(world.entities)) {
-      if (entity.kind) presentKinds.add(entity.kind.toLowerCase());
-      for (let tag of entity.tags) presentTags.add(tag.toLowerCase());
-    }
-    let presentTerrains = new Set<string>();
-    for (let row of space.grid.tiles)
-      for (let tile of row) presentTerrains.add(tile.terrain.toLowerCase());
-
-    let producibleKinds = new Set<string>();
-    let producibleTags = new Set<string>();
-    let producibleTerrains = new Set<string>(
-      Object.keys(terrainSpecs).map((name) => name.toLowerCase()),
-    );
-    let collectProducible = (effects: unknown) => {
-      if (!Array.isArray(effects)) return;
-      for (let effect of effects) {
-        if (!effect || typeof effect !== "object") continue;
-        let e = effect as Record<string, unknown>;
-        let spawn = e.spawn as { kind?: unknown; tags?: unknown } | undefined;
-        if (spawn) {
-          if (typeof spawn.kind === "string")
-            producibleKinds.add(spawn.kind.toLowerCase());
-          if (Array.isArray(spawn.tags))
-            for (let tag of spawn.tags)
-              if (typeof tag === "string") producibleTags.add(tag.toLowerCase());
-        }
-        let tag = e.tag as { add?: unknown } | undefined;
-        if (tag && typeof tag.add === "string")
-          producibleTags.add(tag.add.toLowerCase());
-        let kind = e.kind as { set?: unknown } | undefined;
-        if (kind && typeof kind.set === "string")
-          producibleKinds.add(kind.set.toLowerCase());
-        let setTerrain = e.setTerrain as { to?: unknown } | undefined;
-        if (setTerrain && typeof setTerrain.to === "string")
-          producibleTerrains.add(setTerrain.to.toLowerCase());
-        let forEach = e.forEach as { do?: unknown } | undefined;
-        if (forEach?.do) collectProducible(forEach.do);
-      }
-    };
-    for (let rule of rules) collectProducible((rule as { do?: unknown }).do);
-
-    let presentFor = (ref: DormantReferent) =>
-      ref.type === "kind"
-        ? presentKinds.has(ref.ref.toLowerCase())
-        : ref.type === "tag"
-          ? presentTags.has(ref.ref.toLowerCase())
-          : presentTerrains.has(ref.ref.toLowerCase());
-    let producibleFor = (ref: DormantReferent) =>
-      ref.type === "kind"
-        ? producibleKinds.has(ref.ref.toLowerCase())
-        : ref.type === "tag"
-          ? producibleTags.has(ref.ref.toLowerCase())
-          : producibleTerrains.has(ref.ref.toLowerCase());
-
-    let verbs: DormantVerb[] = [];
-    for (let rule of unusedMintedActions()) {
-      let referents: DormantReferent[] = [];
-      collectRequireReferents((rule as ActionRule).requires, referents);
-      let hardMissing: DormantReferent[] = [];
-      let absentButProducible: DormantReferent[] = [];
-      let seen = new Set<string>();
-      for (let ref of referents) {
-        let key = `${ref.type}:${ref.ref.toLowerCase()}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        if (presentFor(ref)) continue; // the world already satisfies it
-        (producibleFor(ref) ? absentButProducible : hardMissing).push(ref);
-      }
-      let spawnSpecs: { kind?: unknown }[] = [];
-      collectSpawnKinds((rule as { do?: unknown }).do, spawnSpecs);
-      let spawns: string[] = [];
-      for (let spec of spawnSpecs)
-        if (typeof spec.kind === "string" && !spawns.includes(spec.kind))
-          spawns.push(spec.kind);
-      verbs.push({ id: rule.id, hardMissing, absentButProducible, spawns });
-    }
-
-    // Rank the hard-missing nouns by how many dormant verbs each would unblock,
-    // so the Steward seeds the highest-leverage root of a stalled subtree first.
-    let leverage = new Map<string, DormantReferent & { blocks: string[] }>();
-    for (let verb of verbs)
-      for (let ref of verb.hardMissing) {
-        let key = `${ref.type}:${ref.ref.toLowerCase()}`;
-        let entry = leverage.get(key);
-        if (!entry) leverage.set(key, (entry = { ...ref, blocks: [] }));
-        if (!entry.blocks.includes(verb.id)) entry.blocks.push(verb.id);
-      }
-    let missingNounLeverage = [...leverage.values()].sort(
-      (a, b) => b.blocks.length - a.blocks.length,
-    );
-
-    return { verbs, missingNounLeverage };
-  }
-
-  // Record how long the idea a mint just answered had been waiting. `sinceSeq`
-  // is the event cursor from before redemption, so the speculation_realized
-  // events after it name exactly the verbs this mint/patch newly answered. One
-  // sample per call: the earliest attempt across every synonym answered, since a
-  // mint that redeems a five-word cluster settled one idea, not five.
-  function recordMintLatencies(sinceSeq: number) {
-    let answered = new Set<string>();
-    for (let event of log) {
-      if (event.seq < sinceSeq || event.type !== "speculation_realized") continue;
-      let verbs = event.verbs ?? (event.verb ? [event.verb] : []);
-      for (let verb of verbs) answered.add(verb);
-    }
-    if (!answered.size) return;
-    let earliest = Infinity;
-    for (let event of log)
-      if (
-        event.type === "speculative_attempt" &&
-        event.verb &&
-        answered.has(event.verb) &&
-        event.tick < earliest
-      )
-        earliest = event.tick;
-    if (!Number.isFinite(earliest)) return;
-    mintLatencies.push(world.tick - earliest);
-    if (mintLatencies.length > MINT_LATENCY_CAP) mintLatencies.shift();
   }
 
   // Append a new rule. Ids must be unique across the whole set (the kernel keys
   // actions, modifiers, and watches by id), so a clashing id is rejected.
-  function addRule(rule: Rule): { id: string; redeemed?: string[] } {
+  function addRule(rule: Rule): { id: string } {
     if (
       !rule ||
       typeof rule !== "object" ||
@@ -3906,10 +3168,7 @@ export function createWorld(scenario: Scenario) {
       `added rule ${rule.id}${rule.description ? ` — ${rule.description}` : ""}`,
       { target: rule.id, detail: { rule: structuredClone(rule) } },
     );
-    let sinceSeq = nextSeq;
-    let redeemed = redeemSpeculativeAttempts(rule);
-    recordMintLatencies(sinceSeq);
-    return { id: rule.id, ...(redeemed.length ? { redeemed } : {}) };
+    return { id: rule.id };
   }
 
   // Drop a rule by id - how a GM retires a challenge once it has served its turn.
@@ -3962,12 +3221,6 @@ export function createWorld(scenario: Scenario) {
     Object.assign(rule, structuredClone(fields));
     dirtyRuleIds.add(id);
     syncKnownStocks();
-    // Adding an alias is how a director catches stragglers - the words people
-    // tried that the first mint missed - so a tweak redeems its attempts too,
-    // and its latency counts like any other petition finally answered.
-    let sinceSeq = nextSeq;
-    let redeemed = redeemSpeculativeAttempts(rule);
-    recordMintLatencies(sinceSeq);
     recordGm(
       "rule_tweaked",
       `tweaked rule ${id} (${Object.keys(fields).join(", ")})`,
@@ -3976,7 +3229,6 @@ export function createWorld(scenario: Scenario) {
         detail: {
           before,
           after: structuredClone(fields),
-          ...(redeemed.length ? { redeemed } : {}),
         },
       },
     );
@@ -4641,9 +3893,6 @@ export function createWorld(scenario: Scenario) {
       nextSeq,
       gmLog,
       nextGmSeq,
-      rejectedSpeculations: [...rejectedSpeculations],
-      actionUseCount: [...actionUseCount],
-      mintLatencies: [...mintLatencies],
       overlay: ruleOverlay(),
       orders: [...orders],
     };
@@ -4682,9 +3931,6 @@ export function createWorld(scenario: Scenario) {
     nextSeq = clone.nextSeq;
     gmLog = clone.gmLog ?? [];
     nextGmSeq = clone.nextGmSeq ?? 0;
-    rejectedSpeculations = new Map(clone.rejectedSpeculations ?? []);
-    actionUseCount = new Map(clone.actionUseCount ?? []);
-    mintLatencies = clone.mintLatencies ?? [];
     orders = new Map(clone.orders ?? []);
     applyOverlay(clone.overlay);
     terrainRevision = 0;
@@ -4749,16 +3995,11 @@ export function createWorld(scenario: Scenario) {
     setTerrainTiles,
     spawnEntity,
     recentEvents,
-    getSpeculativeAttempts,
-    getSpeculativeNouns,
-    rejectSpeculation,
     recordGm,
     recentGmEvents,
     gmEventsSince,
     gmCursor: () => nextGmSeq,
     getPulse,
-    getInventionPulse,
-    getDormantVerbs,
     getEventsSince,
     oldestSeq,
     backfillCursor,

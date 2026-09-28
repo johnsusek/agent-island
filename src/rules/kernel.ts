@@ -1090,7 +1090,7 @@ export function unknownSpawnIdPlaceholders(id: string): string[] {
 // character-facing prose, and taught both characters to navigate to the broken
 // name as if it were a landmark.
 //
-// The Oracle reaches for this syntax unprompted because `{{ ... }}` renders
+// A director reaches for this syntax unprompted because `{{ ... }}` renders
 // everywhere else in the system (descriptions, signs, refusal text), so the
 // fix is to make the reflex work rather than to train it away. An unknown
 // placeholder still throws - a typo'd `{{owner}}` would otherwise bake itself

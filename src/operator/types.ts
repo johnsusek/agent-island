@@ -75,7 +75,6 @@ export interface Seat {
 export interface WorldSummary {
   activeCount: number;
   alive: number;
-  attemptCount: number;
   dead: number;
   elapsedMs: number;
   ended: boolean;
@@ -84,8 +83,6 @@ export interface WorldSummary {
   lastTickAt: number | null;
   lastTickError: string | null;
   mintedRules: number;
-  nounAttempts: number;
-  openAttempts: number;
   parkedCount: number;
   paused: boolean;
   realTimeMs: number;

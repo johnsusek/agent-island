@@ -486,7 +486,7 @@ function registerGmTools(
           .array(schema.string())
           .optional()
           .describe(
-            'Full sections to add/upgrade: agents, entities, rules, ruleMeta, map, observations, history, controllers, pulse, dormant (minted verbs never used, with the noun each is waiting on) — or "all".',
+            'Full sections to add/upgrade: agents, entities, rules, ruleMeta, map, observations, history, controllers, pulse — or "all".',
           ),
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -537,44 +537,6 @@ function registerGmTools(
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => coordinator.gmRules(sessionId),
-  );
-
-  registerTool(
-    server,
-    "list_speculative_attempts",
-    {
-      description: describe("list_speculative_attempts"),
-      inputSchema: {},
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async () => coordinator.gmSpeculativeAttempts(sessionId),
-  );
-
-  registerTool(
-    server,
-    "reject_speculation",
-    {
-      description: describe("reject_speculation"),
-      inputSchema: {
-        verb: schema
-          .string()
-          .trim()
-          .min(1)
-          .describe("Exact unresolved verb from list_speculative_attempts"),
-        reason: schema
-          .string()
-          .trim()
-          .min(1)
-          .describe("Concise in-fiction reason the world refuses it"),
-      },
-      annotations: {
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    async ({ verb, reason }) =>
-      coordinator.gmRejectSpeculation(sessionId, verb, reason),
   );
 
   registerTool(

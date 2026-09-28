@@ -341,7 +341,7 @@ export function createAgentIslandServer(options: ServerOptions = {}) {
   });
 
   // Characters connect to /mcp (lean tool surface); GM clients (the operator
-  // console and the resident Oracle) connect to /gm, which hands the full GM
+  // console and the resident Clerk) connect to /gm, which hands the full GM
   // surface at connect so no client needs to react to a tools/list_changed
   // refresh.
   app.post("/mcp", mcpHandler.character.post);

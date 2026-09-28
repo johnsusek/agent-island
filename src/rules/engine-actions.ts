@@ -151,11 +151,9 @@ export function actionCanStart(
 
 // A known verb was committed with an arg naming a noun that doesn't exist
 // (an enum value or entity id nothing answers to). Carries the param and
-// value so the commit site can journal it as a noun-level speculation - a
-// character reaching for "clay" on a real verb is a signal to the Oracle
-// exactly like reaching for a whole unknown verb is. The message is unchanged
-// from the plain Error it replaces, so existing callers/tests still match on
-// it; this is a strictly richer subtype the commit path can catch by type.
+// value for callers that want to tell "no such thing" apart from other
+// refusals. The message is the same as a plain Error's, so callers matching
+// on it still work.
 export class UnknownChoiceError extends Error {
   constructor(
     public readonly param: string,

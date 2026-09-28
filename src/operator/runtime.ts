@@ -69,9 +69,6 @@ export function createRuntime(
     let alive = characters.filter((seat) => seat.alive === true).length;
     let dead = characters.filter((seat) => seat.alive === false).length;
     let active = characters.filter((seat) => seat.controllerConnected).length;
-    let openAttempts = (payload.speculative ?? []).filter(
-      (attempt: DataRecord) => !attempt.redeemed,
-    ).length;
     let elapsedMs = Math.max(0, Date.now() - runStartedAt);
     let tokenTotal = runUsage.inputTokens + runUsage.outputTokens;
 
@@ -98,9 +95,6 @@ export function createRuntime(
         alive,
         idle: Math.max(0, alive - active),
         dead,
-        openAttempts,
-        attemptCount: (payload.speculative ?? []).length,
-        nounAttempts: (payload.speculativeNouns ?? []).length,
         mintedRules: payload.ruleMeta?.customIds?.length ?? 0,
         unsavedRules: payload.ruleMeta?.dirtyIds?.length ?? 0,
         ruleCount: payload.rules?.length ?? 0,
@@ -176,8 +170,6 @@ function readStoredState(file: string): StoredState | null {
       worldId: stored.worldId,
       state: { tick: stored.engine.world.tick, agents },
       controllers: {},
-      speculative: [],
-      speculativeNouns: [],
       rules: [],
       ruleMeta: { customIds: [], dirtyIds: [] },
       liveness: {
@@ -538,8 +530,6 @@ function emptyPayload(): DataRecord {
   return {
     state: { tick: 0, agents: {} },
     controllers: {},
-    speculative: [],
-    speculativeNouns: [],
     rules: [],
     ruleMeta: {},
     liveness: {},

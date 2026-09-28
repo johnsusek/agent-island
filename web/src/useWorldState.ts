@@ -5,8 +5,6 @@ import type {
   FogPayload,
   MapPayload,
   GraphicsConfig,
-  RuleView,
-  SpeculativeCluster,
 } from "./types";
 
 // "Is the world live?" - derived from the server's liveness block plus the
@@ -34,46 +32,28 @@ export interface ChatMessage {
 
 export type ChatItem = { kind: "chat" } & ChatMessage;
 
-// One row of the observatory feed. `speculation` is a speculative attempt, `law` a
-// realized speculation or a GM mint, `chat` speech, `event` everything else.
+// One row of the observatory feed: every world event except speech, which the
+// feed merges in separately as ChatItems.
 export interface FeedItem {
-  kind: "event" | "speculation" | "law";
   key: string;
   tick: number;
   text: string;
   type: string;
   name?: string;
   agentId?: string;
-  verb?: string;
-  expectation?: string;
 }
 
 let hiddenFeedEventText = /\bbegins to (?:explore|travel)\b/;
 
-// One law of the physics ledger: a runtime-minted action rule with its
-// provenance - who speculated for it, when, and how fast the Oracle answered.
+// One law of the ledger: an action rule added at runtime, with the tick it
+// was added.
 export interface LawCard {
   id: string;
   aliases: string[];
   description: string | null;
-  // A rule with a `requires` gate can refuse; one without is a free speculation.
+  // A rule with a `requires` gate can refuse; one without always works.
   gated: boolean;
   mintTick: number | null;
-  firstSpeculationTick: number | null;
-  latency: number | null;
-  speculators: string[];
-  attempts: number;
-}
-
-// A speculation still standing: a verb cluster no live action rule answers to.
-export interface SpeculationCard {
-  verb: string;
-  count: number;
-  speculators: string[];
-  firstTick: number;
-  lastTick: number;
-  expectation: string | null;
-  rejected: string | null;
 }
 
 function normalizeGraphics(
@@ -264,16 +244,7 @@ function createWorldState() {
     return agents.value[id]?.name || id;
   };
 
-  // --- the physics ledger ------------------------------------------------
-
-  // Which live action rules answer to a given word.
-  function answers(rule: RuleView, verb: string) {
-    return (
-      rule.id === verb ||
-      rule.on === verb ||
-      (rule.aliases ?? []).includes(verb)
-    );
-  }
+  // --- the law ledger ----------------------------------------------------
 
   // Restored worlds can still carry the pre-kind action shape.
   let actionRules = computed(() =>
@@ -308,59 +279,15 @@ function createWorldState() {
       if (!event.target) continue;
       if (!mintTicks.has(event.target)) mintTicks.set(event.target, event.tick);
     }
-    let clusters = p.speculative ?? [];
     return mintedActions.value
-      .map((rule) => {
-        let matched = clusters.filter((cluster) => answers(rule, cluster.verb));
-        let firstSpeculationTick = matched.length
-          ? Math.min(...matched.map((cluster) => cluster.firstTick))
-          : null;
-        let mintTick = mintTicks.get(rule.id) ?? null;
-        let speculators = [
-          ...new Set(
-            matched.flatMap((cluster) =>
-              cluster.distinctActors.map((id) => nameOf(id)),
-            ),
-          ),
-        ];
-        return {
-          id: rule.id,
-          aliases: (rule.aliases ?? []).filter((alias) => alias !== rule.id),
-          description: rule.description?.trim() || null,
-          gated: rule.requires != null,
-          mintTick,
-          firstSpeculationTick,
-          latency:
-            mintTick != null && firstSpeculationTick != null
-              ? Math.max(0, mintTick - firstSpeculationTick)
-              : null,
-          speculators,
-          attempts: matched.reduce((sum, cluster) => sum + cluster.count, 0),
-        };
-      })
-      .sort((a, b) => (b.mintTick ?? 0) - (a.mintTick ?? 0));
-  });
-
-  // Speculations still standing: clusters no live action answers to.
-  let speculations = computed<SpeculationCard[]>(() => {
-    let p = payload.value;
-    if (!p) return [];
-    let rules = actionRules.value;
-    return (p.speculative ?? [])
-      .filter(
-        (cluster: SpeculativeCluster) =>
-          !rules.some((rule) => answers(rule, cluster.verb)),
-      )
-      .map((cluster) => ({
-        verb: cluster.verb,
-        count: cluster.count,
-        speculators: cluster.distinctActors.map((id) => nameOf(id)),
-        firstTick: cluster.firstTick,
-        lastTick: cluster.lastTick,
-        expectation: cluster.expectations[0] ?? null,
-        rejected: cluster.rejected ?? null,
+      .map((rule) => ({
+        id: rule.id,
+        aliases: (rule.aliases ?? []).filter((alias) => alias !== rule.id),
+        description: rule.description?.trim() || null,
+        gated: rule.requires != null,
+        mintTick: mintTicks.get(rule.id) ?? null,
       }))
-      .sort((a, b) => b.lastTick - a.lastTick);
+      .sort((a, b) => (b.mintTick ?? 0) - (a.mintTick ?? 0));
   });
 
   // --- the feed ------------------------------------------------------------
@@ -382,8 +309,7 @@ function createWorldState() {
       })),
   );
 
-  // Everything else, with speculations and realizations pulled out as first-class
-  // row kinds - they are the whole show.
+  // Everything else.
   let feed = computed<FeedItem[]>(() =>
     eventHistory.value
       .filter((e) => e.type !== "whispered" && e.type !== "said")
@@ -395,25 +321,14 @@ function createWorldState() {
           e.type !== "action_started" ||
           !hiddenFeedEventText.test(e.text ?? ""),
       )
-      .map((e) => {
-        let kind: FeedItem["kind"] =
-          e.type === "speculative_attempt"
-            ? "speculation"
-            : e.type === "speculation_realized"
-              ? "law"
-              : "event";
-        return {
-          kind,
-          key: String(e.seq),
-          tick: e.tick,
-          type: e.type,
-          name: e.agentId ? nameOf(e.agentId) : undefined,
-          agentId: e.agentId,
-          text: e.text ?? e.type,
-          verb: e.verb,
-          expectation: e.expectation,
-        };
-      }),
+      .map((e) => ({
+        key: String(e.seq),
+        tick: e.tick,
+        type: e.type,
+        name: e.agentId ? nameOf(e.agentId) : undefined,
+        agentId: e.agentId,
+        text: e.text ?? e.type,
+      })),
   );
 
   return {
@@ -435,7 +350,6 @@ function createWorldState() {
     sharedFog,
     liveness,
     laws,
-    speculations,
     chat,
     feed,
     nameOf,

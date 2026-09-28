@@ -15,7 +15,7 @@ let emit = defineEmits<{
   (event: "resize", height: number): void;
 }>();
 
-type Filter = "all" | "speculations" | "talk" | "world";
+type Filter = "all" | "talk" | "world";
 let filter = ref<Filter>("all");
 let resizeSession = ref<{
   pointerId: number;
@@ -96,11 +96,7 @@ type Row = ({ rowKind: "feed" } & FeedItem) | ({ rowKind: "chat" } & ChatItem);
 let rows = computed<Row[]>(() => {
   let out: Row[] = [];
   if (filter.value !== "talk") {
-    for (let item of props.feed) {
-      if (filter.value === "speculations" && item.kind === "event") continue;
-      if (filter.value === "world" && item.kind !== "event") continue;
-      out.push({ rowKind: "feed", ...item });
-    }
+    for (let item of props.feed) out.push({ rowKind: "feed", ...item });
   }
   if (filter.value === "all" || filter.value === "talk") {
     for (let item of props.chat) out.push({ rowKind: "chat", ...item });
@@ -112,7 +108,6 @@ let { scrollHost } = useStickToBottom(() => rows.value.length);
 
 let FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "speculations", label: "Speculations" },
   { key: "talk", label: "Talk" },
   { key: "world", label: "World" },
 ];
@@ -161,39 +156,6 @@ let FILTERS: { key: Filter; label: string }[] = [
             >whispers to {{ row.target }}</span
           >
           <span class="row__text">{{ row.message }}</span>
-        </div>
-        <div v-else-if="row.kind === 'speculation'" class="row row--spec">
-          <span class="row__tick">t{{ row.tick }}</span>
-          <button
-            v-if="row.name"
-            class="row__name"
-            :style="{ color: nameTint(row.name) }"
-            @click="row.agentId && emit('select', row.agentId)"
-          >
-            {{ row.name }}
-          </button>
-          <span class="row__text">
-            speculates <b class="row__verb">{{ row.verb ?? row.text }}</b>
-            <span v-if="row.expectation" class="row__hope">
-              - "{{ row.expectation }}"</span
-            >
-          </span>
-        </div>
-        <div v-else-if="row.kind === 'law'" class="row row--law">
-          <span class="row__tick">t{{ row.tick }}</span>
-          <span class="row__text">
-            <b class="row__verb">{{ row.verb ?? "" }}</b>
-            became real<template v-if="row.name">
-              -
-              <button
-                class="row__name"
-                :style="{ color: nameTint(row.name) }"
-                @click="row.agentId && emit('select', row.agentId)"
-              >
-                {{ row.name }}</button
-              >'s speculation granted</template
-            >
-          </span>
         </div>
         <div v-else class="row row--event" :class="`row--${row.type}`">
           <span class="row__tick">t{{ row.tick }}</span>

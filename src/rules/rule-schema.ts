@@ -630,7 +630,7 @@ export function formatRuleError(
 // strips those extras and the rule parses; add_rule then stores the raw object
 // with the dead fields still on it. Because it is not kind:"action" it never
 // enters the action registry, so no character can select it, and its verb and
-// every alias sit in the speculative-attempt feed forever, unanswerable.
+// every alias is dead on arrival.
 // (drowned-quarry run b0dfe2e6 minted 10 actions this way; four agents died of
 // thirst at the water's edge because drink_water was never a real action.)
 const ACTION_ONLY_FIELDS = [
@@ -671,8 +671,7 @@ function assertKindMatchesActionFields(rule: unknown, id: string): void {
       .map((field) => `"${field}"`)
       .join(", ")}. A selectable action must be kind:"action", not a phase ` +
       `rule. As written it parses but never becomes a real action: no ` +
-      `character can select it, and its verb never leaves the ` +
-      `speculative-attempt feed.`,
+      `character can select it.`,
   );
 }
 

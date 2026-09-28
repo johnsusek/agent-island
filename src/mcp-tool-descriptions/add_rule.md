@@ -240,6 +240,4 @@ Warnings do NOT block: the rule is live regardless, so a warning about a stock y
 
 The dry-run reads shape, never intent — it cannot tell you a verb promised a noun it never spawns, or that a built thing forgot to reserve its tile. Those are yours to check.
 
-**Redemption.** If the new rule's name or any alias matches a verb someone attempted speculatively, the result carries `redeemed: [agentId, ...]` — those agents were told in fiction that the world learned the verb, and woken to weigh it. It is news, not an alarm: their running order carries on and their action is not replayed for them.
-
 At real runtime a failure never pauses the clock: it is isolated to the offending (rule, agent) pair and surfaces as a `rule_error` in the dashboard event log while the rest of the world keeps ticking.

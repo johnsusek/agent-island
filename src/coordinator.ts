@@ -245,7 +245,7 @@ interface Session {
   // player stalls the game for at most one turn, not until the reaper runs.
   stalled: boolean;
   // A GM session that drives the world's rules rather than a character - the
-  // manual admin console, or a resident director like the Oracle.
+  // manual admin console, or a resident director like the Clerk.
   // Mutually exclusive with controlling an agent: a GM has god-powers but no
   // body, never gates the logical clock, and is never reaped for idleness.
   isGm: boolean;
@@ -1333,7 +1333,7 @@ export function createColony(options: ColonyOptions = {}) {
     scheduleSave();
     // Do NOT snapshot session.cursor here: setOrder's inline first step (run
     // synchronously inside engine.setOrder above) can already push events -
-    // e.g. a speculative attempt on step one of a single-action order. Leave
+    // e.g. a blocked order on step one of a single-action order. Leave
     // the cursor where it was so the next deliver() (via wait_for_change)
     // picks those up instead of silently skipping past them.
     return { status, worldId, ...result };
@@ -1984,8 +1984,6 @@ export function createColony(options: ColonyOptions = {}) {
     joinAsGm: gmCommands.joinAsGm,
     gmInspect: gmCommands.gmInspect,
     gmRules: gmCommands.gmRules,
-    gmSpeculativeAttempts: gmCommands.gmSpeculativeAttempts,
-    gmRejectSpeculation: gmCommands.gmRejectSpeculation,
     gmAddRule: gmCommands.gmAddRule,
     gmRemoveRule: gmCommands.gmRemoveRule,
     gmPatchRule: gmCommands.gmPatchRule,

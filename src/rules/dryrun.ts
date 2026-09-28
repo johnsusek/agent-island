@@ -267,7 +267,7 @@ function spawnSpecs(effects: unknown[]): Record<string, unknown>[] {
 //
 // The occupancy note is the other half of that run's shelter story: a structure
 // spawned at `self` takes the builder's tile, and one tile holds one token, so
-// a *second* structure can never be raised on the same square. The Oracle kept
+// a *second* structure can never be raised on the same square. The director kept
 // authoring toward "a fire inside the shelter" (Tobias asked for exactly that)
 // without anything telling it that the world cannot hold both. A note rather
 // than a warning - building on open ground is the normal case and works fine.
@@ -365,8 +365,7 @@ function ruleHarmsVital(
 
 // Flags a rule that harms a vital gauge while gating on a stock nothing has
 // marked vital - the gate is exactly what a character would need alarmed to
-// see the harm coming, and telegraphing is the Oracle's own doctrine
-// (docs/speculative-physics.md's "every yes creates a no", made checkable).
+// see the harm coming, and a harm nobody can see coming reads as a bug.
 // Literal-only, like every other dry-run shape check: a `{arg}` gate or a
 // computed `by` is left alone rather than risk a false alarm on a working
 // rule.
