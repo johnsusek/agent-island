@@ -19,7 +19,6 @@ import test from "node:test";
 import {
   hasTag,
   commit,
-  setKnownStocks,
   step,
   stock,
   type Entity,
@@ -57,14 +56,11 @@ function freeTileBeside(
 }
 
 // A bare world: the required "world" singleton plus a character standing at the
-// origin with nothing in its (empty) inventory. No known-stock registry is
-// installed here (unlike a real engine, which always installs one - see
-// engine.ts syncKnownStocks) - reset to that same "no registry configured"
-// state on every call, regardless of what an earlier test in this same
-// process may have installed via a real engine, so a bare-kernel test's
-// leniency never depends on test order.
+// origin with nothing in its (empty) inventory. No stock vocabulary is passed
+// to the kernel calls here (unlike a real engine, which always passes one - see
+// engine.ts syncKnownStocks), so writes run in the lenient "no registry
+// configured" mode.
 function makeWorld(): KernelWorld {
-  setKnownStocks(undefined);
   let entities: Record<string, Entity> = {
     world: { id: "world", tags: ["world"], stocks: {} },
     ara: {

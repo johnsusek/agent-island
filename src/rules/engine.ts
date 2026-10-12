@@ -18,8 +18,6 @@ import {
   releaseHeld,
   roundStock,
   runRulesForTick,
-  setKnownStocks,
-  setStockpilable,
   stock,
   validateRule,
   validInscription,
@@ -32,6 +30,7 @@ import {
   type Rule,
   type SpawnSpec,
   type Stock,
+  type StockVocabulary,
 } from "./kernel.js";
 import { assertValidRule } from "./rule-schema.js";
 import {
@@ -494,6 +493,11 @@ export function createWorld(scenario: Scenario) {
   // joiner - is seeded with these so a GM rule that reads the stock never hits a
   // character that lacks it (a missing stock throws and freezes the whole tick).
   let stockDefaults: Record<string, StockSpec>;
+  // This world's stock vocabulary, handed to every kernel call (see
+  // StockVocabulary in kernel.ts). One object for the engine's lifetime,
+  // refreshed in place by syncStockpilable/syncKnownStocks, so the action
+  // context and dry runs always read the current names.
+  let vocabulary: StockVocabulary = {};
   // GM-spawned fixtures captured as their creating specs (see spawnEntity), so a
   // reset can replay them onto the fresh world. Engine-owned and rides the rule
   // overlay into persistence, so it outlives the world like the GM's rule edits.
@@ -537,7 +541,6 @@ export function createWorld(scenario: Scenario) {
   // blending into a list it has skimmed a hundred times. Baseline and restored
   // actions are absent here and read as intro tick 0, so they never flash "new".
   let actionIntroTick: Map<string, number>;
-
 
   // The worldgen seed currently in effect. Starts at the scenario's own seed;
   // reset() can override it with a fresh one to reroll the map, spawn, and
@@ -1208,6 +1211,7 @@ export function createWorld(scenario: Scenario) {
       writeTerrain,
       revealFog,
       passableAt,
+      vocabulary,
     );
     // Project any entities the rules spawned/destroyed this tick onto the grid,
     // so a built structure becomes a discoverable token and a razed one vanishes.
@@ -1471,6 +1475,7 @@ export function createWorld(scenario: Scenario) {
       stockpilableStockNames,
       packStockNames,
       terrainAt,
+      vocabulary,
     };
   }
 
@@ -1604,8 +1609,16 @@ export function createWorld(scenario: Scenario) {
     let saved = actor.pos;
     actor.pos = { x: tile.x, y: tile.y };
     try {
-      return checkAction(world, rules, id, type, args, terrainAt, tokenEntityAt)
-        .applicable;
+      return checkAction(
+        world,
+        rules,
+        id,
+        type,
+        args,
+        terrainAt,
+        tokenEntityAt,
+        vocabulary,
+      ).applicable;
     } finally {
       actor.pos = saved;
     }
@@ -1722,7 +1735,16 @@ export function createWorld(scenario: Scenario) {
         terrain: args.terrain as string | undefined,
       });
     } else {
-      result = commit(world, rules, id, type, args, terrainAt, tokenEntityAt);
+      result = commit(
+        world,
+        rules,
+        id,
+        type,
+        args,
+        terrainAt,
+        tokenEntityAt,
+        vocabulary,
+      );
       if (!result.ok) {
         approachTo = approachLocationFor(id, type, args);
         if (approachTo) {
@@ -3250,6 +3272,7 @@ export function createWorld(scenario: Scenario) {
       agents: livingIds(),
       display: stockDisplay(),
       knownStocks: [...knownStockNames()],
+      vocabulary,
       ticks,
     });
     for (let kind of unillustratedSpawns(live.find((r) => r.id === id)))
@@ -3421,16 +3444,12 @@ export function createWorld(scenario: Scenario) {
     syncStockpilable();
   }
 
-  // Publish which stocks the ruleset marks stockpilable to the kernel, so the
+  // Record which stocks the ruleset marks stockpilable for the kernel, so the
   // `stockpilable` condition and the deposit/withdraw choice lists agree on one
   // source of truth. Called wherever stockDefaults changes: every overlay apply
   // (via seedStockDefaults) and every runtime setStockDefault.
   function syncStockpilable() {
-    setStockpilable(
-      Object.entries(stockDefaults)
-        .filter(([, spec]) => spec.stockpilable)
-        .map(([name]) => name),
-    );
+    vocabulary.stockpilable = new Set(stockpilableStockNames());
     syncKnownStocks();
   }
 
@@ -3494,7 +3513,7 @@ export function createWorld(scenario: Scenario) {
   // set_stock on some one-off entity, and every already-placed fixture/token,
   // without needing its own bookkeeping). This is the full vocabulary the
   // kernel's write guard checks a rule effect's target against (see
-  // rules/kernel.ts setKnownStocks) - it is what closes the stock namespace,
+  // rules/kernel.ts StockVocabulary) - it is what closes the stock namespace,
   // catching a typo'd target ("self" meaning "of":"self") before it mints a
   // phantom stock instead of after.
   function knownStockNames(): Set<string> {
@@ -3528,13 +3547,13 @@ export function createWorld(scenario: Scenario) {
     for (let rule of rules) yield* walk((rule as { do?: unknown }).do);
   }
 
-  // Publish the known-stock vocabulary to the kernel. Called wherever the
+  // Refresh the known-stock vocabulary the kernel checks writes against. Called wherever the
   // vocabulary can grow: alongside syncStockpilable (stock defaults changing,
   // on every overlay apply and setStockDefault), and after setStock, a
   // fixture/setup placement, or a rule mutation - any of which can introduce a
   // name nothing declared before.
   function syncKnownStocks() {
-    setKnownStocks(knownStockNames());
+    vocabulary.known = knownStockNames();
   }
 
   // Seed a scenario's global stocks onto the world singleton. Skip-if-present,

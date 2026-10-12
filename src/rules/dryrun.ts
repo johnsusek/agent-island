@@ -26,6 +26,7 @@ import {
   type KernelEvent,
   type KernelWorld,
   type Rule,
+  type StockVocabulary,
 } from "./kernel.js";
 import type { StockDisplay } from "./scenario.js";
 
@@ -50,6 +51,9 @@ export interface DryRunOptions {
   // knownStockNames), for the unknown-stock-write lint below. Omitted, that
   // lint is skipped rather than flagging everything as unknown.
   knownStocks?: string[];
+  // The live world's stock vocabulary, so simulated ticks enforce the same
+  // write guard and stockpile set the real ones do.
+  vocabulary?: StockVocabulary;
   ticks?: number;
 }
 
@@ -64,6 +68,7 @@ function simulate(
   rules: Rule[],
   terrainRows: string[][],
   ticks: number,
+  vocabulary?: StockVocabulary,
 ): { world: KernelWorld; events: KernelEvent[] } {
   let world = structuredClone(start);
   let terrain = terrainRows.map((row) => [...row]);
@@ -78,7 +83,17 @@ function simulate(
   for (let i = 0; i < ticks; i += 1) {
     let before = beginTick(world);
     let events: KernelEvent[] = [];
-    runRulesForTick(world, rules, before, events, lookup, write, reveal);
+    runRulesForTick(
+      world,
+      rules,
+      before,
+      events,
+      lookup,
+      write,
+      reveal,
+      undefined,
+      vocabulary,
+    );
     all.push(...events);
   }
   return { world, events: all };
@@ -107,7 +122,16 @@ function sweepAction(
   let reasons = new Set<string>();
   for (let id of opts.agents) {
     try {
-      let check = checkAction(sandbox, rules, id, ruleId, {}, lookup);
+      let check = checkAction(
+        sandbox,
+        rules,
+        id,
+        ruleId,
+        {},
+        lookup,
+        undefined,
+        opts.vocabulary,
+      );
       if (check.applicable) usable += 1;
       else reasons.add(check.unavailableReason ?? "unavailable");
     } catch (err) {
@@ -226,7 +250,10 @@ function lintUnknownStockWrites(
 // whether a built thing reserves its tile - is the director's judgment, and
 // belongs in the director's prompt rather than in a list of English words the
 // kernel pretends to understand.
-function lintActionBody(rule: { id: string; do?: unknown }, warnings: string[]) {
+function lintActionBody(
+  rule: { id: string; do?: unknown },
+  warnings: string[],
+) {
   let body = Array.isArray(rule.do) ? rule.do : [];
   if (body.length === 0) {
     warnings.push(
@@ -398,7 +425,11 @@ function lintLethalUnmarkedGate(
 // another stock, or a watch whose emit interrupts the subject's hands. The
 // two shapes an alarm actually takes in this DSL (see add_rule.md).
 function ruleSignalsDanger(rule: unknown): boolean {
-  let r = rule as { do?: unknown; phase?: string; emit?: { interrupt?: unknown } };
+  let r = rule as {
+    do?: unknown;
+    phase?: string;
+    emit?: { interrupt?: unknown };
+  };
   if (r.phase === "watch") return typeof r.emit?.interrupt === "string";
   return (Array.isArray(r.do) ? r.do : []).some((eff) => {
     let adjust = (eff as { adjust?: Record<string, unknown> })?.adjust;
@@ -433,8 +464,7 @@ function lintBackwardsVitalGate(
   let r = rule as { id: string; when?: unknown; phase?: string };
   if (r.phase !== "threshold" && r.phase !== "watch") return;
   let when = r.when as
-    | { cmp?: unknown; left?: { stock?: unknown }; right?: unknown }
-    | undefined;
+    { cmp?: unknown; left?: { stock?: unknown }; right?: unknown } | undefined;
   if (!when || typeof when.cmp !== "string") return;
   if (when.cmp !== "gte" && when.cmp !== "gt") return;
   let name = when.left?.stock;
@@ -499,12 +529,13 @@ export function dryRunRule(
     return { ticks: 0, warnings, notes };
   }
 
-  let candidate = simulate(world, rules, opts.terrain, ticks);
+  let candidate = simulate(world, rules, opts.terrain, ticks, opts.vocabulary);
   let baseline = simulate(
     world,
     rules.filter((r) => r.id !== ruleId),
     opts.terrain,
     ticks,
+    opts.vocabulary,
   );
 
   // Collapse the rule's errors to one warning per distinct message: the tick it

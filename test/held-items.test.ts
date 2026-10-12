@@ -9,7 +9,6 @@ import test from "node:test";
 
 import {
   commit,
-  setKnownStocks,
   step,
   stock,
   type Entity,
@@ -21,7 +20,6 @@ import { makeSurvivalEngine, placeAt, TEST_SPAWN } from "./helpers.js";
 
 // A bare world with a character and a loose axe on the same tile.
 function makeWorld(): KernelWorld {
-  setKnownStocks(undefined);
   let entities: Record<string, Entity> = {
     world: { id: "world", tags: ["world"], stocks: {} },
     ara: {

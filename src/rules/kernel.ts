@@ -341,7 +341,7 @@ export type Cond =
   | { canSeeMapEdge: { edge: MapEdge; within: number } }
   // the named stock (literal or arg) is one the ruleset marks stockpilable - the
   // gate behind "you may only haul haulable resources into a stockpile". Reads a
-  // ruleset-level registry the host installs (see setStockpilable), not entity
+  // ruleset-level registry the host passes in (see StockVocabulary), not entity
   // state, so it holds for any self.
   | { stockpilable: NameRef }
   | { stockpileAccepts: NameRef; of?: EntitySel }
@@ -1224,34 +1224,43 @@ export type TerrainLookup = (x: number, y: number) => string | undefined;
 
 let terrainLookup: TerrainLookup | undefined;
 
-// The set of stock names the ruleset marks stockpilable. Unlike terrain, which
-// varies per position within a single call, this is a global property of the
-// ruleset that only changes when the GM edits stock defaults - so the host
-// installs it once (see the engine's syncStockpilable) rather than threading it
-// through every commit signature. Evaluation is synchronous, so a module slot is
-// safe. The `stockpilable` condition reads it.
-let stockpilableStocks: ReadonlySet<string> = new Set();
-
-export function setStockpilable(names: Iterable<string>): void {
-  stockpilableStocks = new Set(names);
+// The ruleset's stock vocabulary: which stock names exist at all, and which of
+// those may be hauled to a stockpile. Unlike terrain, which varies per
+// position, this is a property of the ruleset that only changes when stock
+// defaults change - but it still belongs to one world, so the host passes its
+// own vocabulary into each kernel entry point (commit, checkAction,
+// runRulesForTick, step) and the kernel installs it for that synchronous call
+// the same way it installs the terrain hooks. Two worlds in one process never
+// see each other's names.
+//
+// `known` is what closes the stock namespace: a rule effect may only *write* a
+// name already known here, so a typo'd target ("self" meant "of":"self")
+// errors at the point it would otherwise have minted a phantom stock, instead
+// of silently doing so. Undefined means "no registry configured" - lenient,
+// auto-vivify behavior - so a host-less test world isn't forced to declare
+// every stock up front. The engine always supplies one.
+//
+// `stockpilable` is the much narrower "may be hauled" subset; the
+// `stockpilable` and `stockpileAccepts` conditions read it. Undefined reads as
+// empty.
+export interface StockVocabulary {
+  known?: ReadonlySet<string>;
+  stockpilable?: ReadonlySet<string>;
 }
 
-// The set of stock names a legitimate path has introduced somewhere in this
-// ruleset (a scenario/agent template default, a GM's set_stock_default, a
-// spawn spec's declared stocks, ...). This is what closes the stock
-// namespace: a rule effect may only *write* a name already known here, so a
-// typo'd target ("self" meant "of":"self") errors at the point it would
-// otherwise have minted a phantom stock, instead of silently doing so. Kept
-// separate from stockpilableStocks (a much narrower "may be hauled" flag) -
-// this is the full vocabulary, that is a subset of it that opts into hauling.
-// Undefined (the default, and every bare-kernel caller that never installs
-// one) means "no registry configured" - lenient, today's auto-vivify
-// behavior - so a host-less test world isn't forced to declare every stock
-// up front. The engine always installs one (see syncKnownStocks).
-let knownStocks: ReadonlySet<string> | undefined;
+let vocabulary: StockVocabulary = {};
 
-export function setKnownStocks(names: Iterable<string> | undefined): void {
-  knownStocks = names ? new Set(names) : undefined;
+// An omitted vocabulary inherits the one already installed, so an entry point
+// nested inside another (actionApplicable -> checkAction) keeps the caller's.
+// Outside any call the slot is always the empty default.
+function withVocabulary<T>(vocab: StockVocabulary | undefined, fn: () => T): T {
+  let prev = vocabulary;
+  vocabulary = vocab ?? prev;
+  try {
+    return fn();
+  } finally {
+    vocabulary = prev;
+  }
 }
 
 function withTerrain<T>(terrain: TerrainLookup | undefined, fn: () => T): T {
@@ -1577,11 +1586,11 @@ function evalCond(
     );
   }
   if ("stockpilable" in cond)
-    return stockpilableStocks.has(name(cond.stockpilable, args));
+    return vocabulary.stockpilable?.has(name(cond.stockpilable, args)) ?? false;
   if ("stockpileAccepts" in cond) {
     let stockName = name(cond.stockpileAccepts, args);
     let entity = resolve(world, self, cond.of, args);
-    return [...stockpilableStocks].every(
+    return [...(vocabulary.stockpilable ?? [])].every(
       (candidate) =>
         candidate === stockName || !entity.stocks[candidate]?.value,
     );
@@ -1692,7 +1701,7 @@ const UNBOUNDED = Number.MAX_SAFE_INTEGER;
 // Ensure a *transfer destination* stock exists before we add to it, so a
 // character can receive an item type its template never declared (pick up
 // berries it has never held) and a freshly spawned crate can be filled. Gated
-// on the known-stocks registry (see setKnownStocks) when one is installed: a
+// on the known-stocks registry (see StockVocabulary) when one is installed: a
 // transfer may only mint a destination for a name the ruleset actually
 // declared somewhere, so "gather clay" doesn't quietly invent a resource
 // nobody registered - it throws instead, the same as any other unknown-stock
@@ -1704,7 +1713,7 @@ const UNBOUNDED = Number.MAX_SAFE_INTEGER;
 // what isn't there is a real error, not an empty pocket.
 function ensureStock(entity: Entity, stockName: string, max = UNBOUNDED): void {
   if (entity.stocks[stockName]) return;
-  if (knownStocks && !knownStocks.has(stockName))
+  if (vocabulary.known && !vocabulary.known.has(stockName))
     throw new Error(
       `transfer: "${stockName}" is not a known resource - declare it (set_stock_default, a spawn's stocks) before rules can mint it`,
     );
@@ -2741,6 +2750,21 @@ export function commit(
   args: Args = {},
   terrain?: TerrainLookup,
   tokenAt?: (x: number, y: number) => Entity | undefined,
+  vocab?: StockVocabulary,
+): { ok: boolean; error?: string; endsInTicks?: number } {
+  return withVocabulary(vocab, () =>
+    commitAction(world, rules, actorId, type, args, terrain, tokenAt),
+  );
+}
+
+function commitAction(
+  world: KernelWorld,
+  rules: Rule[],
+  actorId: string,
+  type: string,
+  args: Args,
+  terrain?: TerrainLookup,
+  tokenAt?: (x: number, y: number) => Entity | undefined,
 ): { ok: boolean; error?: string; endsInTicks?: number } {
   let actor = world.entities[actorId];
   if (!actor) throw new Error(`no entity "${actorId}"`);
@@ -2788,8 +2812,18 @@ export function actionApplicable(
   type: string,
   args: Args = {},
   terrain?: TerrainLookup,
+  vocab?: StockVocabulary,
 ): boolean {
-  return checkAction(world, rules, actorId, type, args, terrain).applicable;
+  return checkAction(
+    world,
+    rules,
+    actorId,
+    type,
+    args,
+    terrain,
+    undefined,
+    vocab,
+  ).applicable;
 }
 
 // Read a `requires` back as the sentence a character needs: which clause
@@ -2918,9 +2952,18 @@ export function actionUnavailableReason(
   type: string,
   args: Args = {},
   terrain?: TerrainLookup,
+  vocab?: StockVocabulary,
 ): string | undefined {
-  return checkAction(world, rules, actorId, type, args, terrain)
-    .unavailableReason;
+  return checkAction(
+    world,
+    rules,
+    actorId,
+    type,
+    args,
+    terrain,
+    undefined,
+    vocab,
+  ).unavailableReason;
 }
 
 // Whether an action rule would put something that takes ground on the actor's
@@ -2967,6 +3010,7 @@ export function checkAction(
   args: Args = {},
   terrain?: TerrainLookup,
   tokenAt?: (x: number, y: number) => Entity | undefined,
+  vocab?: StockVocabulary,
 ): ActionCheck {
   let actor = world.entities[actorId];
   if (!actor)
@@ -2977,6 +3021,20 @@ export function checkAction(
       applicable: false,
       unavailableReason: `unknown action "${type}"`,
     };
+  return withVocabulary(vocab, () =>
+    checkActionRule(world, rule, actor, type, args, terrain, tokenAt),
+  );
+}
+
+function checkActionRule(
+  world: KernelWorld,
+  rule: ActionRule,
+  actor: Entity,
+  type: string,
+  args: Args,
+  terrain?: TerrainLookup,
+  tokenAt?: (x: number, y: number) => Entity | undefined,
+): ActionCheck {
   return withTerrain(terrain, () => {
     if (rule.requires && !evalCond(rule.requires, world, actor, args))
       return {
@@ -3004,6 +3062,31 @@ export function runRulesForTick(
   rules: Rule[],
   before: KernelWorld,
   events: KernelEvent[] = [],
+  terrain?: TerrainLookup,
+  writeTerrain?: TerrainWriter,
+  reveal?: Revealer,
+  passable?: PassableLookup,
+  vocab?: StockVocabulary,
+): KernelEvent[] {
+  return withVocabulary(vocab, () =>
+    runRules(
+      world,
+      rules,
+      before,
+      events,
+      terrain,
+      writeTerrain,
+      reveal,
+      passable,
+    ),
+  );
+}
+
+function runRules(
+  world: KernelWorld,
+  rules: Rule[],
+  before: KernelWorld,
+  events: KernelEvent[],
   terrain?: TerrainLookup,
   writeTerrain?: TerrainWriter,
   reveal?: Revealer,
@@ -3051,8 +3134,22 @@ export function runRulesForTick(
 
 // Advance a rules-only world one tick. Hosts with shared spatial behavior call
 // beginTick(), update space, then runRulesForTick().
-export function step(world: KernelWorld, rules: Rule[]): KernelEvent[] {
-  return runRulesForTick(world, rules, beginTick(world));
+export function step(
+  world: KernelWorld,
+  rules: Rule[],
+  vocab?: StockVocabulary,
+): KernelEvent[] {
+  return runRulesForTick(
+    world,
+    rules,
+    beginTick(world),
+    [],
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    vocab,
+  );
 }
 
 export function clamp(v: number, min: number, max: number): number {

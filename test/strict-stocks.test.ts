@@ -1,4 +1,4 @@
-// The closed stock namespace (see kernel.ts requireStock/setKnownStocks):
+// The closed stock namespace (see kernel.ts requireStock/StockVocabulary):
 // adjust/set/transfer.source may only write a stock the target entity already
 // carries; transfer.destination may still mint a fresh stock, but only for a
 // name the ruleset has declared somewhere (the known-stock registry). This is
@@ -11,23 +11,18 @@ import test from "node:test";
 
 import {
   commit,
-  setKnownStocks,
   step,
   stock,
   type Entity,
   type KernelWorld,
   type Rule,
+  type StockVocabulary,
 } from "../src/rules/kernel.js";
 import { makeSurvivalEngine } from "./helpers.js";
 
 // A bare world with an actor and a target entity, both starting with no
 // stocks - the kernel-level scaffold, mirroring items.test.ts's makeWorld.
-// Resets the module-level known-stock registry on every call, the same
-// defensive reason makeWorld does in items.test.ts: a bare-kernel test's
-// behavior must not depend on what a real engine happened to run earlier in
-// this same process.
 function makeBareWorld(): KernelWorld {
-  setKnownStocks(undefined);
   let entities: Record<string, Entity> = {
     world: { id: "world", tags: ["world"], stocks: {} },
     ara: {
@@ -85,7 +80,7 @@ test("kernel: set rejects a missing target the same way adjust does", () => {
 
 test("kernel: transfer still vivifies a fresh destination for a known resource", () => {
   let world = makeBareWorld();
-  setKnownStocks(["wood"]);
+  let vocab: StockVocabulary = { known: new Set(["wood"]) };
   world.entities.ara.stocks.wood = stock(5, 0, 9999);
   let depositWood: Rule = {
     id: "deposit_wood",
@@ -102,8 +97,20 @@ test("kernel: transfer still vivifies a fresh destination for a known resource",
     ],
   };
 
-  assert.equal(commit(world, [depositWood], "ara", "deposit_wood").ok, true);
-  step(world, [depositWood]);
+  assert.equal(
+    commit(
+      world,
+      [depositWood],
+      "ara",
+      "deposit_wood",
+      {},
+      undefined,
+      undefined,
+      vocab,
+    ).ok,
+    true,
+  );
+  step(world, [depositWood], vocab);
 
   assert.equal(world.entities.ara.stocks.wood.value, 0);
   assert.equal(
@@ -115,7 +122,8 @@ test("kernel: transfer still vivifies a fresh destination for a known resource",
 
 test("kernel: transfer refuses to vivify a destination for an unregistered name", () => {
   let world = makeBareWorld();
-  setKnownStocks(["wood"]); // "gold" is deliberately absent
+  // "gold" is deliberately absent
+  let vocab: StockVocabulary = { known: new Set(["wood"]) };
   world.entities.ara.stocks.gold = stock(3, 0, 9999);
   let depositGold: Rule = {
     id: "deposit_gold",
@@ -132,8 +140,20 @@ test("kernel: transfer refuses to vivify a destination for an unregistered name"
     ],
   };
 
-  assert.equal(commit(world, [depositGold], "ara", "deposit_gold").ok, true);
-  let events = step(world, [depositGold]);
+  assert.equal(
+    commit(
+      world,
+      [depositGold],
+      "ara",
+      "deposit_gold",
+      {},
+      undefined,
+      undefined,
+      vocab,
+    ).ok,
+    true,
+  );
+  let events = step(world, [depositGold], vocab);
 
   let err = events.find((e) => e.type === "rule_error");
   assert.ok(err, "an unregistered destination name is rejected");
@@ -247,5 +267,41 @@ test("engine: dry-run flags a rule that writes to an undeclared stock", () => {
   assert.ok(
     report.warnings.some((w) => w.includes('"stanima"')),
     "the undeclared stock is named in a warning",
+  );
+});
+
+test("kernel: a vocabulary binds only the call it is passed to", () => {
+  // Two worlds in one process: one closed to "wood", one with no registry.
+  // The closed world's vocabulary must not leak into the open world's tick.
+  let depositGold: Rule = {
+    id: "deposit_gold",
+    kind: "action",
+    duration: 1,
+    do: [
+      {
+        transfer: {
+          from: { stock: "gold", of: "self" },
+          to: { stock: "gold", of: "crate" },
+          amount: 1,
+        },
+      },
+    ],
+  };
+  let closed = makeBareWorld();
+  let open = makeBareWorld();
+  closed.entities.ara.stocks.gold = stock(3, 0, 9999);
+  open.entities.ara.stocks.gold = stock(3, 0, 9999);
+  let vocab: StockVocabulary = { known: new Set(["wood"]) };
+
+  commit(closed, [depositGold], "ara", "deposit_gold");
+  commit(open, [depositGold], "ara", "deposit_gold");
+  step(closed, [depositGold], vocab);
+  step(open, [depositGold]);
+
+  assert.equal(closed.entities.crate.stocks.gold, undefined);
+  assert.equal(
+    open.entities.crate.stocks.gold?.value,
+    1,
+    "the open world still vivifies - it never saw the closed world's names",
   );
 });

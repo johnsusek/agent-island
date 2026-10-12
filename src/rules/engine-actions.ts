@@ -9,6 +9,7 @@ import {
   type EntityTargetMatch,
   type KernelWorld,
   type Rule,
+  type StockVocabulary,
 } from "./kernel.js";
 import {
   chebyshev,
@@ -95,6 +96,7 @@ export interface EngineActionContext {
   stockpilableStockNames(): string[];
   packStockNames(): string[];
   terrainAt(x: number, y: number): string | undefined;
+  vocabulary: StockVocabulary;
 }
 
 // The resource-name list an enum param's `from` draws its choices from -
@@ -718,6 +720,7 @@ function stockActionCheck(
         let name = tokenNameAt(context.space.grid, { x, y });
         return name ? context.world.entities[name] : undefined;
       },
+      context.vocabulary,
     );
   } catch (error) {
     return { applicable: false, unavailableReason: (error as Error).message };

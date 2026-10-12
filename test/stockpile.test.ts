@@ -6,9 +6,9 @@ import {
   commit,
   step,
   stock,
-  setStockpilable,
   type Entity,
   type KernelWorld,
+  type StockVocabulary,
 } from "../src/rules/kernel.js";
 import {
   addAgentTo,
@@ -22,9 +22,9 @@ const PLAINS = () => "plains";
 // Standalone fixture (test/stockpile.json): found_stockpile/deposit/withdraw
 // mechanics in isolation, no map or metabolism dragged in from the shared
 // survival fixture. The last two tests below still boot makeSurvivalEngine()
-// purely for its side effect of installing the *real* shipped scenario's
-// stockpilable set (see setStockpilable) - that's the one thing genuinely
-// worth testing against the production config rather than this fixture.
+// to read the *real* shipped scenario's stockpilable set - that's the one
+// thing genuinely worth testing against the production config rather than
+// this fixture.
 let stockpileOverlay = loadFixtureOverlay("stockpile");
 let survivalRules = stockpileOverlay.dynamicRules;
 function makeSurvivalWorld() {
@@ -34,10 +34,24 @@ function addAgent(world: ReturnType<typeof makeBareWorld>, id: string) {
   return addAgentTo(world, id, stockpileOverlay);
 }
 
+// The stock vocabulary each test's kernel calls run with; every test sets the
+// stockpilable names it needs before acting.
+let vocab: StockVocabulary = {};
+function stockpilable(names: Iterable<string>) {
+  vocab = { stockpilable: new Set(names) };
+}
+
 // Drive an agent's committed action to completion (bounded).
 function finish(world: KernelWorld, id: string) {
   for (let t = 0; t < 10 && world.entities[id]?.action; t += 1)
-    step(world, survivalRules);
+    step(world, survivalRules, vocab);
+}
+
+// The stockpilable names a real engine derives from the shipped scenario.
+function realStockpilable(): string[] {
+  return Object.entries(makeSurvivalEngine().getStockDefaults())
+    .filter(([, spec]) => spec.stockpilable)
+    .map(([name]) => name);
 }
 
 function firstWithTag(world: KernelWorld, tag: string): Entity | undefined {
@@ -59,13 +73,22 @@ function pileOn(world: KernelWorld, at: Entity): Entity {
 }
 
 test("found_stockpile raises a bare shared pile - a deposit conjures the resource stock", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
 
   assert.equal(firstWithTag(world, "stockpile"), undefined, "none to start");
   assert.equal(
-    commit(world, survivalRules, "ara", "found_stockpile", {}, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "found_stockpile",
+      {},
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
   );
   finish(world, "ara");
@@ -78,14 +101,23 @@ test("found_stockpile raises a bare shared pile - a deposit conjures the resourc
 });
 
 test("deposit hauls a whole load of the named resource onto a colocated pile", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.wood = stock(7, 0, 25);
   let pile = pileOn(world, ara);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "wood" }, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "wood" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
     "commits standing on the pile with wood in hand",
   );
@@ -97,7 +129,7 @@ test("deposit hauls a whole load of the named resource onto a colocated pile", (
 });
 
 test("deposit fills only the pile's remaining capacity without losing overflow", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.wood = stock(9, 0, 25);
@@ -105,7 +137,16 @@ test("deposit fills only the pile's remaining capacity without losing overflow",
   pile.stocks.wood = stock(17, 0, 20);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "wood" }, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "wood" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
   );
   finish(world, "ara");
@@ -115,7 +156,7 @@ test("deposit fills only the pile's remaining capacity without losing overflow",
 });
 
 test("deposit refuses a different resource until the pile is empty", () => {
-  setStockpilable(["wood", "food"]);
+  stockpilable(["wood", "food"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.food = stock(5, 0, 12);
@@ -123,7 +164,16 @@ test("deposit refuses a different resource until the pile is empty", () => {
   pile.stocks.wood = stock(4, 0, 20);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "food" }, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "food" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     false,
   );
   assert.equal(ara.stocks.food.value, 5);
@@ -131,14 +181,23 @@ test("deposit refuses a different resource until the pile is empty", () => {
 
   pile.stocks.wood.value = 0;
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "food" }, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "food" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
     "an empty pile can be repurposed",
   );
 });
 
 test("simultaneous deposits cannot mix resource types", () => {
-  setStockpilable(["wood", "food"]);
+  stockpilable(["wood", "food"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   let bram = addAgent(world, "bram");
@@ -148,12 +207,29 @@ test("simultaneous deposits cannot mix resource types", () => {
   let pile = pileOn(world, ara);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "wood" }, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "wood" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
   );
   assert.equal(
-    commit(world, survivalRules, "bram", "deposit", { item: "food" }, PLAINS)
-      .ok,
+    commit(
+      world,
+      survivalRules,
+      "bram",
+      "deposit",
+      { item: "food" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
   );
 
@@ -171,7 +247,7 @@ test("simultaneous deposits cannot mix resource types", () => {
 });
 
 test("deposit refuses a vital gauge - a resource the ruleset never marked stockpilable", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   pileOn(world, ara);
@@ -180,8 +256,16 @@ test("deposit refuses a vital gauge - a resource the ruleset never marked stockp
   ara.stocks.satiation = stock(60, 0, 100);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "satiation" }, PLAINS)
-      .ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "satiation" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     false,
     "can't dump a gauge into the pile",
   );
@@ -189,7 +273,7 @@ test("deposit refuses a vital gauge - a resource the ruleset never marked stockp
 });
 
 test("withdraw takes the whole pile when it fits in the scenario", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.wood = stock(0, 0, 25);
@@ -197,8 +281,16 @@ test("withdraw takes the whole pile when it fits in the scenario", () => {
   pile.stocks.wood = stock(5, 0, 9999);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "withdraw", { item: "wood" }, PLAINS)
-      .ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "withdraw",
+      { item: "wood" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
   );
   finish(world, "ara");
@@ -208,7 +300,7 @@ test("withdraw takes the whole pile when it fits in the scenario", () => {
 });
 
 test("withdraw takes only what fits and never leaks the overflow", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.wood = stock(20, 0, 25); // 5 room left under the carry cap
@@ -216,8 +308,16 @@ test("withdraw takes only what fits and never leaks the overflow", () => {
   pile.stocks.wood = stock(100, 0, 9999);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "withdraw", { item: "wood" }, PLAINS)
-      .ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "withdraw",
+      { item: "wood" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
   );
   finish(world, "ara");
@@ -237,7 +337,7 @@ test("withdraw takes only what fits and never leaks the overflow", () => {
 });
 
 test("withdraw is refused when the pack is already full", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.wood = stock(25, 0, 25); // no headroom
@@ -245,8 +345,16 @@ test("withdraw is refused when the pack is already full", () => {
   pile.stocks.wood = stock(40, 0, 9999);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "withdraw", { item: "wood" }, PLAINS)
-      .ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "withdraw",
+      { item: "wood" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     false,
     "no room in the scenario, so the take is refused rather than leaking",
   );
@@ -254,32 +362,60 @@ test("withdraw is refused when the pack is already full", () => {
 });
 
 test("deposit then withdraw round-trips the same wood", () => {
-  setStockpilable(["wood"]);
+  stockpilable(["wood"]);
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.wood = stock(9, 0, 25);
   let pile = pileOn(world, ara);
 
-  commit(world, survivalRules, "ara", "deposit", { item: "wood" }, PLAINS);
+  commit(
+    world,
+    survivalRules,
+    "ara",
+    "deposit",
+    { item: "wood" },
+    PLAINS,
+    undefined,
+    vocab,
+  );
   finish(world, "ara");
   assert.equal(pile.stocks.wood.value, 9, "the load is on the pile");
   assert.equal(ara.stocks.wood.value, 0, "and out of the scenario");
 
-  commit(world, survivalRules, "ara", "withdraw", { item: "wood" }, PLAINS);
+  commit(
+    world,
+    survivalRules,
+    "ara",
+    "withdraw",
+    { item: "wood" },
+    PLAINS,
+    undefined,
+    vocab,
+  );
   finish(world, "ara");
   assert.equal(ara.stocks.wood.value, 9, "and comes straight back out");
   assert.equal(pile.stocks.wood.value, 0, "leaving the pile empty");
 });
 
 test("food rides the stockpile too, now that it is a carryable resource", () => {
-  makeSurvivalEngine(); // installs the real stockpilable set: wood and food
+  // The real stockpilable set: wood and food.
+  stockpilable(realStockpilable());
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.food = stock(5, 0, 12); // a scenario of gathered rations
   let pile = pileOn(world, ara);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "food" }, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "food" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
     "gathered food can be stockpiled",
   );
@@ -288,8 +424,16 @@ test("food rides the stockpile too, now that it is a carryable resource", () => 
   assert.equal(ara.stocks.food.value, 0, "and left the scenario");
 
   assert.equal(
-    commit(world, survivalRules, "ara", "withdraw", { item: "food" }, PLAINS)
-      .ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "withdraw",
+      { item: "food" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
   );
   finish(world, "ara");
@@ -297,22 +441,39 @@ test("food rides the stockpile too, now that it is a carryable resource", () => 
 });
 
 test("wood flows from the scenario flag through the engine into a real deposit", () => {
-  // Booting the full layered game installs the stockpilable set from the real
+  // Booting the full layered game yields the stockpilable set from the real
   // config (the survival scenario flags wood) - no hand-set list here.
-  makeSurvivalEngine();
+  stockpilable(realStockpilable());
   let world = makeSurvivalWorld();
   let ara = addAgent(world, "ara");
   ara.stocks.wood = stock(4, 0, 25);
   pileOn(world, ara);
 
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "wood" }, PLAINS).ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "wood" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     true,
     "wood is stockpilable by the scenario's own authoring",
   );
   assert.equal(
-    commit(world, survivalRules, "ara", "deposit", { item: "energy" }, PLAINS)
-      .ok,
+    commit(
+      world,
+      survivalRules,
+      "ara",
+      "deposit",
+      { item: "energy" },
+      PLAINS,
+      undefined,
+      vocab,
+    ).ok,
     false,
     "energy, a gauge, is not",
   );
