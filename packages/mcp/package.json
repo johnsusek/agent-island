@@ -17,6 +17,7 @@
     "./mcp-order-schema": "./src/mcp-order-schema.ts",
     "./scenarios": "./src/scenarios.ts",
     "./sense-prose": "./src/sense-prose.ts",
+    "./serve": "./src/serve.ts",
     "./world-file": "./src/world-file.ts"
   },
   "scripts": {

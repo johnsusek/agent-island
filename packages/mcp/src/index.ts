@@ -16,4 +16,5 @@ export * from "./mcp-handler.js";
 export * from "./mcp-order-schema.js";
 export * from "./scenarios.js";
 export * from "./sense-prose.js";
+export * from "./serve.js";
 export * from "./world-file.js";
