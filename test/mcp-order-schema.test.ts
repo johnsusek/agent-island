@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { orderInputSchema } from "../src/mcp-order-schema.js";
+import { orderInputSchema } from "@agent-island/mcp/mcp-order-schema";
 
 test("order MCP schema accepts repeat and sequence orders", () => {
   assert.equal(

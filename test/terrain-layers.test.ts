@@ -23,9 +23,12 @@ import {
   type WorldGen,
 } from "@agent-island/core/space";
 import { scenario } from "../src/config.js";
-import { scenarioBootScenario } from "../src/coordinator-scenarios.js";
+import { scenarioBootScenario } from "@agent-island/mcp/coordinator-scenarios";
 import { createWorld } from "@agent-island/engine/engine";
-import { createScenarioStore, type ScenarioFile } from "../src/scenarios.js";
+import {
+  createScenarioStore,
+  type ScenarioFile,
+} from "@agent-island/mcp/scenarios";
 
 function rows(tiles: Tile[][], letters: Record<string, string>): string[] {
   return tiles.map((row) =>

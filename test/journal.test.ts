@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { createEventJournal } from "../src/journal.js";
+import { createEventJournal } from "@agent-island/mcp/journal";
 
 function withTempDir(fn: (dir: string) => void | Promise<void>) {
   let dir = mkdtempSync(join(tmpdir(), "agent-island-journal-"));

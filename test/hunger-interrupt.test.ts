@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import type { WorldEngine } from "@agent-island/engine/engine";
-import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
+import { resolveIncludes, rulesetsDirFor } from "@agent-island/mcp/scenarios";
 import { makeFixtureEngine, placeAt, TEST_SPAWN } from "./helpers.js";
 
 // Standalone fixture (test/hunger-interrupt.json): the needs-alarm trio in

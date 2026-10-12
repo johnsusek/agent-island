@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { createColony } from "./helpers.js";
 import { createWorld } from "@agent-island/engine/engine";
-import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
+import { resolveIncludes, rulesetsDirFor } from "@agent-island/mcp/scenarios";
 import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";
 

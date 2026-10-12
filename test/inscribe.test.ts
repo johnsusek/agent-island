@@ -17,7 +17,7 @@ import {
 } from "@agent-island/core/kernel";
 import { SIGHT } from "@agent-island/core/space";
 import type { WorldEngine } from "@agent-island/engine/engine";
-import { describeSense } from "../src/sense-prose.js";
+import { describeSense } from "@agent-island/mcp/sense-prose";
 import { makeSurvivalEngine, placeAt, runToIdle } from "./helpers.js";
 
 // A minimal multi-tick, ground-holding build action - survival.json's own

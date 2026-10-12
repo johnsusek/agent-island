@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
 import { assertValidRule, RuleSchema } from "@agent-island/core/rule-schema";
-import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
+import { resolveIncludes, rulesetsDirFor } from "@agent-island/mcp/scenarios";
 
 test("accepts a colocated requires gate written in object form", () => {
   const rule = {

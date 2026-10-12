@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createScenarioStore } from "../src/scenarios.js";
+import { createScenarioStore } from "@agent-island/mcp/scenarios";
 
 function scenarioDirectory(recommendedPlayers: unknown): string {
   let directory = mkdtempSync(path.join(tmpdir(), "agent-island-scenario-"));

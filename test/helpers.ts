@@ -33,9 +33,9 @@ import { graphics, scenario } from "../src/config.js";
 import {
   createColony as createHostColony,
   type ColonyOptions,
-} from "../src/coordinator.js";
+} from "@agent-island/mcp/coordinator";
 import { mergeOverlays } from "@agent-island/engine/overlays";
-import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
+import { resolveIncludes, rulesetsDirFor } from "@agent-island/mcp/scenarios";
 import type { Scenario, StockSpec } from "@agent-island/engine/scenario";
 
 // The full default game ships as the survival scenario layered onto a minimal

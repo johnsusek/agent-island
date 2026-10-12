@@ -6,7 +6,7 @@ import {
   graphicsFromWorldFile,
   scenarioFromWorldFile,
   type GraphicsConfig,
-} from "./world-file.js";
+} from "@agent-island/mcp/world-file";
 
 // The world file is selected directly: pass `--ruleset path/to/config.json`,
 // set AGENT_ISLAND_RULESET, or fall back to the repo's bundled config. Parsing

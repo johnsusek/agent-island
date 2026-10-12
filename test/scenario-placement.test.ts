@@ -12,9 +12,12 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { scenario } from "../src/config.js";
-import { scenarioBootScenario } from "../src/coordinator-scenarios.js";
+import { scenarioBootScenario } from "@agent-island/mcp/coordinator-scenarios";
 import { createWorld } from "@agent-island/engine/engine";
-import { createScenarioStore, type ScenarioFile } from "../src/scenarios.js";
+import {
+  createScenarioStore,
+  type ScenarioFile,
+} from "@agent-island/mcp/scenarios";
 import type { Scenario } from "@agent-island/engine/scenario";
 
 function scenarioFile(overlay: Partial<ScenarioFile["overlay"]>): ScenarioFile {

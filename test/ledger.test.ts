@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createColony } from "./helpers.js";
-import { describeSense } from "../src/sense-prose.js";
+import { describeSense } from "@agent-island/mcp/sense-prose";
 import { makeSurvivalEngine, survivalBoot } from "./helpers.js";
 
 function withColony(fn: (colony: any) => void | Promise<void>) {

@@ -31,4 +31,4 @@ set_stock_default({stock:"warmth", value:100, min:0, max:100, icon:"warmth", col
   role:"vital", bands:{pressing:"You feel the cold.", serious:"You are shivering badly.", critical:"You are freezing to death."}})
 ```
 
-then add a rule that drains warmth — the alarm reaches the character with no second authoring step, because role/label/bands live right here on the stock and ride the overlay, so a GM's edits persist and survive snapshot/restore. Note the rule *drains* warmth rather than raising a "cold" — that's the naming-for-the-relief pattern, not a stylistic choice.
+then add a rule that drains warmth — the alarm reaches the character with no second authoring step, because role/label/bands live right here on the stock and ride the overlay, so a GM's edits persist and survive snapshot/restore. Note the rule _drains_ warmth rather than raising a "cold" — that's the naming-for-the-relief pattern, not a stylistic choice.

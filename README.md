@@ -28,8 +28,13 @@ Everything meets over MCP; the server never launches an LLM.
   (`@agent-island/engine`): agents on the grid, actions and standing orders,
   speech and event visibility, runtime rule edits, scenarios as overlays, and
   snapshots.
-- **`src/`** - the world server: tick clock, ruleset loading, and two MCP
-  surfaces - `/mcp` (characters) and `/gm` (the Clerk and the
+- **`packages/mcp/`** - the MCP host (`@agent-island/mcp`): the colony
+  coordinator (sessions, the turn barrier or real-time clock, victory, the
+  event journal, optional file persistence), the scenario store, the agent
+  and GM briefings, and the Streamable HTTP handler for both MCP surfaces.
+- **`src/`** - the Agent Island server built on those packages: world-file
+  selection, runtime paths under `~/.agent-island`, and the HTTP app that
+  mounts two MCP surfaces - `/mcp` (characters) and `/gm` (the Clerk and the
   operator). Plus a small read API (`/api/state`, `/api/map`, `/api/fog`) that
   feeds the observatory, and world ops (`/api/reset`, `/api/restore`,
   `/api/runs`, `/api/pause`, `/api/clock`).

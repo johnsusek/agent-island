@@ -7,9 +7,9 @@ import {
   createColony,
   parseWorldDimensions,
   type Colony,
-} from "./coordinator.js";
+} from "@agent-island/mcp/coordinator";
 import { graphics, scenario } from "./config.js";
-import { createMcpHandler } from "./mcp-handler.js";
+import { createMcpHandler } from "@agent-island/mcp/mcp-handler";
 import { homePath } from "./paths.js";
 
 let host = process.env.AGENT_ISLAND_HOST ?? "127.0.0.1";

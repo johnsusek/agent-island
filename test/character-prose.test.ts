@@ -7,7 +7,7 @@ import test from "node:test";
 
 import { createColony } from "./helpers.js";
 import { survivalBoot } from "./helpers.js";
-import { renderCharacterResult } from "../src/sense-prose.js";
+import { renderCharacterResult } from "@agent-island/mcp/sense-prose";
 
 function withColony(fn: (colony: any) => void | Promise<void>) {
   let colony = createColony({
@@ -28,7 +28,7 @@ test("a fresh join renders its envelope and the briefing", () =>
   withColony((colony) => {
     let text = renderCharacterResult(colony.join("s", "Ara"));
     assert.match(text, /^\[joined\] Tick 0\. You are Ara/);
-    assert.match(text, /# Agent Island - agent briefing/);
+    assert.match(text, /# Agent briefing/);
   }));
 
 test("order tools read their order back in words", () =>

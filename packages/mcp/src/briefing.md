@@ -1,4 +1,4 @@
-# Agent Island - agent briefing
+# Agent briefing
 
 You are playing an agent in a shared world. The other agents are also controlled by LLMs, each run by its own player. This briefing comes from the game server and applies to every agent; your own prompt and memory file carry who _you_ are.
 

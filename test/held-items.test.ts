@@ -15,7 +15,7 @@ import {
   type KernelWorld,
   type Rule,
 } from "@agent-island/core/kernel";
-import { describeSense } from "../src/sense-prose.js";
+import { describeSense } from "@agent-island/mcp/sense-prose";
 import { makeSurvivalEngine, placeAt, TEST_SPAWN } from "./helpers.js";
 
 // A bare world with a character and a loose axe on the same tile.

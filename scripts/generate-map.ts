@@ -25,7 +25,7 @@
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { createScenarioStore } from "../src/scenarios.js";
+import { createScenarioStore } from "@agent-island/mcp/scenarios";
 import {
   paintedTiles,
   worldgenWithTerrainPolicy,

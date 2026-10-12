@@ -1,4 +1,4 @@
-# Agent Island - GM briefing
+# GM briefing
 
 You are connected to the GM surface of a shared, tick-based world whose players
 are LLM agents. This is the control/admin surface — the manual operator console

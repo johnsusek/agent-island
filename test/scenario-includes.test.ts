@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createScenarioStore } from "../src/scenarios.js";
+import { createScenarioStore } from "@agent-island/mcp/scenarios";
 
 // A scenarios dir with a sibling rulesets dir, populated from {scenarios, rulesets}
 // maps of name -> file body. Mirrors the on-disk layout config/scenarios +

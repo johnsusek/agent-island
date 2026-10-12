@@ -1,0 +1,37 @@
+{
+  "name": "@agent-island/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An MCP host for agent simulations: a colony coordinator (sessions, the turn barrier or real-time clock, victory, an event journal, optional file persistence) and two Streamable HTTP MCP surfaces, one for characters and one for game masters who edit the rules at runtime.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./briefing": "./src/briefing.ts",
+    "./coordinator": "./src/coordinator.ts",
+    "./coordinator-admin": "./src/coordinator-admin.ts",
+    "./coordinator-gm": "./src/coordinator-gm.ts",
+    "./coordinator-inspection": "./src/coordinator-inspection.ts",
+    "./coordinator-scenarios": "./src/coordinator-scenarios.ts",
+    "./journal": "./src/journal.ts",
+    "./mcp-handler": "./src/mcp-handler.ts",
+    "./mcp-order-schema": "./src/mcp-order-schema.ts",
+    "./scenarios": "./src/scenarios.ts",
+    "./sense-prose": "./src/sense-prose.ts",
+    "./world-file": "./src/world-file.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agent-island/core": "0.1.0",
+    "@agent-island/engine": "0.1.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "express": "^5.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

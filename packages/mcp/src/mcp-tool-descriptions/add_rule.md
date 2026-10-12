@@ -111,7 +111,7 @@ That reservation is permanent, and it is the thing most often authored past: **t
 {spawn:{kind:"shelter",id:"shelter-{{self}}-{{tick}}",occupancy:"tile",at:"self"}}
 ```
 
-A **fixed** id makes the thing a singleton: the first build claims the name, and every later one passes its `requires`, spends the materials, and *then* throws "already exists" — the second builder pays for an error. Give a built thing `{{self}}`/`{{tick}}`, or omit `id` entirely and let it auto-number (`shelter-1`, `shelter-2`). Reserve a constant id for something there is genuinely only ever one of.
+A **fixed** id makes the thing a singleton: the first build claims the name, and every later one passes its `requires`, spends the materials, and _then_ throws "already exists" — the second builder pays for an error. Give a built thing `{{self}}`/`{{tick}}`, or omit `id` entirely and let it auto-number (`shelter-1`, `shelter-2`). Reserve a constant id for something there is genuinely only ever one of.
 
 Every matcher takes both forms: `tag:"wolf"` is loose (matches the name in either slot — kind or tags), `kind:"wolf"` is strict (the entity IS a wolf; a tag carrying the name doesn't count). Available at `each:{kind}`, conditions (`{kind:"wolf",of:...}` — one of tag/kind per cond, combine with `all`), `colocated:{kind,range,pick}`, aggregates (`{count:{kind:"wolf"}}`), and action target params. In colocated/aggregate/each, giving both tag and kind demands both; giving neither is rejected.
 

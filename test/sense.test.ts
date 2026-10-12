@@ -8,7 +8,7 @@ import test from "node:test";
 
 import { createColony } from "./helpers.js";
 import { survivalBoot } from "./helpers.js";
-import { describeSense, renderWake } from "../src/sense-prose.js";
+import { describeSense, renderWake } from "@agent-island/mcp/sense-prose";
 
 function withColony(fn: (colony: any) => void | Promise<void>) {
   let colony = createColony({
