@@ -138,15 +138,20 @@ Each step leaves typecheck, the web build, and the full test suite green.
 3. **MCP host.** Move the host into `packages/mcp`, inject the config the
    coordinator used to import, add `dry_run_rule`, and turn the icon
    requirement and the missing-sprite warning into engine options. _Done._
-4. **Ship it.**
-   - A briefing hook, so a host can replace the agent and GM prompts.
+4. **Ship it.** _Done except publishing and the test harness._
+   - A briefing hook and an MCP server name, so a host can replace the
+     prompts. _Done._
    - A `serve` entry point that boots a colony from a world file and a
-     scenarios folder, so trying it needs no server code.
-   - A single-room example (an auction or Werewolf) in about 50 lines of
-     JSON, and a README with a ready-to-paste `.mcp.json`.
+     scenarios folder. _Done._
+   - A single-room example with tests, and READMEs with a ready-to-paste
+     MCP config. _Done_ (the commons; see below).
+   - A build step that emits JS and types. _Done._
+   - Publishing. _Waiting on the public name._ Then: rename the packages and
+     the `agent-island-mcp` bin, drop `private: true`, set the default
+     `serverName`, and `npm publish` core, engine, mcp in that order.
    - The package-local test harness, so the helper-based engine and
-     coordinator tests can move into their packages.
-   - A build step that emits JS and types, and an npm publish.
+     coordinator tests can move into their packages. _Not started_; they
+     still run at the root against the packages' exports.
 
 ## Status
 
@@ -205,3 +210,33 @@ Each step leaves typecheck, the web build, and the full test suite green.
   typechecks and the web build pass. On a live server, `/mcp` lists 11 tools
   and `/gm` lists 17, all with descriptions loaded, and a GM can call
   `dry_run_rule` over MCP while the live rule set stays unchanged.
+
+**Step 4, 2026-10-12, branch `ship-packages`:**
+
+- `createColony` takes `briefings: { character, gm }` and exposes them;
+  `createMcpHandler` takes a `serverName`. Agent Island pins
+  `agent-island`.
+- `serve` (`packages/mcp/src/serve.ts`, CLI in `cli.ts`): a world file, a
+  scenarios folder (its only scenario runs by default), `--data` for
+  persistence, `--tick-ms` for a wall clock, plus briefing and name flags.
+  Serves `/mcp`, `/gm` and `/api/state`.
+- The commons example (`packages/mcp/examples/commons`): 4 or 5 villagers
+  share a bay that regrows logistically and never recovers once empty.
+  Tests play it for a full season: hoarding a full basket collapses the bay
+  and starves everyone; fishing only when hungry survives and wins. Tuning
+  it surfaced two engine issues, both fixed:
+  - **Character prose never showed world stocks.** A world stock with role
+    `pack` now appears as "The world holds: fish in the bay 30/40."
+  - **A watch on `{tick: true}` never fired**, because `beginTick` took the
+    "before" snapshot after incrementing the tick. The snapshot is now taken
+    first.
+- Builds: each export resolves to `dist` for consumers and to `src` under
+  the `source` condition, which the repo enables in tsc, tsx and node.
+  Verified by packing all three packages, installing the tarballs in an
+  empty project, running `npx agent-island-mcp serve` on the bundled
+  example, joining over MCP, and typechecking a strict TypeScript consumer.
+  That caught `@types/express` being a devDependency although the public
+  types use it.
+- Results: 76 core, 25 engine, 6 mcp and 415 app tests pass (522 total).
+  All typechecks and the web build pass, and `npm run dev` serves the
+  observatory.
