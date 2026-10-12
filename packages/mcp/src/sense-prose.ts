@@ -157,11 +157,30 @@ function ledgerLines(colony: Dict | undefined): string[] {
   return [`On the ${colony.ledger}: ${entries.join("; ")}.`];
 }
 
+// Open motions, one line each: the number to vote on, the exact words, the
+// running tally, and where the reader stands. `onlyUnvoted` is the wake
+// report's slimmer form - a motion you have already voted on is not news.
+function motionLines(
+  motions: Dict[] | undefined,
+  onlyUnvoted = false,
+): string[] {
+  return (motions ?? [])
+    .filter((m) => !onlyUnvoted || !m.yourVote)
+    .map((m) => {
+      let mine = m.yourVote
+        ? `you voted ${m.yourVote}`
+        : `you have not voted - vote(${m.id}, yes|no)`;
+      let left = `${m.closesInTicks} ${m.closesInTicks === 1 ? "tick" : "ticks"}`;
+      return `Open motion ${m.id} (${m.proposer}, closes in ${left}): "${m.text}" - ${m.yes} yes, ${m.no} no; ${mine}.`;
+    });
+}
+
 function describeSituation(r: Dict): string {
   let lines = [envelope(r.tick, r.you, r.here, r.display, r.world)];
   let around = othersLines(r.others);
   if (around) lines.push(around + ".");
   lines.push(...ledgerLines(r.colony));
+  lines.push(...motionLines(r.motions));
   for (let m of r.heard ?? [])
     lines.push(`Heard (t${m.tick}) ${m.from}: "${m.text}"`);
   lines.push(
@@ -343,6 +362,7 @@ export function renderWake(r: Dict): string {
   lines.push(...receipt(r));
   let events = eventLines(r.events);
   if (events.length) lines.push(...events);
+  lines.push(...motionLines(r.observation?.motions, true));
   lines.push(...actionsBlock(r.observation?.availableActions));
   return lines.join("\n");
 }
@@ -363,9 +383,25 @@ function receipt(r: Dict): string[] {
       return [`Whispered to ${r.to}.`];
     case "inscribed":
       return [`You ${r.rewrote ? "overwrite" : "write on"} ${r.sign}.`];
+    case "proposed":
+    case "voted":
+      return [motionReceipt(r.motion, r.outcome)];
     default:
       return [];
   }
+}
+
+// Where a motion stands after your propose or vote: the tally, and the result
+// if your act is what settled it.
+function motionReceipt(
+  m: Dict | undefined,
+  outcome: string | undefined,
+): string {
+  if (!m) return "";
+  let count = `${m.yes} yes, ${m.no} no`;
+  if (outcome === "passed" || outcome === "failed")
+    return `Motion ${m.id} ${outcome} (${count}).`;
+  return `Motion ${m.id} is open (${count}); you voted ${m.yourVote}. Voting closes in ${m.closesInTicks} ticks.`;
 }
 
 export function isWakeResult(r: Dict): boolean {

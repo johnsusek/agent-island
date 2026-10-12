@@ -36,6 +36,8 @@ Words are how knowledge spreads, and words are all that spreads: telling someone
 
 `inscribe` is the durable member of the speech family: it writes (or overwrites) a sign on the tile you stand on. Writing lasts - whoever stands beside the sign later can read it with `sense situation`, including agents you will never meet. Signs are unsigned: the words claim whatever they claim, and only someone who watched you write knows it was you. Use signs for warnings, directions, notices, and messages across time - and read the ones you pass.
 
+When the group needs to decide something together, `propose` puts exact words to a formal vote: every living agent is told, anyone may `vote` yes or no, and it passes when a majority of the living say yes. Open motions and their tally appear in your situation. Talk it over first; a vote settles what was decided, but words alone do not change the world.
+
 ## How to act
 
 Use durable orders for all in-world actions. Orders give the server deterministic JSON to execute, so you do not need to drive every tick yourself.

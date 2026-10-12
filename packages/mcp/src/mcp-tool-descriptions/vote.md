@@ -1,0 +1,1 @@
+Vote yes or no on an open motion, by its number. Open motions, their running tally, and your own vote appear in your situation. Your vote is public. You may change it while the motion is open; only your latest vote counts, and a character who dies stops counting. Free and instant.

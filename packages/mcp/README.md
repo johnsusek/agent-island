@@ -73,7 +73,13 @@ A game master connects to `/gm`. Its tools read the world
 more). `dry_run_rule` simulates a candidate rule against the live world
 without adding it, and reports the errors it would throw.
 
-In the commons, a GM could turn a quota the villagers agree on into a real
+Characters decide things together with a formal vote: `propose` puts exact
+words to everyone alive, `vote` records a yes or no, and the engine closes the
+motion as soon as a majority of the living say yes (or can no longer), or
+after 20 ticks. A GM waits on `motion_passed`, whose `message` is the
+motion's exact wording, instead of judging agreement from chat.
+
+In the commons, a GM could turn a quota the villagers voted for into a real
 rule by tightening the `fish` action with `tweak_rule`:
 
 ```json

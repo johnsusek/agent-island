@@ -10,6 +10,7 @@ import { createWorld } from "@agent-island/engine/engine";
 import {
   createColony,
   createScenarioStore,
+  renderCharacterResult,
   renderWake,
   scenarioBootScenario,
   scenarioFromWorldFile,
@@ -150,6 +151,57 @@ test("a GM can close the bay with a quota", () => {
       () => colony.act("a", { type: "fish" }),
       /the council has closed the bay/,
     );
+  } finally {
+    colony.stop();
+  }
+});
+
+// A formal vote end to end: a villager proposes, the others read the motion
+// and its tally in their own prose and vote, and the director's wake carries
+// the result with the exact wording - nothing inferred from chat.
+test("villagers vote on a motion and the director hears the result", async () => {
+  let colony = createColony({
+    baseScenario: base,
+    scenariosDir: `${dir}scenarios`,
+    scenarios: ["commons"],
+    waitTimeoutMs: 2000,
+    maxWaitMs: 50,
+  });
+  colony.start();
+  for (let s of ["a", "b", "c", "gm"]) colony.connect(s);
+  try {
+    colony.join("a", "Ara");
+    colony.join("b", "Bo");
+    colony.join("c", "Cy");
+    colony.joinAsGm("gm");
+    let clerk = colony.waitForWorld("gm", { events: ["motion_passed"] });
+
+    let wording = "Nobody fishes while the bay holds under 20.";
+    let proposed = colony.propose("a", wording);
+    assert.match(
+      renderCharacterResult(proposed),
+      /Motion 1 is open \(1 yes, 0 no\); you voted yes\./,
+    );
+
+    let bo = await colony.waitForChange("b");
+    let prose = renderWake(bo);
+    assert.match(prose, /Ara proposes motion 1: "Nobody fishes/);
+    assert.match(
+      prose,
+      /Open motion 1 \(Ara, closes in 20 ticks\): "Nobody fishes[^"]*" - 1 yes, 0 no; you have not voted - vote\(1, yes\|no\)\./,
+    );
+
+    let voted = colony.vote("b", 1, "yes");
+    assert.match(
+      renderCharacterResult(voted),
+      /Motion 1 passed \(2 yes, 0 no\)\./,
+    );
+
+    let wake = await clerk;
+    let [passed] = wake.events;
+    assert.equal(passed.type, "motion_passed");
+    assert.equal(passed.message, wording);
+    assert.match(passed.text, /2 yes, 0 no, of 3 living/);
   } finally {
     colony.stop();
   }

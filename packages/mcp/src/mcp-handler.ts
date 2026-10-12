@@ -404,6 +404,33 @@ function createCharacterMcpServer(
     async ({ message }) => coordinator.inscribe(sessionId, message),
   );
 
+  registerTool(
+    server,
+    "propose",
+    {
+      description: describe("propose"),
+      inputSchema: {
+        message: schema.string().describe("The exact words of the motion"),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async ({ message }) => coordinator.propose(sessionId, message),
+  );
+
+  registerTool(
+    server,
+    "vote",
+    {
+      description: describe("vote"),
+      inputSchema: {
+        motion: schema.number().int().describe("The motion's number"),
+        choice: schema.enum(["yes", "no"]),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async ({ motion, choice }) => coordinator.vote(sessionId, motion, choice),
+  );
+
   return server;
 }
 

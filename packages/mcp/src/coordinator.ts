@@ -1503,6 +1503,34 @@ export function createColony(options: ColonyOptions) {
     );
   }
 
+  // Put a motion to the whole village, or vote on one. Free and instant like
+  // speech; the engine keeps the count and closes the motion itself.
+  function propose(sessionId: string, message: string) {
+    let session = requireJoined(sessionId);
+    refuseIfOver();
+    let agentId = session.agentId!;
+    return commitAndWake(
+      session,
+      "proposed",
+      journalCommand(agentId, "propose", () =>
+        engine.propose(agentId, message),
+      ),
+    );
+  }
+
+  function vote(sessionId: string, motion: number, choice: string) {
+    let session = requireJoined(sessionId);
+    refuseIfOver();
+    let agentId = session.agentId!;
+    return commitAndWake(
+      session,
+      "voted",
+      journalCommand(agentId, "vote", () =>
+        engine.vote(agentId, motion, choice),
+      ),
+    );
+  }
+
   // Park until the character sees something new (its action completed, a message
   // arrived, the fire went out, ...). Parking signals "I'm ready for time to
   // pass"; once every active player is parked, the world advances.
@@ -2050,6 +2078,8 @@ export function createColony(options: ColonyOptions) {
     speak,
     whisper,
     inscribe,
+    propose,
+    vote,
     waitForChange,
     waitForWorld,
     reset,

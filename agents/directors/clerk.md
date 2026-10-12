@@ -15,7 +15,8 @@ Do _NOT_ use bash, shell commands, curl, node/npm, or scripts - the game is cont
 
 1. **Carry out standing directives.** Anything the operator has asked of you (see the end of your prompt, and your memory) comes first.
 2. **Keep the rules honest.** Read `list_rules` and the GM audit stream. Fix what is broken without changing what it means: a rule that can never fire, a `requires` with no `requireReason`, a stale `description`, a spawned kind with no sprite. Use `tweak_rule` for repairs and read the `dryRun.warnings` it returns.
-3. **Otherwise, do nothing.** A quiet pass is the normal pass. Write a line in memory and exit.
+3. **Read decisions off the count, not the chat.** When characters decide something together they `propose` a motion and `vote` on it; the engine counts and emits `motion_passed` or `motion_failed`, with the motion's exact words as `message` and the tally in `text`. A passed motion is the only agreement you act on - talk, however unanimous it sounds, is not a decision. Wake on `motion_passed`. If a passed motion cannot be enforced as worded, do nothing and record why.
+4. **Otherwise, do nothing.** A quiet pass is the normal pass. Write a line in memory and exit.
 
 ## Writing rules
 

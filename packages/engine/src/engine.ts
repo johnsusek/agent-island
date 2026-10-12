@@ -146,7 +146,25 @@ export interface GameEvent {
   audience?: string[]; // for place-local events: who shared the actor's tile
   global?: boolean; // opt in to colony-wide reach (world-level happenings)
   target?: string; // for whispers
-  message?: string; // raw speech/whisper text
+  message?: string; // raw speech/whisper text, or a motion's wording
+  motion?: number; // for motion events: which motion
+}
+
+// A formal question put to the whole village: one character proposes the
+// exact words, every living character may vote yes or no, and the engine
+// counts. It passes the moment a majority of the living say yes, fails the
+// moment that can no longer happen, and otherwise fails when voting closes.
+// The engine only keeps the count - what a passed motion means for the world
+// is the director's job (a rule made binding), read off `motion_passed`.
+export interface Motion {
+  id: number;
+  text: string;
+  proposer: string;
+  openedAt: number;
+  closesAt: number;
+  votes: Record<string, "yes" | "no">;
+  status: "open" | "passed" | "failed";
+  closedAt?: number;
 }
 
 export interface VisibleEventsOptions {
@@ -250,7 +268,19 @@ const RECENT_CHAT_LIMIT = 8;
 // departures, the scenario's witnessed activity events).
 // Real capabilities that live on the MCP surface rather than in an order:
 // speak, whisper, inscribe, and sense. See commitUnknownAction.
-const TOOL_VERBS = new Set(["speak", "whisper", "inscribe", "sense"]);
+const TOOL_VERBS = new Set([
+  "speak",
+  "whisper",
+  "inscribe",
+  "sense",
+  "propose",
+  "vote",
+]);
+
+// How long a motion stays open for votes. Long enough that a character parked
+// on a multi-tick action still wakes in time to vote; short enough that a
+// stale question clears before the season moves on.
+const MOTION_WINDOW_TICKS = 20;
 
 const SUBSTRATE_ACTOR_ONLY = new Set([
   "action_started",
@@ -307,6 +337,10 @@ export interface EngineSnapshot {
   // scenario file's untouched rules still take effect on the next restore.
   overlay?: RuleOverlay;
   orders?: [string, OrderState][];
+  // Motions put to a vote. Optional and absent in pre-motion snapshots, which
+  // restore to none.
+  motions?: Motion[];
+  nextMotionId?: number;
 }
 
 // The GM's divergence from scenario.rules: rules it added plus the current
@@ -502,6 +536,9 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   let terrainRevision: number;
   let tokenRevision: number;
   let orders: Map<string, OrderState>;
+  // Every motion this run, open and closed, oldest first (see Motion).
+  let motions: Motion[];
+  let nextMotionId: number;
   // Per-agent stock defaults the GM has introduced at runtime (e.g. `warmth`,
   // `wood`). Every agent - those alive when the default is set, and every future
   // joiner - is seeded with these so a GM rule that reads the stock never hits a
@@ -621,6 +658,8 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     terrainRevision = 0;
     tokenRevision = 0;
     orders = new Map();
+    motions = [];
+    nextMotionId = 1;
     stockDefaults = {};
     spawnedFixtures = [];
     appliedSetup = [];
@@ -1282,6 +1321,9 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     // Alarms before orders advance: a character whose thirst just turned
     // critical should be awake to re-plan this tick, not one tick late.
     raiseVitalAlarms();
+    // A death can settle a motion (the majority is of the living) and the
+    // clock closes any whose window ran out.
+    for (let motion of motions) settleMotion(motion);
     advanceEngineOrders(orderContext());
     recordHistory();
     return { tick: world.tick, events: getEventsSince(from) };
@@ -1993,6 +2035,130 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     return { ok: true, sign: sign.id, rewrote };
   }
 
+  // --- motions (formal votes) --------------------------------------------
+
+  // Propose: put an exact question to the whole village. Unlike speech it is
+  // not bounded by earshot - a motion is a public notice, so every living
+  // character learns of it - and it is formal: the wording is fixed once
+  // proposed, and the proposer's own yes is counted. One open motion per
+  // proposer keeps a free channel from burying the village in ballots.
+  function propose(id: string, message: unknown) {
+    requireAgent(id);
+    if (!isAlive(id)) throw new Error(`${id} is no longer active.`);
+    let text = validText(message);
+    let mine = motions.find((m) => m.status === "open" && m.proposer === id);
+    if (mine)
+      throw new Error(
+        `Your motion ${mine.id} is still open. Wait for it to close before proposing another.`,
+      );
+    let motion: Motion = {
+      id: nextMotionId,
+      text,
+      proposer: id,
+      openedAt: world.tick,
+      closesAt: world.tick + MOTION_WINDOW_TICKS,
+      votes: { [id]: "yes" },
+      status: "open",
+    };
+    nextMotionId += 1;
+    motions.push(motion);
+    push({
+      type: "motion_proposed",
+      agentId: id,
+      global: true,
+      motion: motion.id,
+      message: text,
+      text: `${displayName(id)} proposes motion ${motion.id}: "${text}" Vote yes or no on motion ${motion.id} before tick ${motion.closesAt}.`,
+    });
+    let outcome = settleMotion(motion);
+    return { ok: true, motion: motionView(motion, id), outcome };
+  }
+
+  // Vote: a living character's yes or no on an open motion. A character may
+  // change their vote while the motion is open; only the latest counts. Votes
+  // are public (a show of hands) but routine - the tally rides each
+  // character's situation, and only the result wakes the village.
+  function vote(id: string, motionId: unknown, choice: unknown) {
+    requireAgent(id);
+    if (!isAlive(id)) throw new Error(`${id} is no longer active.`);
+    let n = typeof motionId === "string" ? Number(motionId) : motionId;
+    let motion = motions.find((m) => m.id === n);
+    if (!motion) throw new Error(`There is no motion ${String(motionId)}.`);
+    if (motion.status !== "open")
+      throw new Error(`Motion ${motion.id} has already ${motion.status}.`);
+    let said = typeof choice === "string" ? choice.trim().toLowerCase() : "";
+    if (said !== "yes" && said !== "no") throw new Error(`Vote "yes" or "no".`);
+    let before = motion.votes[id];
+    motion.votes[id] = said;
+    push({
+      type: "voted",
+      agentId: id,
+      global: true,
+      wake: "routine",
+      motion: motion.id,
+      text: `${displayName(id)} ${before && before !== said ? "changes their vote to" : "votes"} ${said} on motion ${motion.id}.`,
+    });
+    let outcome = settleMotion(motion);
+    return { ok: true, motion: motionView(motion, id), outcome };
+  }
+
+  // The count, over the living only: a dead character's vote stops counting
+  // with them, and the majority is of whoever is alive now.
+  function tally(motion: Motion) {
+    let living = livingIds();
+    let yes = 0;
+    let no = 0;
+    for (let o of living)
+      if (motion.votes[o] === "yes") yes += 1;
+      else if (motion.votes[o] === "no") no += 1;
+    return { yes, no, living: living.length };
+  }
+
+  // Close a motion the moment its outcome is certain: passed once yes is a
+  // majority of the living, failed once it can no longer become one, and
+  // failed at the deadline otherwise. Returns the new status, or "open".
+  function settleMotion(motion: Motion): Motion["status"] {
+    if (motion.status !== "open") return motion.status;
+    let { yes, no, living } = tally(motion);
+    let status: Motion["status"] | null =
+      yes * 2 > living
+        ? "passed"
+        : (living - no) * 2 <= living || world.tick >= motion.closesAt
+          ? "failed"
+          : null;
+    if (!status) return "open";
+    motion.status = status;
+    motion.closedAt = world.tick;
+    push({
+      type: status === "passed" ? "motion_passed" : "motion_failed",
+      global: true,
+      motion: motion.id,
+      message: motion.text,
+      text: `Motion ${motion.id} ${status} (${yes} yes, ${no} no, of ${living} living): "${motion.text}"`,
+    });
+    return status;
+  }
+
+  function motionView(motion: Motion, viewer?: string) {
+    let { yes, no } = tally(motion);
+    return {
+      id: motion.id,
+      text: motion.text,
+      proposer: displayName(motion.proposer),
+      status: motion.status,
+      yes,
+      no,
+      closesInTicks: Math.max(0, motion.closesAt - world.tick),
+      ...(viewer ? { yourVote: motion.votes[viewer] ?? null } : {}),
+    };
+  }
+
+  function openMotions(viewer?: string) {
+    return motions
+      .filter((m) => m.status === "open")
+      .map((m) => motionView(m, viewer));
+  }
+
   // Validate a hand-off: the target must be another living character, the
   // resource must be transferable (stockpilable, so needs and status gauges are
   // barred), and the giver must actually carry some.
@@ -2345,6 +2511,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
         others: visibleOthers(id),
         heard: recentlyHeard(id).slice(-3),
         colony: coordinationLedger(id),
+        motions: openMotions(id),
         ...(isRoom() ? {} : { grid: sightGrid(id) }),
         // Live reserves only; the map carries WHERE, so the bearing fields
         // are stripped rather than riding along in structuredContent.
@@ -2598,6 +2765,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       // stock is called; every gauge reads up as good, so low is always it.
       display: stockDisplay(),
       colony: coordinationLedger(id),
+      motions: openMotions(id),
       world: { stocks: roundedStocks(worldStocks()) },
       known: {
         locations: knownTokensView(id, p),
@@ -3994,6 +4162,8 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       nextGmSeq,
       overlay: ruleOverlay(),
       orders: [...orders],
+      motions,
+      nextMotionId,
     };
   }
 
@@ -4031,6 +4201,8 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     gmLog = clone.gmLog ?? [];
     nextGmSeq = clone.nextGmSeq ?? 0;
     orders = new Map(clone.orders ?? []);
+    motions = clone.motions ?? [];
+    nextMotionId = clone.nextMotionId ?? motions.length + 1;
     applyOverlay(clone.overlay);
     terrainRevision = 0;
     tokenRevision = 0;
@@ -4057,6 +4229,8 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     speak,
     whisper,
     inscribe,
+    propose,
+    vote,
     announce,
     visibleTo,
     visibleEventsSince,
