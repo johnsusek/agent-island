@@ -474,6 +474,15 @@ interface ActionParamBase {
 // from availableActions, since there is no per-action MCP tool to carry it.
 export type ActionParam =
   | (ActionParamBase & { type: "string" })
+  // A count or quantity. `integer` rejects fractions; `min`/`max` bound it.
+  // Arrives as a number (or numeric text, which the host converts) and reads
+  // in rules through `{arg: name}` like any numeric argument.
+  | (ActionParamBase & {
+      type: "number";
+      integer?: boolean;
+      min?: number;
+      max?: number;
+    })
   | (ActionParamBase & {
       type: "enum";
       values?: readonly string[];

@@ -99,8 +99,8 @@ A character who tries to fish below the quota is refused with that reason.
 
 ## The commons example
 
-[`examples/commons`](examples/commons) is a 5x5 shore everyone shares, so
-everyone hears everyone.
+[`examples/commons`](examples/commons) is a single room: a shore everyone
+shares, so everyone hears everyone and nobody needs to walk anywhere.
 
 - **The bay** starts with 30 fish and holds at most 40. Fish regrow fastest
   at half capacity and not at all from an empty bay. Below one fish, the bay
@@ -109,6 +109,8 @@ everyone hears everyone.
   room.
 - **`eat`** turns one fish into 15 satiation. Hunger costs 1 satiation per
   tick. Starving costs 4 health per tick.
+- **`give`** hands fish to another villager: `amount` of them, or as many as
+  their basket holds.
 - **The season** ends in victory at tick 300 if anyone is alive.
 
 Every character's prose shows the shared count: `The world holds: fish in
@@ -128,8 +130,15 @@ A world is two kinds of file.
 **The world file** is the canvas:
 
 ```json
-{ "name": "commons", "width": 5, "height": 5, "seed": 7 }
+{ "name": "commons", "width": 1, "height": 1, "seed": 7 }
 ```
+
+A 1x1 world is a **room**. Everyone shares the one tile, so speech, giving and
+every rule that checks who is nearby reach everyone. The movement verbs
+(`travel`, `explore`, `scan`) and the sight map are left out, since there is
+nowhere to go. Any larger world is a **map**: characters have positions, walk,
+see a limited distance and talk within earshot, and terrain matters. A rule
+that grows a room (`growWorld`) turns it into a map and brings movement back.
 
 **A scenario** is everything else, as an overlay:
 
@@ -199,6 +208,12 @@ result never depends on the order rules were added.
 
 `each: { "tag": "agent" }` runs a rule once per character, and
 `each: { "tag": "world" }` once on the world.
+
+An action can declare `params` that a character fills in when using it:
+`string`, `enum` (a fixed list, or every carried resource with
+`"from": "pack"`), `entity` (another character or thing), and `number` (with
+optional `integer`, `min` and `max`). Rules read an argument with
+`{"arg": name}`.
 
 Effects include `adjust`, `set`, `transfer`, `spawn`, `destroy`, `tag`,
 `take`, `release`, `move`, `moveToward`, `moveTo`, `setTerrain`, `reveal`

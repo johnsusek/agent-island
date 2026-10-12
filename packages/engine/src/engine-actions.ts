@@ -186,6 +186,29 @@ export function validateActionArgs(
       continue;
     }
 
+    if (param.type === "number") {
+      // Models often send numbers as text ("2"); accept that and store the
+      // number, so everything downstream sees one type.
+      let number =
+        typeof value === "string" && value.trim() !== ""
+          ? Number(value)
+          : value;
+      if (typeof number !== "number" || !Number.isFinite(number))
+        throw new Error(`${spec.name} ${param.name} must be a number.`);
+      if (param.integer && !Number.isInteger(number))
+        throw new Error(`${spec.name} ${param.name} must be a whole number.`);
+      if (param.min !== undefined && number < param.min)
+        throw new Error(
+          `${spec.name} ${param.name} must be at least ${param.min}.`,
+        );
+      if (param.max !== undefined && number > param.max)
+        throw new Error(
+          `${spec.name} ${param.name} must be at most ${param.max}.`,
+        );
+      action[param.name] = number;
+      continue;
+    }
+
     if (param.type === "enum") {
       if (typeof value !== "string")
         throw new Error(`${spec.name} ${param.name} must be text.`);
@@ -290,6 +313,11 @@ export function listAvailableActions(
     if (includeActionDetails || isNew) {
       action.description = spec.description;
       action.params = spec.params;
+    } else if (spec.params.some((param) => param.type === "number")) {
+      // A number has no list of choices to show, so without its declaration
+      // a player could never learn it exists (give's amount). Carry just the
+      // number params on every look.
+      action.params = spec.params.filter((param) => param.type === "number");
     }
     return action;
   });

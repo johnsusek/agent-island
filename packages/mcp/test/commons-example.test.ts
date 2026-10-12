@@ -30,10 +30,15 @@ test("a character in the commons sees the bay and can fish and eat", async () =>
     scenariosDir: `${dir}scenarios`,
     scenarios: ["commons"],
     waitTimeoutMs: 2000,
+    // Bo is here only to be someone Ara can give to; he never acts, so keep
+    // the turn he stalls short.
+    maxWaitMs: 50,
   });
   colony.start();
   colony.connect("a");
+  colony.connect("b");
   try {
+    colony.join("b", "Bo");
     let joined = colony.join("a", "Ara");
     assert.match(
       renderWake(joined),
@@ -46,6 +51,12 @@ test("a character in the commons sees the bay and can fish and eat", async () =>
     while (change.observation.you.action)
       change = await colony.waitForChange("a");
     assert.equal(change.observation.you.stocks.fish.value, 2);
+
+    // A one-tile world is a room: no map, no movement verbs, and give
+    // offers an amount.
+    let prose = renderWake(change);
+    assert.doesNotMatch(prose, /Sight \(|travel|explore|scan/);
+    assert.match(prose, /give\(target: [^)]*amount\?: number\)/);
 
     colony.act("a", { type: "eat" });
     change = await colony.waitForChange("a");

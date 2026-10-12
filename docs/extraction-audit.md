@@ -53,7 +53,9 @@ already exist.
    and visibility is based on sight. The kernel runs without positions, but
    the engine does not. **Decision:** v0.1 targets grid-based simulations, and
    non-spatial games (auctions, Werewolf) run as a single-room map where
-   everyone shares a tile. No generic "location" abstraction.
+   everyone shares a tile. No generic "location" abstraction. _Since the
+   playtest, a 1x1 world is inferred to be a room: the movement verbs and the
+   sight grid are left out automatically._
 4. **The MCP layer depends on island-specific text and the filesystem.**
    Briefings are read from `.md` files, observations are rendered by
    `sense-prose.ts`, and tool descriptions live in

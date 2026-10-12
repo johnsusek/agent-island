@@ -282,9 +282,7 @@ function actionsBlock(actions: Dict[] | undefined): string[] {
 // action narrows the choice (travel's reachable places, give's recipients). An
 // action with no such narrowing is just its bare name.
 function actionPhrase(action: Dict): string {
-  let paramOptions = action.paramOptions as
-    Record<string, unknown[]> | undefined;
-  if (!paramOptions) return action.name;
+  let paramOptions = (action.paramOptions ?? {}) as Record<string, unknown[]>;
   let parts: string[] = [];
   for (let [param, opts] of Object.entries(paramOptions)) {
     if (!opts?.length) continue;
@@ -292,6 +290,11 @@ function actionPhrase(action: Dict): string {
     let tail = opts.length > vals.length ? "|..." : "";
     parts.push(`${param}: ${vals.join("|")}${tail}`);
   }
+  // A number has no choices to list, so it reads as its type - marked
+  // optional with "?" unless the action requires it.
+  for (let param of (action.params ?? []) as Dict[])
+    if (param.type === "number" && !(param.name in paramOptions))
+      parts.push(`${param.name}${param.required ? "" : "?"}: number`);
   return parts.length ? `${action.name}(${parts.join("; ")})` : action.name;
 }
 

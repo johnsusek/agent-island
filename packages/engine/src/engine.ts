@@ -1405,7 +1405,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     name: "give",
     kind: "give",
     description:
-      "Hand a carried resource to another character, walking to them first if they are out of arm's reach; moves as much as their pack can hold.",
+      "Hand a carried resource to another character, walking to them first if they are out of arm's reach. Hands over `amount` if you give one, otherwise as much as their pack can hold.",
     params: [
       {
         name: "target",
@@ -1420,6 +1420,14 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
         from: "pack",
         required: true,
         description: "which carried resource to hand over",
+      },
+      {
+        name: "amount",
+        type: "number",
+        integer: true,
+        min: 1,
+        description:
+          "how many to hand over (default: as many as their pack can hold)",
       },
     ],
   };
@@ -1461,9 +1469,19 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     ],
   };
 
+  // A one-tile world is a single room: everyone shares the tile, so every
+  // reach and earshot check already passes and there is nowhere to go.
+  // Movement verbs and the sight grid only add noise there, so the room
+  // offers neither. Growing the map (growWorld) brings both back.
+  function isRoom(): boolean {
+    return space.grid.width === 1 && space.grid.height === 1;
+  }
+
   function actionRegistry(): ActionDescriptor[] {
     return [
-      ...movementActions.map((m) => ({ ...m, kind: "movement" as const })),
+      ...(isRoom()
+        ? []
+        : movementActions.map((m) => ({ ...m, kind: "movement" as const }))),
       giveAction,
       pickUpAction,
       dropAction,
@@ -1693,6 +1711,10 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   // order blocks with a reason. A capability that lives on the MCP surface
   // (speak, whisper, inscribe, sense) gets a pointer to the right tool.
   function commitUnknownAction(type: string): never {
+    if (isRoom() && isMovementActionName(type))
+      throw new Error(
+        `There is nowhere to go: this world is a single place, and everyone in it is already here.`,
+      );
     if (TOOL_VERBS.has(type))
       throw new Error(
         `${type} is something you do directly with its own tool, not an order step.`,
@@ -2003,16 +2025,19 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   }
 
   // Move as much of the resource as will fit between two adjacent packs (the
-  // caller has confirmed reach) - the deposit/gather idiom. Emits the
-  // witnessed hand-off event.
+  // caller has confirmed reach) - the deposit/gather idiom - or no more than
+  // `limit` when the giver named an amount. Emits the witnessed hand-off
+  // event.
   function transferStock(
     id: string,
     target: string,
     resource: string,
     source: Stock,
     destination: Stock,
+    limit = Infinity,
   ): number {
     let moved = Math.min(
+      limit,
       Math.max(0, source.value - source.min),
       Math.max(0, destination.max - destination.value),
     );
@@ -2091,7 +2116,14 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       };
     }
     onAccepted?.();
-    let transferred = transferStock(id, target, resource, source, destination);
+    let transferred = transferStock(
+      id,
+      target,
+      resource,
+      source,
+      destination,
+      typeof args.amount === "number" ? args.amount : undefined,
+    );
     return {
       accepted: true,
       approaching: false,
@@ -2313,7 +2345,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
         others: visibleOthers(id),
         heard: recentlyHeard(id).slice(-3),
         colony: coordinationLedger(id),
-        grid: sightGrid(id),
+        ...(isRoom() ? {} : { grid: sightGrid(id) }),
         // Live reserves only; the map carries WHERE, so the bearing fields
         // are stripped rather than riding along in structuredContent.
         inSight: knownTokensView(id, p)
@@ -2560,7 +2592,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       tick: world.tick,
       you: agentView(id),
       here: tileSummary(p),
-      grid: sightGrid(id),
+      ...(isRoom() ? {} : { grid: sightGrid(id) }),
       // The scenario's own reading of its stocks - role, label, bands. Prose
       // needs it to know which gauge is in trouble without knowing what any
       // stock is called; every gauge reads up as good, so low is always it.
