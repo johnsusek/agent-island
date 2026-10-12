@@ -52,7 +52,7 @@ function describe(toolName: string): string {
 const ICON_SLUG_HOWTO =
   "browse https://game-icons.net, open an icon, and copy the slug from its URL - the last path segment, e.g. 'wheat' or 'meat'";
 
-// The inline sprite DSL (see src/rules/sprite.ts). Kept loose here - the
+// The inline sprite DSL (see packages/engine/src/sprite.ts). Kept loose here - the
 // engine's shared validator does the real checking (grid/size/palette/corners)
 // so its errors reach the caller as specific prose instead of a zod mismatch.
 const spriteSpecSchema = schema

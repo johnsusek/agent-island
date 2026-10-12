@@ -24,8 +24,12 @@ Everything meets over MCP; the server never launches an LLM.
   tick phases), the grid, the rule schema, and dry runs. It knows nothing about
   the island; it is being extracted so other agent simulations can use it (see
   [docs/extraction-audit.md](docs/extraction-audit.md)).
-- **`src/`** - the world server: tick clock, the engine that hosts the core,
-  and two MCP surfaces - `/mcp` (characters) and `/gm` (the Clerk and the
+- **`packages/engine/`** - the world host built on the core
+  (`@agent-island/engine`): agents on the grid, actions and standing orders,
+  speech and event visibility, runtime rule edits, scenarios as overlays, and
+  snapshots.
+- **`src/`** - the world server: tick clock, ruleset loading, and two MCP
+  surfaces - `/mcp` (characters) and `/gm` (the Clerk and the
   operator). Plus a small read API (`/api/state`, `/api/map`, `/api/fog`) that
   feeds the observatory, and world ops (`/api/reset`, `/api/restore`,
   `/api/runs`, `/api/pause`, `/api/clock`).

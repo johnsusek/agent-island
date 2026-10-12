@@ -22,9 +22,9 @@ import {
   type Tile,
   type WorldGen,
 } from "@agent-island/core/space";
-import { scenario } from "../src/rules/config.js";
+import { scenario } from "../src/config.js";
 import { scenarioBootScenario } from "../src/coordinator-scenarios.js";
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "@agent-island/engine/engine";
 import { createScenarioStore, type ScenarioFile } from "../src/scenarios.js";
 
 function rows(tiles: Tile[][], letters: Record<string, string>): string[] {

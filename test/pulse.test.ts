@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
-import { createWorld } from "../src/rules/engine.js";
-import type { Scenario } from "../src/rules/scenario.js";
+import { createWorld } from "@agent-island/engine/engine";
+import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";
 
 // Progress ticks up each turn; at `killAt` a transition rule removes every

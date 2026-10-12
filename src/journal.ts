@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-import type { GameEvent } from "./rules/engine.js";
+import type { GameEvent } from "@agent-island/engine/engine";
 
 // Append-only JSONL log of the live world's events, queryable by cursor/seq
 // range. Backs `sense`'s "changes since your cursor" once a request falls

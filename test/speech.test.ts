@@ -9,7 +9,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EARSHOT } from "@agent-island/core/space";
-import type { WorldEngine } from "../src/rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import { makeSurvivalEngine } from "./helpers.js";
 
 // Teleport an agent to an exact tile via the snapshot/restore seam - the only

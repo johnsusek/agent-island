@@ -11,7 +11,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "../src/engine.js";
 import {
   makeSpace,
   paintedTiles,
@@ -19,7 +19,7 @@ import {
   pregeneratedTerrainAt,
 } from "@agent-island/core/space";
 import type { PregeneratedMap, Terrain, Tile } from "@agent-island/core/space";
-import type { Scenario } from "../src/rules/scenario.js";
+import type { Scenario } from "../src/scenario.js";
 
 // Encode a freshly painted Tile[][] as a PregeneratedMap, origin pinned at
 // (0,0) so its coordinates line up 1:1 with a live grid's starting window.

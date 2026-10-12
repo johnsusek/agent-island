@@ -12,13 +12,17 @@
 // sends no structuredContent, so a fact that doesn't reach prose here reaches
 // the player nowhere.
 
-import { bandedStocks, bandSentence, carriedStocks } from "./rules/vitals.js";
+import {
+  bandedStocks,
+  bandSentence,
+  carriedStocks,
+} from "@agent-island/engine/vitals";
 
 type Dict = Record<string, any>;
 
 // The banded digest for one role: only the gauges in trouble, in the
 // scenario's own words, worst first. A figure never appears - see
-// rules/vitals.ts for why.
+// packages/engine/src/vitals.ts for why.
 function bandedLine(
   stocks: Dict | undefined,
   display: Dict | undefined,

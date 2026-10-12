@@ -55,7 +55,7 @@ export interface HeldItem {
 }
 
 // The inline sprite DSL (palette + character grid), mirroring the server's
-// src/rules/sprite.ts. The server validates; the map bakes it to a texture.
+// packages/engine/src/sprite.ts. The server validates; the map bakes it to a texture.
 export interface SpriteSpec {
   size: [number, number];
   kind?: "token" | "terrain";

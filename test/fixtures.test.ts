@@ -3,7 +3,7 @@
 // overlay back, the same way rule edits and stock defaults do.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { WorldEngine } from "../src/rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import { makeSurvivalEngine } from "./helpers.js";
 
 function survival(): WorldEngine {

@@ -5,9 +5,9 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "@agent-island/engine/engine";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
-import type { Scenario } from "../src/rules/scenario.js";
+import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";
 
 test("shipped victory scenarios expose agent-facing descriptions", () => {

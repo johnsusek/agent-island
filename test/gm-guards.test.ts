@@ -6,8 +6,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createWorld, type WorldEngine } from "../src/rules/engine.js";
-import { scenario } from "../src/rules/config.js";
+import { createWorld, type WorldEngine } from "@agent-island/engine/engine";
+import { scenario } from "../src/config.js";
 import { makeSurvivalEngine } from "./helpers.js";
 
 function fresh(): WorldEngine {

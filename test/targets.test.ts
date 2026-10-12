@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { WorldEngine } from "../src/rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import type { Rule } from "@agent-island/core/kernel";
 import { makeSurvivalEngine, survivalScenario } from "./helpers.js";
 

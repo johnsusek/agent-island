@@ -1,7 +1,7 @@
 import type { Occupancy } from "@agent-island/core/kernel";
-import type { WorldEngine } from "./rules/engine.js";
-import type { SpriteSpec } from "./rules/sprite.js";
-import type { StockSpec } from "./rules/scenario.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
+import type { SpriteSpec } from "@agent-island/engine/sprite";
+import type { StockSpec } from "@agent-island/engine/scenario";
 import {
   buildInspection,
   type InspectQuery,

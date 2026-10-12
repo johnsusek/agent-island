@@ -19,7 +19,7 @@ import {
   normalizeId,
   type RuleOverlay,
   type WorldEngine,
-} from "../src/rules/engine.js";
+} from "@agent-island/engine/engine";
 import {
   expandWorldGen,
   makeSpace,
@@ -29,10 +29,10 @@ import {
   type TokenScatter,
   type Space,
 } from "@agent-island/core/space";
-import { scenario } from "../src/rules/config.js";
-import { mergeOverlays } from "../src/rules/overlays.js";
+import { scenario } from "../src/config.js";
+import { mergeOverlays } from "@agent-island/engine/overlays";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
-import type { Scenario, StockSpec } from "../src/rules/scenario.js";
+import type { Scenario, StockSpec } from "@agent-island/engine/scenario";
 
 // The full default game ships as the survival scenario layered onto a minimal
 // ruleset (name + worldgen only): the needs loop, terrain, base prose, the

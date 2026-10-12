@@ -8,16 +8,16 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import type { RuleOverlay } from "./rules/engine.js";
+import type { RuleOverlay } from "@agent-island/engine/engine";
 import {
   compactOverlay,
   emptyOverlay,
   mergeOverlays,
   overlayCounts,
-} from "./rules/overlays.js";
+} from "@agent-island/engine/overlays";
 import { validateRule } from "@agent-island/core/kernel";
 import { assertValidRule } from "@agent-island/core/rule-schema";
-import { assertValidTerrainSpec } from "./rules/scenario.js";
+import { assertValidTerrainSpec } from "@agent-island/engine/scenario";
 import {
   assertValidConnect,
   assertValidTerrainLayers,

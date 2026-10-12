@@ -8,8 +8,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
-import { createWorld } from "../src/rules/engine.js";
-import type { Scenario } from "../src/rules/scenario.js";
+import { createWorld } from "@agent-island/engine/engine";
+import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";
 
 // A tiny scenario with a director tripwire: a world `progress` stock ticks up

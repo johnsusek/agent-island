@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { WorldEngine } from "../src/rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
 import { makeFixtureEngine, placeAt, TEST_SPAWN } from "./helpers.js";
 

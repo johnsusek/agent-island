@@ -1,0 +1,30 @@
+{
+  "name": "@agent-island/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A world host for the rules core: agents on a grid, actions and standing orders, speech, events, runtime rule edits, scenarios as overlays, and snapshots.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./engine": "./src/engine.ts",
+    "./engine-actions": "./src/engine-actions.ts",
+    "./engine-orders": "./src/engine-orders.ts",
+    "./orders": "./src/orders.ts",
+    "./overlays": "./src/overlays.ts",
+    "./scenario": "./src/scenario.ts",
+    "./sprite": "./src/sprite.ts",
+    "./vitals": "./src/vitals.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agent-island/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -11,11 +11,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { scenario } from "../src/rules/config.js";
+import { scenario } from "../src/config.js";
 import { scenarioBootScenario } from "../src/coordinator-scenarios.js";
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "@agent-island/engine/engine";
 import { createScenarioStore, type ScenarioFile } from "../src/scenarios.js";
-import type { Scenario } from "../src/rules/scenario.js";
+import type { Scenario } from "@agent-island/engine/scenario";
 
 function scenarioFile(overlay: Partial<ScenarioFile["overlay"]>): ScenarioFile {
   return {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { Scenario, WorldFile } from "./scenario.js";
+import type { Scenario, WorldFile } from "@agent-island/engine/scenario";
 import { pickSpawn } from "@agent-island/core/space";
 
 // Presentation config only: sprites live inline in the scenario's visuals (the

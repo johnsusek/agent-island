@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validateRule, type Rule } from "@agent-island/core/kernel";
-import type { WorldEngine } from "../src/rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import { makeSurvivalEngine } from "./helpers.js";
 
 test("a reveal effect is structural: rejected in a buffered threshold phase", () => {

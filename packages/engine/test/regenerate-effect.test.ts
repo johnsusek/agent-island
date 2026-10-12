@@ -10,9 +10,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "../src/engine.js";
 import { hasTag, validateRule } from "@agent-island/core/kernel";
-import type { Scenario } from "../src/rules/scenario.js";
+import type { Scenario } from "../src/scenario.js";
 import type { Rule } from "@agent-island/core/kernel";
 
 // A one-floor dungeon: a fixed `grove` token to prove tokens reroll, and a

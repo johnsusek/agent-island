@@ -1,4 +1,4 @@
-import type { WorldEngine } from "./rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import type { JournalHealth } from "./journal.js";
 import { controllersView } from "./coordinator-admin.js";
 

@@ -7,9 +7,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createWorld } from "../src/rules/engine.js";
-import { scenario } from "../src/rules/config.js";
-import type { Scenario, TerrainSpec } from "../src/rules/scenario.js";
+import { createWorld } from "@agent-island/engine/engine";
+import { scenario } from "../src/config.js";
+import type { Scenario, TerrainSpec } from "@agent-island/engine/scenario";
 
 // Terrain placement rides the scenario now, not the world file, so these
 // mechanism tests paint the forest/water they register against onto the shared

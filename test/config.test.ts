@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { loadGraphicsConfig, loadRuleset } from "../src/rules/config.js";
+import { loadGraphicsConfig, loadRuleset } from "../src/config.js";
 
 test("loads a ruleset and stamps a spawn", () => {
   let directory = mkdtempSync(path.join(tmpdir(), "agent-island-ruleset-"));

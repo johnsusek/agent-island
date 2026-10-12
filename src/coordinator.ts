@@ -19,7 +19,7 @@ import {
   type RuleOverlay,
   type VisibleEventsOptions,
   type WorldEngine,
-} from "./rules/engine.js";
+} from "@agent-island/engine/engine";
 import { createEventJournal, type JournalStorage } from "./journal.js";
 import {
   emptyOverlay,
@@ -29,7 +29,7 @@ import {
   pickOverlay,
   removeOverlayRules,
   subtractOverlay,
-} from "./rules/overlays.js";
+} from "@agent-island/engine/overlays";
 import { normalizeScenarioName, type ScenarioFile } from "./scenarios.js";
 import { characterBriefing } from "./briefing.js";
 import type { InspectionContext } from "./coordinator-inspection.js";
@@ -1571,7 +1571,8 @@ export function createColony(options: ColonyOptions = {}) {
       }
     }
     runs.sort(
-      (a, b) => ((b.archivedAt as number) ?? 0) - ((a.archivedAt as number) ?? 0),
+      (a, b) =>
+        ((b.archivedAt as number) ?? 0) - ((a.archivedAt as number) ?? 0),
     );
     return runs;
   }
@@ -1590,7 +1591,8 @@ export function createColony(options: ColonyOptions = {}) {
   // followed by the exact same load sequence the constructor uses when it
   // finds a compatible state file on disk (see the loadState() branch below).
   async function restoreRunNow(runId: string) {
-    if (!runsDir) throw new Error("No runsDir configured - nothing to restore from.");
+    if (!runsDir)
+      throw new Error("No runsDir configured - nothing to restore from.");
     // runId names a runsDir subfolder - refuse anything that could climb out
     // of it (a path separator or "..").
     if (!/^[^/\\]+$/.test(runId) || runId === "." || runId === "..")
@@ -1607,7 +1609,10 @@ export function createColony(options: ColonyOptions = {}) {
     if (rulesPath) tryCopy(joinPath(runDir, "rules.json"), rulesPath);
     if (journalDir) {
       mkdirSync(journalDir, { recursive: true });
-      tryCopy(joinPath(runDir, "journal.jsonl"), joinPath(journalDir, "journal.jsonl"));
+      tryCopy(
+        joinPath(runDir, "journal.jsonl"),
+        joinPath(journalDir, "journal.jsonl"),
+      );
     }
     restoreRunArtifacts?.(runDir);
 

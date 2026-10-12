@@ -26,7 +26,7 @@ import {
   type Rule,
 } from "@agent-island/core/kernel";
 import { knownTokens, syncTokens, tileAt } from "@agent-island/core/space";
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "@agent-island/engine/engine";
 import {
   makeSurvivalSpace,
   makeSurvivalWorld,

@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type { WorldEngine } from "../src/rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import { makeSurvivalEngine, placeAt, TEST_SPAWN } from "./helpers.js";
 
 // Set an agent stock, creating it if the scenario didn't declare it (sluggish is

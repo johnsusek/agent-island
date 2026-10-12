@@ -291,7 +291,7 @@ function buildNamePool() {
 }
 
 // The world's agent id is a normalized form of the display name (lowercased,
-// spaces collapsed to hyphens - see normalizeId in src/rules/engine.ts, which
+// spaces collapsed to hyphens - see normalizeId in packages/engine/src/engine.ts, which
 // this plain-node script can't import directly). Character names are always
 // single words, so this is the whole normalization that matters here.
 function toAgentId(name) {

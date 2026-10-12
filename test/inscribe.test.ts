@@ -16,7 +16,7 @@ import {
   type TerrainLookup,
 } from "@agent-island/core/kernel";
 import { SIGHT } from "@agent-island/core/space";
-import type { WorldEngine } from "../src/rules/engine.js";
+import type { WorldEngine } from "@agent-island/engine/engine";
 import { describeSense } from "../src/sense-prose.js";
 import { makeSurvivalEngine, placeAt, runToIdle } from "./helpers.js";
 

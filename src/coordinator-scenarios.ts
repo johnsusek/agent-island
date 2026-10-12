@@ -7,8 +7,8 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { scenario } from "./rules/config.js";
-import type { Scenario, TerrainSpec } from "./rules/scenario.js";
+import { scenario } from "./config.js";
+import type { Scenario, TerrainSpec } from "@agent-island/engine/scenario";
 import {
   pickSpawn,
   worldgenWithTerrainPolicy,

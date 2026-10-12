@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeOrderInput } from "../src/rules/orders.js";
+import { normalizeOrderInput } from "@agent-island/engine/orders";
 import { makeSurvivalEngine } from "./helpers.js";
 
 function survival() {

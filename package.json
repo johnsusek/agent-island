@@ -16,13 +16,14 @@
     "crew": "node scripts/crew.mjs",
     "operator": "node --import tsx src/operator/main.ts",
     "generate-map": "node --import tsx scripts/generate-map.ts",
-    "typecheck": "tsc -p tsconfig.json && npm run typecheck -w @agent-island/core",
+    "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspaces",
     "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
     "format": "prettier --write . --ignore-path .gitignore",
-    "test": "npm test -w @agent-island/core && AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts test/*.test.mjs"
+    "test": "npm test --workspaces && AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts test/*.test.mjs"
   },
   "dependencies": {
     "@agent-island/core": "0.1.0",
+    "@agent-island/engine": "0.1.0",
     "@modelcontextprotocol/sdk": "1.29.0",
     "express": "^5.1.0",
     "pixi.js": "^8.19.0",

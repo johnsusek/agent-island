@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "@agent-island/engine/engine";
 import { createColony } from "../src/coordinator.js";
 import { makeSurvivalEngine } from "./helpers.js";
 

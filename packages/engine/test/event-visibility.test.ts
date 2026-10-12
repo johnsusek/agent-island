@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createWorld } from "../src/rules/engine.js";
-import type { Scenario } from "../src/rules/scenario.js";
+import { createWorld } from "../src/engine.js";
+import type { Scenario } from "../src/scenario.js";
 
 // The whole point of these tests is the DEFAULT: a witnessed or world event
 // reaches a character only if they were the actor, stood within SIGHT (the

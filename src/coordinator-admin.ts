@@ -1,7 +1,7 @@
-import type { RuleOverlay, WorldEngine } from "./rules/engine.js";
+import type { RuleOverlay, WorldEngine } from "@agent-island/engine/engine";
 import type { JournalHealth } from "./journal.js";
-import { graphics } from "./rules/config.js";
-import { overlayRuleIds } from "./rules/overlays.js";
+import { graphics } from "./config.js";
+import { overlayRuleIds } from "@agent-island/engine/overlays";
 
 export interface AdminSessionView {
   waiter: unknown;

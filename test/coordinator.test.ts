@@ -15,7 +15,7 @@ import test from "node:test";
 
 import { createColony } from "../src/coordinator.js";
 import { wipeCharacterMemories } from "../src/server.js";
-import { scenario } from "../src/rules/config.js";
+import { scenario } from "../src/config.js";
 import { makeSurvivalEngine, survivalBoot } from "./helpers.js";
 
 // Production no longer hands a fresh character a known food source — it must

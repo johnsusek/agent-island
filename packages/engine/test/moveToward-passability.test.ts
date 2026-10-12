@@ -7,8 +7,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createWorld } from "../src/rules/engine.js";
-import type { Scenario } from "../src/rules/scenario.js";
+import { createWorld } from "../src/engine.js";
+import type { Scenario } from "../src/scenario.js";
 
 // A predator chases the nearest character one step per tick.
 function hunterScenario(): Scenario {

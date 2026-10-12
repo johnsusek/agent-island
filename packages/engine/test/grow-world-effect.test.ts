@@ -7,11 +7,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createWorld } from "../src/rules/engine.js";
+import { createWorld } from "../src/engine.js";
 import { growGrid, makeSpace, extendTerrain } from "@agent-island/core/space";
 import type { TerrainLayer } from "@agent-island/core/space";
 import { validateRule } from "@agent-island/core/kernel";
-import type { Scenario } from "../src/rules/scenario.js";
+import type { Scenario } from "../src/scenario.js";
 import type { MapEdge, Rule } from "@agent-island/core/kernel";
 
 test("growGrid extends the +x/+y frontier and leaves existing tiles put", () => {
