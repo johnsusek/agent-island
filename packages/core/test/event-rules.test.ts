@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  step,
-  stock,
-  type KernelWorld,
-  type Rule,
-} from "../src/rules/kernel.js";
+import { step, stock, type KernelWorld, type Rule } from "../src/kernel.js";
 
 test("event rules handle events emitted by transitions in the same tick", () => {
   let world: KernelWorld = {

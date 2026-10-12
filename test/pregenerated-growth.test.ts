@@ -1,5 +1,5 @@
 // growWorld against a pregenerated map (see scripts/generate-map.ts and
-// copyPregeneratedFrontier in src/rules/space.ts): growth reveals tiles that
+// copyPregeneratedFrontier in packages/core/src/space.ts): growth reveals tiles that
 // already exist instead of generating new ones. The payoff over live
 // extendTerrain is that grid-scoped layer kinds (blobs, island, maze) survive
 // onto a grown frontier - extendTerrain's paintLayer explicitly skips them
@@ -17,8 +17,8 @@ import {
   paintedTiles,
   pregeneratedRoom,
   pregeneratedTerrainAt,
-} from "../src/rules/space.js";
-import type { PregeneratedMap, Terrain, Tile } from "../src/rules/space.js";
+} from "@agent-island/core/space";
+import type { PregeneratedMap, Terrain, Tile } from "@agent-island/core/space";
 import type { Scenario } from "../src/rules/scenario.js";
 
 // Encode a freshly painted Tile[][] as a PregeneratedMap, origin pinned at

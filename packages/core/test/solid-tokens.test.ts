@@ -10,8 +10,8 @@ import {
   spawn,
   syncTokens,
   worldgenWithTerrainPolicy,
-} from "../src/rules/space.js";
-import type { KernelWorld } from "../src/rules/kernel.js";
+} from "../src/space.js";
+import type { KernelWorld } from "../src/kernel.js";
 
 // A one-row world of open plains, an agent at the west end. Callers drop tokens
 // and drive travel to probe how solidity shapes movement.

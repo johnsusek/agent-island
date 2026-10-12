@@ -13,7 +13,7 @@ import {
   type Rule,
   type KernelWorld,
   type TerrainLookup,
-} from "../src/rules/kernel.js";
+} from "../src/kernel.js";
 
 const drinkAtWater: Rule = {
   id: "drink_water_tile",

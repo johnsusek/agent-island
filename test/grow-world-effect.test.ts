@@ -8,11 +8,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createWorld } from "../src/rules/engine.js";
-import { growGrid, makeSpace, extendTerrain } from "../src/rules/space.js";
-import type { TerrainLayer } from "../src/rules/space.js";
-import { validateRule } from "../src/rules/kernel.js";
+import { growGrid, makeSpace, extendTerrain } from "@agent-island/core/space";
+import type { TerrainLayer } from "@agent-island/core/space";
+import { validateRule } from "@agent-island/core/kernel";
 import type { Scenario } from "../src/rules/scenario.js";
-import type { MapEdge, Rule } from "../src/rules/kernel.js";
+import type { MapEdge, Rule } from "@agent-island/core/kernel";
 
 test("growGrid extends the +x/+y frontier and leaves existing tiles put", () => {
   let space = makeSpace(

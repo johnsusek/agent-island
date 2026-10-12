@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import type { Scenario, WorldFile } from "./scenario.js";
-import { pickSpawn } from "./space.js";
+import { pickSpawn } from "@agent-island/core/space";
 
 // Presentation config only: sprites live inline in the scenario's visuals (the
 // sprite DSL), so graphics carries no asset-pack URLs - just the default zoom.

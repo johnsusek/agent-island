@@ -1,4 +1,4 @@
-import type { Stock } from "./kernel.js";
+import type { Stock } from "@agent-island/core/kernel";
 import type { ActionInput } from "./engine-actions.js";
 import {
   normalizeOrderInput,

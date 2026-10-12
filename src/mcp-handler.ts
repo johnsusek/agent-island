@@ -11,7 +11,7 @@ import * as schema from "zod/v4";
 
 import { characterBriefing, gmBriefing } from "./briefing.js";
 import type { Colony } from "./coordinator.js";
-import { MAX_INSCRIPTION } from "./rules/kernel.js";
+import { MAX_INSCRIPTION } from "@agent-island/core/kernel";
 import { orderInputSchema } from "./mcp-order-schema.js";
 import {
   describeSense,
@@ -775,7 +775,18 @@ function registerGmTools(
         openWorldHint: false,
       },
     },
-    async ({ stock, value, min, max, icon, color, role, stockpilable, label, bands }) =>
+    async ({
+      stock,
+      value,
+      min,
+      max,
+      icon,
+      color,
+      role,
+      stockpilable,
+      label,
+      bands,
+    }) =>
       coordinator.gmSetStockDefault(sessionId, stock, {
         value,
         min,

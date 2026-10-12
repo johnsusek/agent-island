@@ -15,7 +15,7 @@ import {
   type Rule,
   type KernelWorld,
   type TerrainLookup,
-} from "../src/rules/kernel.js";
+} from "../src/kernel.js";
 
 // A lone predator on a tile, plus the required world singleton. `paces` is the
 // step counter a patrol rule reads to flip its heading.

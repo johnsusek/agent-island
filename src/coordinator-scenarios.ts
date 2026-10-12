@@ -15,7 +15,7 @@ import {
   type PregeneratedMap,
   type Terrain,
   type WorldGen,
-} from "./rules/space.js";
+} from "@agent-island/core/space";
 import {
   createScenarioStore,
   normalizeScenarioName,
@@ -122,7 +122,11 @@ export function loadPregeneratedMap(
     map.height < 1
   )
     throw new Error(`pregenerated map "${file}": invalid width/height.`);
-  if (!map.origin || typeof map.origin.x !== "number" || typeof map.origin.y !== "number")
+  if (
+    !map.origin ||
+    typeof map.origin.x !== "number" ||
+    typeof map.origin.y !== "number"
+  )
     throw new Error(`pregenerated map "${file}": invalid origin.`);
   if (!Array.isArray(map.rows) || map.rows.length !== map.height)
     throw new Error(
@@ -174,7 +178,10 @@ export function createScenarioBoot(options: ScenarioBootOptions): ScenarioBoot {
       ? resolve("config/scenarios")
       : options.scenariosDir;
   let scenarioStore = scenariosDir
-    ? createScenarioStore(scenariosDir, options.scenariosSaveDir ?? scenariosDir)
+    ? createScenarioStore(
+        scenariosDir,
+        options.scenariosSaveDir ?? scenariosDir,
+      )
     : null;
   let activeScenariosPath = options.activeScenariosPath ?? null;
   let activeScenarios = new Set(

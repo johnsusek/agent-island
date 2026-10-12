@@ -157,7 +157,7 @@ test("deposit/withdraw still key off stockpilable, a pack-only subflag", () => {
   void give;
 });
 
-// The dry-run "lethal but unmarked" lint (src/rules/dryrun.ts
+// The dry-run "lethal but unmarked" lint (packages/core/src/dryrun.ts
 // lintLethalUnmarkedGate): a rule that harms a vital gated on a stock
 // nothing has marked vital gets flagged, since that gate is exactly what a
 // character would need alarmed to see the harm coming.

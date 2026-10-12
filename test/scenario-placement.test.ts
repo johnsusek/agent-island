@@ -5,7 +5,7 @@
 // that paints terrain it never defined. These lock that contract.
 
 import assert from "node:assert/strict";
-import { hasTag } from "../src/rules/kernel.js";
+import { hasTag } from "@agent-island/core/kernel";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

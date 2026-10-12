@@ -8,7 +8,7 @@ import {
   type Entity,
   type KernelWorld,
   type Rule,
-} from "../src/rules/kernel.js";
+} from "../src/kernel.js";
 
 // Selector tests want total control over entity insertion order (the
 // deterministic tie-break every pick falls back to), so they build tiny bare

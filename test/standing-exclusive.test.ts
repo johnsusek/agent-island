@@ -7,8 +7,8 @@ import {
   makeSpace,
   spawn,
   worldgenWithTerrainPolicy,
-} from "../src/rules/space.js";
-import type { Entity, KernelWorld } from "../src/rules/kernel.js";
+} from "@agent-island/core/space";
+import type { Entity, KernelWorld } from "@agent-island/core/kernel";
 import { makeSurvivalEngine } from "./helpers.js";
 
 function agentEntity(id: string, x: number, y: number): Entity {

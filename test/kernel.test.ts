@@ -13,7 +13,7 @@ import {
   type Modifier,
   type DerivedRule,
   type ThresholdRule,
-} from "../src/rules/kernel.js";
+} from "@agent-island/core/kernel";
 import {
   advanceSpace,
   chebyshev,
@@ -25,7 +25,7 @@ import {
   spawn,
   worldgenWithTerrainPolicy,
   type Space,
-} from "../src/rules/space.js";
+} from "@agent-island/core/space";
 import { dirToward, makeSurvivalEngine, runToIdle } from "./helpers.js";
 
 // A neutral world stock with its own draining flow, used to exercise the kernel's

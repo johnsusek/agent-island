@@ -24,8 +24,8 @@ import {
   type Entity,
   type KernelWorld,
   type Rule,
-} from "../src/rules/kernel.js";
-import { knownTokens, syncTokens, tileAt } from "../src/rules/space.js";
+} from "@agent-island/core/kernel";
+import { knownTokens, syncTokens, tileAt } from "@agent-island/core/space";
 import { createWorld } from "../src/rules/engine.js";
 import {
   makeSurvivalSpace,

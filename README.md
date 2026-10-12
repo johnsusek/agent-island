@@ -19,7 +19,12 @@ the run retros that informed the change are in `results/`.
 
 Everything meets over MCP; the server never launches an LLM.
 
-- **`src/`** - the world server: tick clock, grid world, the rules DSL engine,
+- **`packages/core/`** - the rules core, an npm workspace (`@agent-island/core`,
+  a placeholder name): the kernel (entities, stocks, JSON rules run in fixed
+  tick phases), the grid, the rule schema, and dry runs. It knows nothing about
+  the island; it is being extracted so other agent simulations can use it (see
+  [docs/extraction-audit.md](docs/extraction-audit.md)).
+- **`src/`** - the world server: tick clock, the engine that hosts the core,
   and two MCP surfaces - `/mcp` (characters) and `/gm` (the Clerk and the
   operator). Plus a small read API (`/api/state`, `/api/map`, `/api/fog`) that
   feeds the observatory, and world ops (`/api/reset`, `/api/restore`,

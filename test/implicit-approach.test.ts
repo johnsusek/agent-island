@@ -1,5 +1,5 @@
 import test from "node:test";
-import { hasTag } from "../src/rules/kernel.js";
+import { hasTag } from "@agent-island/core/kernel";
 import assert from "node:assert/strict";
 
 import type { WorldEngine } from "../src/rules/engine.js";

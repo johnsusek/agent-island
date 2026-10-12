@@ -28,7 +28,7 @@ import {
   type Rule,
   type StockVocabulary,
 } from "./kernel.js";
-import type { StockDisplay } from "./scenario.js";
+import type { StockDisplay } from "./stock-display.js";
 
 export interface DryRunReport {
   // Simulated ticks actually run: 0 for an action rule, whose body only runs

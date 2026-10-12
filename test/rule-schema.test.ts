@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
-import { assertValidRule, RuleSchema } from "../src/rules/rule-schema.js";
+import { assertValidRule, RuleSchema } from "@agent-island/core/rule-schema";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
 
 test("accepts a colocated requires gate written in object form", () => {

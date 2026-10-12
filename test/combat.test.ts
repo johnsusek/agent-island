@@ -7,7 +7,7 @@ import {
   step,
   stock,
   type Entity,
-} from "../src/rules/kernel.js";
+} from "@agent-island/core/kernel";
 import { addAgentTo, loadFixtureOverlay, makeBareWorld } from "./helpers.js";
 
 const PLAINS = () => "plains";

@@ -31,8 +31,8 @@ import {
   type SpawnSpec,
   type Stock,
   type StockVocabulary,
-} from "./kernel.js";
-import { assertValidRule } from "./rule-schema.js";
+} from "@agent-island/core/kernel";
+import { assertValidRule } from "@agent-island/core/rule-schema";
 import {
   advanceSpace,
   chebyshev,
@@ -76,7 +76,7 @@ import {
   type TokenScatter,
   type Terrain,
   type WorldGenConnect,
-} from "./space.js";
+} from "@agent-island/core/space";
 import {
   assertValidTerrainSpec,
   assertValidVisual,
@@ -90,7 +90,7 @@ import {
   type Visual,
 } from "./scenario.js";
 import { type OrderState } from "./orders.js";
-import { dryRunRule, type DryRunReport } from "./dryrun.js";
+import { dryRunRule, type DryRunReport } from "@agent-island/core/dryrun";
 import {
   bandedStocks,
   bandSentence,
@@ -3513,7 +3513,7 @@ export function createWorld(scenario: Scenario) {
   // set_stock on some one-off entity, and every already-placed fixture/token,
   // without needing its own bookkeeping). This is the full vocabulary the
   // kernel's write guard checks a rule effect's target against (see
-  // rules/kernel.ts StockVocabulary) - it is what closes the stock namespace,
+  // packages/core/src/kernel.ts StockVocabulary) - it is what closes the stock namespace,
   // catching a typo'd target ("self" meaning "of":"self") before it mints a
   // phantom stock instead of after.
   function knownStockNames(): Set<string> {

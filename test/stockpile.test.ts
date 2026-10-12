@@ -9,7 +9,7 @@ import {
   type Entity,
   type KernelWorld,
   type StockVocabulary,
-} from "../src/rules/kernel.js";
+} from "@agent-island/core/kernel";
 import {
   addAgentTo,
   loadFixtureOverlay,

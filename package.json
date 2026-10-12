@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "AGENT_ISLAND_RULESET=config/config.json node scripts/dev.mjs",
     "dev:server": "AGENT_ISLAND_RULESET=config/config.json AGENT_ISLAND_LOG=1 AGENT_ISLAND_SESSION_TTL_MS=600000 AGENT_ISLAND_IDLE_MS=900000 tsx src/server.ts",
@@ -13,12 +16,13 @@
     "crew": "node scripts/crew.mjs",
     "operator": "node --import tsx src/operator/main.ts",
     "generate-map": "node --import tsx scripts/generate-map.ts",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && npm run typecheck -w @agent-island/core",
     "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
     "format": "prettier --write . --ignore-path .gitignore",
-    "test": "AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts test/*.test.mjs"
+    "test": "npm test -w @agent-island/core && AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts test/*.test.mjs"
   },
   "dependencies": {
+    "@agent-island/core": "0.1.0",
     "@modelcontextprotocol/sdk": "1.29.0",
     "express": "^5.1.0",
     "pixi.js": "^8.19.0",

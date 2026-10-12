@@ -8,7 +8,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EARSHOT } from "../src/rules/space.js";
+import { EARSHOT } from "@agent-island/core/space";
 import type { WorldEngine } from "../src/rules/engine.js";
 import { makeSurvivalEngine } from "./helpers.js";
 

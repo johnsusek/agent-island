@@ -4,7 +4,7 @@
 // live engine loads that file (coordinator-scenarios.ts's loadPregeneratedMap)
 // and, when present, slices its starting view from it and reveals more of it
 // as growWorld rules fire, instead of generating terrain live - see
-// copyPregeneratedFrontier in src/rules/space.ts.
+// copyPregeneratedFrontier in packages/core/src/space.ts.
 //
 // Reuses paintedTiles, the exact painter makeGrid/pickSpawn/expandWorldGen
 // already call, just run once at the scenario's `worldWidth`/`worldHeight`
@@ -32,7 +32,7 @@ import {
   type PregeneratedMap,
   type Terrain,
   type WorldGen,
-} from "../src/rules/space.js";
+} from "@agent-island/core/space";
 
 function parseArgs(argv: string[]) {
   let positional: string[] = [];
@@ -83,7 +83,9 @@ async function main() {
   let { positional, opts } = parseArgs(process.argv.slice(2));
   let name = positional[0];
   if (!name)
-    fail("usage: generate-map <scenario> [--scenarios-dir DIR] [--ruleset FILE]");
+    fail(
+      "usage: generate-map <scenario> [--scenarios-dir DIR] [--ruleset FILE]",
+    );
 
   let scenariosDir = opts["scenarios-dir"]
     ? path.resolve(opts["scenarios-dir"])

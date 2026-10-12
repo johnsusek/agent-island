@@ -10,7 +10,7 @@ import {
   type KernelWorld,
   type Rule,
   type StockVocabulary,
-} from "./kernel.js";
+} from "@agent-island/core/kernel";
 import {
   chebyshev,
   compass,
@@ -20,7 +20,7 @@ import {
   tokenNameAt,
   type MovementActionName,
   type Space,
-} from "./space.js";
+} from "@agent-island/core/space";
 
 // An action intent: the action name plus its arguments. Arguments are open so a
 // rule-defined action can carry whatever params it declares.

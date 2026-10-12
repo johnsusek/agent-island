@@ -1,0 +1,27 @@
+{
+  "name": "@agent-island/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A deterministic, data-driven rules engine for agent simulations: entities with numeric stocks, JSON rules evaluated in fixed tick phases, and dry runs for rules authored at runtime.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./kernel": "./src/kernel.ts",
+    "./space": "./src/space.ts",
+    "./rule-schema": "./src/rule-schema.ts",
+    "./dryrun": "./src/dryrun.ts",
+    "./stock-display": "./src/stock-display.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

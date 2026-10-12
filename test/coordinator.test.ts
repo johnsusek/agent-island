@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { hasTag } from "../src/rules/kernel.js";
+import { hasTag } from "@agent-island/core/kernel";
 import {
   appendFileSync,
   existsSync,

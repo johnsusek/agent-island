@@ -11,7 +11,7 @@ import {
   frontier,
   knownTiles,
   spawn,
-} from "../src/rules/space.js";
+} from "@agent-island/core/space";
 import {
   addAgent,
   makeSurvivalSpace,

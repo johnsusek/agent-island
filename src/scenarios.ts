@@ -15,10 +15,13 @@ import {
   mergeOverlays,
   overlayCounts,
 } from "./rules/overlays.js";
-import { validateRule } from "./rules/kernel.js";
-import { assertValidRule } from "./rules/rule-schema.js";
+import { validateRule } from "@agent-island/core/kernel";
+import { assertValidRule } from "@agent-island/core/rule-schema";
 import { assertValidTerrainSpec } from "./rules/scenario.js";
-import { assertValidConnect, assertValidTerrainLayers } from "./rules/space.js";
+import {
+  assertValidConnect,
+  assertValidTerrainLayers,
+} from "@agent-island/core/space";
 
 // Advisory player-count guidance shown in the scenario picker - not enforced by
 // the engine, which will happily boot any number of agents into any scenario.
@@ -364,7 +367,8 @@ export function createScenarioStore(
       // saveDir last, so a home-saved scenario overrides a bundled one of the
       // same name in the picker - matching resolveReadPath's precedence.
       let byName = new Map<string, ScenarioFile>();
-      let mergeOrder = saveDir === directory ? [directory] : [directory, saveDir];
+      let mergeOrder =
+        saveDir === directory ? [directory] : [directory, saveDir];
       for (let dir of mergeOrder) {
         let entries: string[];
         try {

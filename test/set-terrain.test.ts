@@ -19,8 +19,8 @@ import {
   type KernelWorld,
   type TerrainLookup,
   type TerrainWriter,
-} from "../src/rules/kernel.js";
-import { makeSpace, setTerrainAt } from "../src/rules/space.js";
+} from "@agent-island/core/kernel";
+import { makeSpace, setTerrainAt } from "@agent-island/core/space";
 import { makeSurvivalEngine } from "./helpers.js";
 
 // A mutable 11x11 grid backing both the read lookup and the write sink, so a

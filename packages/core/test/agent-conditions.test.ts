@@ -13,7 +13,7 @@ import {
   type Entity,
   type KernelWorld,
   type Rule,
-} from "../src/rules/kernel.js";
+} from "../src/kernel.js";
 
 // Two entities at given positions, plus the required world singleton. Each agent
 // carries an `infection` and `health` stock so rules can read/adjust them.

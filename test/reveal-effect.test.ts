@@ -6,7 +6,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateRule, type Rule } from "../src/rules/kernel.js";
+import { validateRule, type Rule } from "@agent-island/core/kernel";
 import type { WorldEngine } from "../src/rules/engine.js";
 import { makeSurvivalEngine } from "./helpers.js";
 

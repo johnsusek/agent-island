@@ -8,23 +8,19 @@
 // and how its own events read. Hand the host `scenario` (assembled in
 // config.ts) and the same core becomes the colony game.
 
-import type { Args, Rule, Stock } from "./kernel.js";
+import type { Args, Rule, Stock } from "@agent-island/core/kernel";
 import {
   assertValidMoveCost,
   type PregeneratedMap,
   type Position,
   type WorldGen,
-} from "./space.js";
+} from "@agent-island/core/space";
 import { assertValidSpriteSpec, type SpriteSpec } from "./sprite.js";
+import type { StockDisplay, StockRole } from "@agent-island/core/stock-display";
 
-// What a stock IS to a character, independent of its name: a pressure that
-// can hurt or kill (`vital`, band-alarmed prose, never a figure), a personal
-// dimension worth a mention only when it's notable (`stat`, adjectival prose,
-// silent otherwise), or a fungible quantity that gets carried and handed over
-// (`pack`, the "Carrying:" figures, the only role give/stockpile ever touch).
-// An unclassified stock is `pack`: the plain reading of a bare number nobody
-// has said anything else about.
-export type StockRole = "vital" | "stat" | "pack";
+// StockRole and StockDisplay live in the rules core (the dry-run lints read
+// them); re-exported here so the host keeps one place to import stock specs.
+export type { StockDisplay, StockRole };
 
 // How a stock starts. An unset min/max takes the kernel stock() defaults (0,100).
 // `icon` is the game-icons.net slug that represents this resource everywhere
@@ -60,19 +56,6 @@ export interface StockSpec {
   // is both the declaration and the authoring, so a GM's set_stock_default
   // carries it at runtime with no second registry to keep in step (see
   // engine.ts stockDisplay).
-  label?: string;
-  bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
-}
-
-// The reader-facing view of one stock: what it is and how to say it. Built
-// fresh on every read (see engine.ts stockDisplay) from the registry that
-// declares the stock - stockDefaults for a per-character stock, worldStocks
-// for a global one - which is where `scope` comes from. Prose, alarms, the
-// dry-run lints, and the dashboard all read this one shape; nothing authors
-// it directly.
-export interface StockDisplay {
-  role: StockRole;
-  scope: "agent" | "world";
   label?: string;
   bands?: Partial<Record<"pressing" | "serious" | "critical", string>>;
 }

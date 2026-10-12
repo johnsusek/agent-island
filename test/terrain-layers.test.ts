@@ -21,7 +21,7 @@ import {
   pickSpawn,
   type Tile,
   type WorldGen,
-} from "../src/rules/space.js";
+} from "@agent-island/core/space";
 import { scenario } from "../src/rules/config.js";
 import { scenarioBootScenario } from "../src/coordinator-scenarios.js";
 import { createWorld } from "../src/rules/engine.js";

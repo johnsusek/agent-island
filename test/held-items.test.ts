@@ -14,7 +14,7 @@ import {
   type Entity,
   type KernelWorld,
   type Rule,
-} from "../src/rules/kernel.js";
+} from "@agent-island/core/kernel";
 import { describeSense } from "../src/sense-prose.js";
 import { makeSurvivalEngine, placeAt, TEST_SPAWN } from "./helpers.js";
 

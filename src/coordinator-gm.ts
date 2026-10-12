@@ -1,4 +1,4 @@
-import type { Occupancy } from "./rules/kernel.js";
+import type { Occupancy } from "@agent-island/core/kernel";
 import type { WorldEngine } from "./rules/engine.js";
 import type { SpriteSpec } from "./rules/sprite.js";
 import type { StockSpec } from "./rules/scenario.js";
@@ -94,14 +94,11 @@ export function createGmCommands(context: GmCommandContext) {
     context.requireGm(sessionId);
     let result = context.engine.addRule(rule);
     let dryRun = tryDryRun(result.id);
-    return finishGmEdit(
-      `* GM added rule ${result.id}${dryRunSuffix(dryRun)}`,
-      {
-        ok: true,
-        ...result,
-        ...(dryRun ? { dryRun } : {}),
-      },
-    );
+    return finishGmEdit(`* GM added rule ${result.id}${dryRunSuffix(dryRun)}`, {
+      ok: true,
+      ...result,
+      ...(dryRun ? { dryRun } : {}),
+    });
   }
 
   function gmRemoveRule(sessionId: string, id: string) {
@@ -147,7 +144,11 @@ export function createGmCommands(context: GmCommandContext) {
     );
   }
 
-  function gmSetStockDefault(sessionId: string, stock: string, spec: StockSpec) {
+  function gmSetStockDefault(
+    sessionId: string,
+    stock: string,
+    spec: StockSpec,
+  ) {
     context.requireGm(sessionId);
     let result = context.engine.setStockDefault(stock, spec);
     return finishGmEdit(

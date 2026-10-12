@@ -11,9 +11,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createWorld } from "../src/rules/engine.js";
-import { hasTag, validateRule } from "../src/rules/kernel.js";
+import { hasTag, validateRule } from "@agent-island/core/kernel";
 import type { Scenario } from "../src/rules/scenario.js";
-import type { Rule } from "../src/rules/kernel.js";
+import type { Rule } from "@agent-island/core/kernel";
 
 // A one-floor dungeon: a fixed `grove` token to prove tokens reroll, and a
 // world-scoped `descend` lever a transition rule consumes to request a reroll

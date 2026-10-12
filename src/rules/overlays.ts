@@ -1,5 +1,5 @@
 import type { RuleOverlay } from "./engine.js";
-import type { Rule } from "./kernel.js";
+import type { Rule } from "@agent-island/core/kernel";
 
 export function emptyOverlay(): RuleOverlay {
   return { dynamicRules: [], removedBaseIds: [] };

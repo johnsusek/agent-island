@@ -14,8 +14,8 @@ import {
   type KernelWorld,
   type Rule,
   type TerrainLookup,
-} from "../src/rules/kernel.js";
-import { SIGHT } from "../src/rules/space.js";
+} from "@agent-island/core/kernel";
+import { SIGHT } from "@agent-island/core/space";
 import type { WorldEngine } from "../src/rules/engine.js";
 import { describeSense } from "../src/sense-prose.js";
 import { makeSurvivalEngine, placeAt, runToIdle } from "./helpers.js";

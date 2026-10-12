@@ -7,12 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  step,
-  stock,
-  type Rule,
-  type KernelWorld,
-} from "../src/rules/kernel.js";
+import { step, stock, type Rule, type KernelWorld } from "../src/kernel.js";
 
 // A world whose `world` singleton carries a `roll` stock we overwrite each tick
 // from a derived rule, plus a couple of per-agent entities so we can check that

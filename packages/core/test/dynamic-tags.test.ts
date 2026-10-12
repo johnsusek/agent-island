@@ -16,7 +16,7 @@ import {
   stock,
   type KernelWorld,
   type Rule,
-} from "../src/rules/kernel.js";
+} from "../src/kernel.js";
 
 // Two characters on separate tiles, each carrying gold.
 function world(): KernelWorld {

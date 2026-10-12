@@ -13,7 +13,7 @@ import {
   type KernelWorld,
   type Rule,
   type Stock,
-} from "../src/rules/kernel.js";
+} from "@agent-island/core/kernel";
 import {
   createWorld,
   normalizeId,
@@ -28,7 +28,7 @@ import {
   worldgenWithTerrainPolicy,
   type TokenScatter,
   type Space,
-} from "../src/rules/space.js";
+} from "@agent-island/core/space";
 import { scenario } from "../src/rules/config.js";
 import { mergeOverlays } from "../src/rules/overlays.js";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";

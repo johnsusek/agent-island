@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { commit, step, stock, type ActionRule } from "../src/rules/kernel.js";
+import {
+  commit,
+  step,
+  stock,
+  type ActionRule,
+} from "@agent-island/core/kernel";
 import { addAgent, makeSurvivalWorld } from "./helpers.js";
 
 // The base game forages straight from a source — there is no stockpile. But the

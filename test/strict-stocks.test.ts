@@ -17,7 +17,7 @@ import {
   type KernelWorld,
   type Rule,
   type StockVocabulary,
-} from "../src/rules/kernel.js";
+} from "@agent-island/core/kernel";
 import { makeSurvivalEngine } from "./helpers.js";
 
 // A bare world with an actor and a target entity, both starting with no

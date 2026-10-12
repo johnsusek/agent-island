@@ -8,8 +8,8 @@ import {
   type Entity,
   type KernelWorld,
   type Rule,
-} from "../src/rules/kernel.js";
-import { assertValidRule } from "../src/rules/rule-schema.js";
+} from "../src/kernel.js";
+import { assertValidRule } from "../src/rule-schema.js";
 
 // The kind selector's contract: `tag` is the loose form (matches the name in
 // either slot - kind or tags), `kind` is the strict form (the entity IS that
