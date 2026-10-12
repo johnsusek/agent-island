@@ -1,0 +1,370 @@
+{
+  "name": "commons",
+  "description": "A fishing village shares one small bay. The fish regrow, but only from what is left, and an empty bay never recovers. Everyone hears everyone, so the only defense is talking each other into restraint. Survive 300 ticks. Built for 4 or 5 villagers.",
+  "recommendedPlayers": {
+    "min": 4,
+    "max": 5
+  },
+  "include": [],
+  "overlay": {
+    "defaultTerrain": "shore",
+    "terrainSpecs": {
+      "shore": {
+        "moveCost": 1
+      }
+    },
+    "worldStocks": {
+      "school": {
+        "value": 30,
+        "min": 0,
+        "max": 40,
+        "icon": "big-wave",
+        "role": "pack",
+        "label": "fish in the bay"
+      },
+      "elapsed": {
+        "value": 0,
+        "min": 0,
+        "max": 100000,
+        "icon": "sands-of-time",
+        "role": "stat",
+        "label": "ticks elapsed"
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "icon": "health",
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "icon": "food",
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry.",
+          "critical": "You are starving."
+        }
+      },
+      "fish": {
+        "value": 0,
+        "min": 0,
+        "max": 6,
+        "icon": "fish-bucket",
+        "role": "pack",
+        "label": "fish"
+      }
+    },
+    "dynamicRules": [
+      {
+        "id": "season-clock",
+        "description": "Count the season's ticks on the world, so the season's end is a change a watch can see.",
+        "phase": "derived",
+        "each": {
+          "tag": "world"
+        },
+        "target": "elapsed",
+        "value": {
+          "tick": true
+        }
+      },
+      {
+        "id": "school-regrows",
+        "description": "The fish breed from what is left: fastest at half the bay's capacity, never from an empty bay.",
+        "phase": "flow",
+        "each": {
+          "tag": "world"
+        },
+        "target": "school",
+        "rate": {
+          "mul": [
+            0.03,
+            {
+              "stock": "school"
+            },
+            {
+              "sub": [
+                1,
+                {
+                  "div": [
+                    {
+                      "stock": "school"
+                    },
+                    40
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 100 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -1
+      },
+      {
+        "id": "fish",
+        "kind": "action",
+        "duration": 2,
+        "description": "Cast a line in the bay and land up to 2 fish.",
+        "requires": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "school",
+                "of": "world"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "fish"
+              },
+              "right": 6
+            }
+          ]
+        },
+        "requireReason": "the bay is empty, or your basket is full",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "school",
+                "of": "world"
+              },
+              "to": {
+                "stock": "fish",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "school",
+                      "of": "world"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one fish (+15 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "fish"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no fish",
+        "do": [
+          {
+            "adjust": {
+              "target": "fish",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 15
+            }
+          }
+        ]
+      },
+      {
+        "id": "thin-catch",
+        "description": "Everyone notices when the bay runs low.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "lt",
+          "left": {
+            "stock": "school"
+          },
+          "right": 10
+        },
+        "emit": {
+          "type": "thin_catch",
+          "text": "The catch is getting thin. The bay is running out of fish.",
+          "global": true
+        }
+      },
+      {
+        "id": "collapse-is-final",
+        "description": "Below one fish there is nothing left to breed: the bay is empty for good.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "school"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "school"
+              },
+              "right": 0
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "school",
+              "to": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "collapse",
+        "description": "An empty bay never recovers.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "lt",
+          "left": {
+            "stock": "school"
+          },
+          "right": 1
+        },
+        "emit": {
+          "type": "collapse",
+          "text": "The last fish is gone. The bay is empty for good.",
+          "global": true
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 25 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -4
+            }
+          }
+        ]
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "season-ends",
+        "description": "Anyone still alive at tick 300 has made it through the season.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "elapsed"
+              },
+              "right": 300
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "The season is over. The village made it through.",
+          "global": true
+        }
+      }
+    ]
+  }
+}
