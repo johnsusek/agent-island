@@ -7,6 +7,7 @@ import test from "node:test";
 import { createColony } from "./helpers.js";
 import { createWorld } from "@agent-island/engine/engine";
 import { resolveIncludes, rulesetsDirFor } from "@agent-island/mcp/scenarios";
+import { renderCharacterResult } from "@agent-island/mcp/sense-prose";
 import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";
 
@@ -130,6 +131,61 @@ test("a scenario's victory rule ends the run after a grace window", async () => 
     assert.equal(after.liveness.ended, true);
     assert.equal(after.liveness.endedAt, 8, "grace of 3 ticks from a win at 5");
     assert.equal(after.state.tick, 8, "the clock froze on the concluding tick");
+  } finally {
+    colony.stop();
+  }
+});
+
+// The commons playtest's players were told "[ended]" and kept going: orders
+// were accepted into a frozen world and wait_for_change idled every 30s, so
+// they had to be stopped by hand. A closed world now says so in every result,
+// refuses play, and answers waits at once.
+test("a closed world tells players the game is over and stops taking play", async () => {
+  let colony = createColony({
+    engine: declareProgress(createWorld(victoryScenario(2))),
+    victoryGraceTicks: 0,
+    // Long enough that a wait which parked instead of answering would hang
+    // the test well past the elapsed-time check below.
+    waitTimeoutMs: 60_000,
+  });
+  colony.start();
+  colony.connect("s1");
+  colony.connect("gm");
+  try {
+    let joined = colony.join("s1", "Ara");
+    assert.equal("gameOver" in joined, false, "a live world has no notice");
+    colony.joinAsGm("gm");
+
+    // Grace 0: the world closes on the winning tick, and Ara's wait returns
+    // that tick's victory in an `ended` result that carries the notice.
+    let closing = await colony.waitForChange("s1");
+    assert.equal(closing.status, "ended");
+    assert.ok(closing.events.some((event: any) => event.type === "victory"));
+    assert.match(closing.gameOver, /^The colony has won\. The game is over/);
+    assert.match(closing.gameOver, /Call leave_game and stop\./);
+
+    let started = Date.now();
+    let again = await colony.waitForChange("s1");
+    assert.equal(again.status, "ended");
+    assert.ok(Date.now() - started < 1000, "answered at once, not parked");
+    assert.match(
+      renderCharacterResult(again).split("\n")[0],
+      /The game is over: the world closed at tick 2/,
+      "the notice is the first line a player reads",
+    );
+    assert.ok(colony.sense("s1", "situation").gameOver);
+
+    for (let play of [
+      () => colony.act("s1", { type: "rest" }),
+      () =>
+        colony.setOrder("s1", { kind: "sequence", steps: [{ type: "rest" }] }),
+      () => colony.speak("s1", "is anyone there?"),
+    ])
+      assert.throws(play, /The game is over/);
+
+    let gmWake = await colony.waitForWorld("gm", { everyTicks: 5 });
+    assert.equal(gmWake.status, "ended");
+    assert.equal(colony.leave("s1").status, "left", "leaving still works");
   } finally {
     colony.stop();
   }

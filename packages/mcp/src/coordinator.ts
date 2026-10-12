@@ -363,6 +363,9 @@ export function createColony(options: ColonyOptions) {
   // (see deleteAllState).
   let victoryTick: number | null = null;
   let endedAt: number | null = null;
+  // The scenario's own words for the win (the victory event's text), quoted
+  // back to players once the world closes. Persisted alongside victoryTick.
+  let victoryText: string | null = null;
 
   // Dev-only narration: stream every newly-appended engine event to stdout so a
   // human (or Claude, via the preview panel) can watch the colony live. Gated on
@@ -466,6 +469,7 @@ export function createColony(options: ColonyOptions) {
       worldId = saved.worldId ?? worldId;
       victoryTick = saved.victoryTick ?? null;
       endedAt = saved.endedAt ?? null;
+      victoryText = saved.victoryText ?? null;
       loggedSeq = engine.cursor();
       note(`* restored world ${worldId.slice(0, 8)} from ${statePath}`);
       return true;
@@ -477,7 +481,13 @@ export function createColony(options: ColonyOptions) {
   function writeState() {
     if (!statePath) return;
     let payload = JSON.stringify(
-      { worldId, engine: engine.snapshot(), victoryTick, endedAt },
+      {
+        worldId,
+        engine: engine.snapshot(),
+        victoryTick,
+        endedAt,
+        victoryText,
+      },
       null,
       2,
     );
@@ -737,6 +747,7 @@ export function createColony(options: ColonyOptions) {
     // again, so a reset lifts the freeze and re-arms victory detection.
     victoryTick = null;
     endedAt = null;
+    victoryText = null;
     if (saveTimer) {
       clearTimeout(saveTimer);
       saveTimer = null;
@@ -965,19 +976,21 @@ export function createColony(options: ColonyOptions) {
     // Victory is whatever the scenario's rules say it is: the first tick any
     // rule emits VICTORY_EVENT starts the grace clock. Nothing re-arms it - a
     // watch rule is edge-triggered and fires once - so a later win is ignored.
-    if (victoryTick === null && fresh.some((e) => e.type === VICTORY_EVENT)) {
+    let victory = fresh.find((e) => e.type === VICTORY_EVENT);
+    if (victoryTick === null && victory) {
       victoryTick = engine.currentTick();
+      victoryText = victory.text?.trim() || null;
       note(
         `* victory reached at tick ${victoryTick} — colony plays on for ${victoryGraceTicks} more tick(s)`,
       );
     }
     clearBackstop(); // a tick opens a fresh wait window
     flushLog();
-    wakeVisibleWaiters();
-    scheduleSave();
     // Once the grace window has fully elapsed, lock the world and stop the
     // characters. Reported here (not the moment of victory) so the colony gets
-    // its full send-off first.
+    // its full send-off first. Concluding before the ordinary wake means every
+    // parked player hears about this last tick in an `ended` result that
+    // already carries the game-over notice.
     if (
       victoryTick !== null &&
       engine.currentTick() - victoryTick >= victoryGraceTicks
@@ -985,7 +998,25 @@ export function createColony(options: ColonyOptions) {
       concludeGame();
       return false;
     }
+    wakeVisibleWaiters();
+    scheduleSave();
     return true;
+  }
+
+  // What a player is told once the world has closed: plainly that the game is
+  // over and what to do, so a client stops instead of idling against a clock
+  // that will never move again. Null while the game is live.
+  function gameOverNotice(): string | null {
+    if (endedAt === null) return null;
+    let won = victoryText ? `${victoryText} ` : "";
+    return `${won}The game is over: the world closed at tick ${endedAt} and nothing more can happen in it. Call leave_game and stop.`;
+  }
+
+  // Play on a closed world is refused with the same notice, rather than
+  // accepted into an order that can never run.
+  function refuseIfOver() {
+    let notice = gameOverNotice();
+    if (notice) throw new Error(notice);
   }
 
   // Freeze a won world and stop its characters. The world stays fully loaded -
@@ -1323,7 +1354,11 @@ export function createColony(options: ColonyOptions) {
   function sense(sessionId: string, mode: string): any {
     let session = requireJoined(sessionId);
     if (mode === "changes") return { sense: "changes", ...deliver(session) };
-    return engine.sense(session.agentId!, mode);
+    let gameOver = gameOverNotice();
+    return {
+      ...(gameOver ? { gameOver } : {}),
+      ...engine.sense(session.agentId!, mode),
+    };
   }
 
   // Commit an intent or order: flush the new events, let the clock advance if
@@ -1380,6 +1415,7 @@ export function createColony(options: ColonyOptions) {
 
   function act(sessionId: string, action: ActionInput) {
     let session = requireJoined(sessionId);
+    refuseIfOver();
     let agentId = session.agentId!;
     return commitAndDeliver(
       session,
@@ -1392,6 +1428,7 @@ export function createColony(options: ColonyOptions) {
 
   function setOrder(sessionId: string, order: unknown) {
     let session = requireJoined(sessionId);
+    refuseIfOver();
     let agentId = session.agentId!;
     return commitWithoutDeliver(
       session,
@@ -1410,6 +1447,7 @@ export function createColony(options: ColonyOptions) {
 
   function cancelOrder(sessionId: string) {
     let session = requireJoined(sessionId);
+    refuseIfOver();
     let agentId = session.agentId!;
     return commitAndDeliver(
       session,
@@ -1430,6 +1468,7 @@ export function createColony(options: ColonyOptions) {
   // out in real time within the same frozen moment of game time.
   function speak(sessionId: string, message: string) {
     let session = requireJoined(sessionId);
+    refuseIfOver();
     let agentId = session.agentId!;
     return commitAndWake(
       session,
@@ -1440,6 +1479,7 @@ export function createColony(options: ColonyOptions) {
 
   function whisper(sessionId: string, target: string, message: string) {
     let session = requireJoined(sessionId);
+    refuseIfOver();
     let agentId = session.agentId!;
     return commitAndWake(
       session,
@@ -1452,6 +1492,7 @@ export function createColony(options: ColonyOptions) {
 
   function inscribe(sessionId: string, message: string) {
     let session = requireJoined(sessionId);
+    refuseIfOver();
     let agentId = session.agentId!;
     return commitAndWake(
       session,
@@ -1468,6 +1509,10 @@ export function createColony(options: ColonyOptions) {
   function waitForChange(sessionId: string) {
     let session = requireJoined(sessionId);
     if (session.waiter) return session.waiter.promise;
+    // A closed world will never change again: answer at once instead of
+    // parking until the idle timeout, over and over.
+    if (endedAt !== null)
+      return Promise.resolve({ status: "ended", worldId, ...deliver(session) });
     if (hasUnseen(session)) return Promise.resolve(changeResult(session));
 
     let resolveWaiter: Waiter["resolve"] = () => {};
@@ -1514,6 +1559,14 @@ export function createColony(options: ColonyOptions) {
       );
     session.gmWake = { events, everyTicks };
     if (session.waiter) return session.waiter.promise;
+    // As for characters: a closed world answers at once, with the same
+    // `ended` status a director parked at the close received.
+    if (endedAt !== null)
+      return Promise.resolve({
+        status: "ended",
+        worldId,
+        ...deliverGm(session),
+      });
     if (gmHasUnseen(session))
       return Promise.resolve({
         status: "changed",
@@ -1826,7 +1879,9 @@ export function createColony(options: ColonyOptions) {
     session.actionDetailsDelivered = true;
     let history = visibleEventsSince(session.agentId, session.cursor);
     session.cursor = engine.cursor();
+    let gameOver = gameOverNotice();
     return {
+      ...(gameOver ? { gameOver } : {}),
       observation,
       events: history.events,
       ...(history.unavailable.length

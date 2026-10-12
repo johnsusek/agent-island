@@ -374,6 +374,14 @@ export function isWakeResult(r: Dict): boolean {
 // without a shape of its own falls back to its status word rather than to
 // serialized data - a character never sees JSON.
 export function renderCharacterResult(result: unknown): string {
+  let text = renderResult(result);
+  // Once the world has closed, every result opens with the notice - first, so
+  // a player reading only the top line still learns the game is over.
+  let gameOver = (result as Dict | null)?.gameOver;
+  return typeof gameOver === "string" ? `${gameOver}\n${text}` : text;
+}
+
+function renderResult(result: unknown): string {
   if (typeof result !== "object" || result === null)
     return String(result ?? "");
   let r = result as Dict;

@@ -44,6 +44,7 @@ Use durable orders for all in-world actions. Orders give the server deterministi
 - Use `set_order` for repeated or long-running work, then call `wait_for_change`.
 - Use a one-step `sequence` for one-off reactions or manual overrides.
 - Expect routine order work to continue without waking you. You wake when the order completes, blocks, is interrupted, or something notable happens.
+- When a result says the game is over, the world has closed for good: call `leave_game` and stop.
 - Before stopping, _always_ call `leave_game`. This releases your controller session; your agent stays in the world and a future launch can reclaim it by name.
 - You see what co-located agents are doing. If the camp has a ledger, standing at it (or beside it) shows who has declared what work - walk over to consult it.
 - `give` is an action like any other: order it to hand a carried resource to another agent, walking to them first if they are out of arm's reach. It moves as much as their pack can hold; health and other personal gauges cannot be transferred.
