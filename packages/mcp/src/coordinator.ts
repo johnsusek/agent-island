@@ -16,6 +16,7 @@ import {
   createWorld,
   normalizeId,
   type ActionInput,
+  type EngineOptions,
   type RuleOverlay,
   type VisibleEventsOptions,
   type WorldEngine,
@@ -72,6 +73,9 @@ import { createGmCommands } from "./coordinator-gm.js";
 
 export interface ColonyOptions extends ScenarioBootOptions {
   engine?: WorldEngine;
+  // Policies for the engine the colony builds itself (ignored when `engine`
+  // is injected).
+  engineOptions?: EngineOptions;
   // Presentation config the map payload carries for spectator UIs.
   graphics?: GraphicsConfig;
   // Force a tick if the world stays paused this long waiting on an un-parked
@@ -280,7 +284,9 @@ export function createColony(options: ColonyOptions) {
   // about, so the reset-time terrain merge (built from the config scenario)
   // only applies to the engine we build ourselves.
   let ownEngine = !options.engine;
-  let engine = options.engine ?? createWorld(scenarios.bootScenario());
+  let engine =
+    options.engine ??
+    createWorld(scenarios.bootScenario(), options.engineOptions);
   let maxWaitMs = options.maxWaitMs ?? 30_000;
   let minTurnMs = Math.max(0, options.minTurnMs ?? 0);
   // Mutable so setRealTime can change it at runtime. 0 = the lockstep barrier.

@@ -412,7 +412,21 @@ const HISTORY_CAP = 360;
 
 const DEFAULT_AGENT_TEMPLATE: EntityTemplate = { tags: ["agent"], stocks: {} };
 
-export function createWorld(scenario: Scenario) {
+// Presentation policies a host can relax. Both default on, which is what the
+// bundled GM briefing and tool descriptions describe; a host whose UI draws
+// no icons or sprites turns them off (and should brief its GM to match).
+export interface EngineOptions {
+  // A GM introducing a brand-new resource must name a game-icons.net slug
+  // for it (see ensureIconFor). Off, the icon is optional.
+  requireStockIcons?: boolean;
+  // Dry runs warn when a rule spawns a kind nothing has drawn (see
+  // unillustratedSpawns). Off, a missing sprite is not a warning.
+  warnUnillustratedSpawns?: boolean;
+}
+
+export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
+  let requireStockIcons = options.requireStockIcons ?? true;
+  let warnUnillustratedSpawns = options.warnUnillustratedSpawns ?? true;
   let agentTemplate = scenario.agentTemplate ?? DEFAULT_AGENT_TEMPLATE;
 
   let world: KernelWorld;
@@ -897,7 +911,7 @@ export function createWorld(scenario: Scenario) {
   // (set fire to 0) icon-free.
   function ensureIconFor(stockName: string, icon?: string, color?: string) {
     let visual = stockVisual(stockName, icon, color);
-    if (!visual?.icon && !kindVisuals[stockName]?.icon)
+    if (requireStockIcons && !visual?.icon && !kindVisuals[stockName]?.icon)
       throw new Error(
         `Introducing the new resource "${stockName}" needs an "icon" — a game-icons.net slug (e.g. "wheat") to represent it on the dashboard.`,
       );
@@ -3308,6 +3322,7 @@ export function createWorld(scenario: Scenario) {
       vocabulary: vocab,
       ticks,
     });
+    if (!warnUnillustratedSpawns) return report;
     for (let kind of unillustratedSpawns(ruleSet.find((r) => r.id === id)))
       report.warnings.push(
         `"${id}" spawns a ${kind}, which has no sprite - it will render as a missing-art box for every character who meets it. register_kind_visual({kind: "${kind}", sprite: ...}) in this same pass.`,

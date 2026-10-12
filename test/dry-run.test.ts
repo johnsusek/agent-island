@@ -186,6 +186,23 @@ test("a spawn of an undrawn kind is warned about", () => {
   );
 });
 
+test("a host that draws no sprites can drop the missing-sprite warning", () => {
+  let engine = makeSurvivalEngine({ warnUnillustratedSpawns: false });
+  engine.addAgent("Ada");
+  engine.addRule({
+    id: "build_cairn",
+    kind: "action",
+    duration: 5,
+    do: [{ spawn: { kind: "dropped_stone", tags: [], occupancy: "tile" } }],
+  });
+
+  assert.ok(
+    !engine
+      .dryRunRule("build_cairn")
+      .warnings.some((w) => w.includes("no sprite")),
+  );
+});
+
 test("dry-running leaves the live world untouched", () => {
   let engine = survival();
   engine.addAgent("Ada");

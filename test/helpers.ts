@@ -17,6 +17,7 @@ import {
 import {
   createWorld,
   normalizeId,
+  type EngineOptions,
   type RuleOverlay,
   type WorldEngine,
 } from "@agent-island/engine/engine";
@@ -133,7 +134,10 @@ export let survivalScenario: Scenario = {
 // makeSurvivalEngine used to do only for "survival" - every standalone
 // per-test fixture that needs a full host (not just a bare kernel world)
 // rides this instead of duplicating the terrain-merge dance.
-export function makeFixtureEngine(name: string): WorldEngine {
+export function makeFixtureEngine(
+  name: string,
+  options?: EngineOptions,
+): WorldEngine {
   let overlay = loadFixtureOverlay(name);
   let terrainSpecs = {
     ...(scenario.terrainSpecs ?? {}),
@@ -158,7 +162,7 @@ export function makeFixtureEngine(name: string): WorldEngine {
     worldgen,
     spawn: pickSpawn(worldgenWithTerrainPolicy(worldgen, terrainSpecs)),
   };
-  let engine = createWorld(fixtureScenario);
+  let engine = createWorld(fixtureScenario, options);
   engine.applyOverlay(overlay);
   return engine;
 }
@@ -167,8 +171,8 @@ export function makeFixtureEngine(name: string): WorldEngine {
 // coordinator boots it plus the survival scenario, which is what production
 // always runs.
 // Host-level tests build on this unless they specifically probe bare worlds.
-export function makeSurvivalEngine() {
-  return makeFixtureEngine("survival");
+export function makeSurvivalEngine(options?: EngineOptions) {
+  return makeFixtureEngine("survival", options);
 }
 
 let setupTokenScatter = (survivalOverlay.setup ?? [])

@@ -179,6 +179,14 @@ test("introducing a NEW resource without an icon is rejected", () => {
   );
 });
 
+test("a host that draws no icons can drop the icon requirement", () => {
+  let engine = makeSurvivalEngine({ requireStockIcons: false });
+  engine.addAgent("Ada");
+
+  assert.doesNotThrow(() => engine.setStockDefault("mana", { value: 100 }));
+  assert.doesNotThrow(() => engine.setStock("ada", "mood", 50));
+});
+
 test("an icon must be a game-icons slug, not an emoji or a sentence", () => {
   let engine = survival();
   assert.throws(
