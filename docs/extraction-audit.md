@@ -63,7 +63,7 @@ already exist.
    `save_scenario`.
 5. **Persistence is wired to `~/.agent-island`.** The coordinator, journal,
    scenarios and `paths.ts` write there directly; the host needs a storage
-   interface. `rules/config.ts` reads files and env vars at import time
+   interface. `src/config.ts` (was `rules/config.ts`) reads files and env vars at import time
    (`export const scenario = loadRuleset()`), so it stays app-only and must
    never be exported from a package.
 6. **Smaller items.**
@@ -80,17 +80,32 @@ already exist.
   goes with the engine.
 - Only one type had to move down into core: `StockRole`/`StockDisplay`, which
   the dry-run lints read. `scenario.ts` re-exports them.
+- **Visuals stay as they are (step 2).** The plan was to make sprites and
+  visuals opaque to the engine. The visual registry turned out to run through
+  about 40 places (overlay persistence, stock icons, the dry-run sprite
+  warning), so making it opaque would be a redesign inside a file move.
+  `sprite.ts` and `Visual` moved with the engine as presentation metadata the
+  engine stores for any spectator UI, which a library user can use too. The
+  island policy in it is narrow and becomes engine options in step 3: new
+  resources must carry a game-icons.net slug (`ensureIconFor`), and dry runs
+  warn about spawned kinds with no sprite.
+- **Most engine tests stay at the root for now.** About 23 of them build
+  worlds through `test/helpers.ts`, which replays the app's boot (reading
+  `config/config.test.json` via `src/config.ts`, resolving scenario includes,
+  merging terrain). Moving them needs a package-local fixture harness, which
+  is its own task. They still exercise the engine only through its package
+  exports.
 
 ## Packages
 
-| Package               | Files                                                                                                                      | Tests                                   |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `core`                | kernel, space, rule-schema, dryrun, stock-display                                                                          | 10 pure-core test files (75 tests)      |
-| `engine`              | engine, engine-actions, engine-orders, overlays, orders, vitals, scenario (sprites and visuals as plain passthrough data)  | engine tests that use `test/helpers.ts` |
-| `mcp`                 | generic coordinator, mcp-handler, order schema, journal, plus storage, briefing and observation hooks                      | coordinator tests, adapted              |
-| stays in Agent Island | sense-prose, briefings, sprite, island-only tools, operator, web, crew, generate-map, fs-backed storage, `rules/config.ts` | the rest                                |
+| Package               | Files                                                                                                            | Tests                                                            |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `core`                | kernel, space, rule-schema, dryrun, stock-display                                                                | 10 pure-core test files (75 tests)                               |
+| `engine`              | engine, engine-actions, engine-orders, overlays, orders, vitals, scenario, sprite                                | 5 helper-free test files (25 tests); the helper-based ones later |
+| `mcp`                 | generic coordinator, mcp-handler, order schema, journal, plus storage, briefing and observation hooks            | coordinator tests, adapted                                       |
+| stays in Agent Island | sense-prose, briefings, island-only tools, operator, web, crew, generate-map, fs-backed storage, `src/config.ts` | the rest                                                         |
 
-`@agent-island/core` is a placeholder name until the public name is chosen.
+The `@agent-island/*` names are placeholders until the public name is chosen.
 
 ## Steps
 
@@ -99,11 +114,13 @@ Each step leaves typecheck, the web build, and the full test suite green.
 1. **Workspaces and core.** Set up npm workspaces, remove the kernel globals,
    move the display type down, and move the core files and their tests.
    _Done._
-2. **Engine.** Move the engine files into `packages/engine` and turn sprites
-   and visuals into opaque metadata the engine carries but doesn't interpret.
+2. **Engine.** Move the engine files into `packages/engine`. _Done_ (visuals
+   kept as-is; see the corrections above).
 3. **MCP host.** Separate the generic coordinator from the island one, add
    storage, briefing and observation hooks, add `dry_run_rule`, and have
-   Agent Island register its own extra tools.
+   Agent Island register its own extra tools. Turn the icon requirement and
+   the missing-sprite warning into engine options. Build the package-local
+   test harness so the helper-based engine tests can move.
 4. **Ship it.** A single-room example (an auction or Werewolf) in about 50
    lines of JSON, a README with a ready-to-paste `.mcp.json`, a build step
    that emits JS and types, and an npm publish.
@@ -127,3 +144,16 @@ Each step leaves typecheck, the web build, and the full test suite green.
 - Results: 75 core tests plus 434 app tests pass (509 total). Both
   typechecks, the web typecheck and the web build pass, and the server boots
   and serves the genesis rules.
+
+**Step 2, 2026-10-12, branch `extract-engine`:**
+
+- `packages/engine` (`@agent-island/engine`, depends on core) holds engine,
+  engine-actions, engine-orders, orders, overlays, scenario, sprite and
+  vitals, with subpath exports and a barrel `index.ts`. The engine has no
+  filesystem or environment access.
+- `src/rules/` is gone: its last file, the app's ruleset loader, moved to
+  `src/config.ts`.
+- Five helper-free engine tests moved into the package.
+- Results: 75 core, 25 engine and 409 app tests pass (509 total). All
+  typechecks, the web typecheck and the web build pass; the server boots,
+  serves the genesis rules, and answers an MCP `initialize`.
