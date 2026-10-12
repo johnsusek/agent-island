@@ -95,15 +95,34 @@ already exist.
   merging terrain). Moving them needs a package-local fixture harness, which
   is its own task. They still exercise the engine only through its package
   exports.
+- **The host was more generic than blocker 4 said (step 3).** The briefings
+  only named Agent Island in their titles, and the five "island-only" tools
+  all drive features that now live in the engine (inscriptions, terrain,
+  kind visuals, scenario files), so they stay in the package. Nothing had to
+  be split out of the coordinator.
+- **Persistence needs no new interface (step 3).** Every coordinator path
+  option (`statePath`, `rulesPath`, `journalDir`, `runsDir`,
+  `scenariosDir`, ...) is nullable, and null means in-memory. That is the
+  storage hook for v0.1: `~/.agent-island` lives only in `src/server.ts`.
+  The real coupling was elsewhere: `coordinator-scenarios.ts` and
+  `coordinator-admin.ts` imported `src/config.ts`, so the coordinator read
+  the ruleset file and an env var at import time. The colony now takes
+  `baseScenario` and `graphics` as options, and an omitted `scenariosDir`
+  means no scenario store instead of this repo's `config/scenarios`.
+- **Engine options default on (step 3).** `requireStockIcons` and
+  `warnUnillustratedSpawns` default to today's behavior because the bundled
+  GM briefing and tool descriptions describe it. A host that turns them off
+  should also brief its GM differently, which is what the briefing hook in
+  step 4 is for.
 
 ## Packages
 
-| Package               | Files                                                                                                            | Tests                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `core`                | kernel, space, rule-schema, dryrun, stock-display                                                                | 10 pure-core test files (75 tests)                               |
-| `engine`              | engine, engine-actions, engine-orders, overlays, orders, vitals, scenario, sprite                                | 5 helper-free test files (25 tests); the helper-based ones later |
-| `mcp`                 | generic coordinator, mcp-handler, order schema, journal, plus storage, briefing and observation hooks            | coordinator tests, adapted                                       |
-| stays in Agent Island | sense-prose, briefings, island-only tools, operator, web, crew, generate-map, fs-backed storage, `src/config.ts` | the rest                                                         |
+| Package               | Files                                                                                                                                         | Tests                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `core`                | kernel, space, rule-schema, dryrun, stock-display                                                                                             | 10 pure-core test files (75 tests)                               |
+| `engine`              | engine, engine-actions, engine-orders, overlays, orders, vitals, scenario, sprite                                                             | 5 helper-free test files (25 tests); the helper-based ones later |
+| `mcp`                 | coordinator and its helpers, journal, scenario store, mcp-handler, order schema, sense-prose, world-file parser, briefings, tool descriptions | none yet; coordinator tests stay at the root                     |
+| stays in Agent Island | `src/server.ts`, `src/config.ts`, `src/paths.ts`, operator, web, crew, generate-map                                                           | the rest                                                         |
 
 The `@agent-island/*` names are placeholders until the public name is chosen.
 
@@ -116,14 +135,18 @@ Each step leaves typecheck, the web build, and the full test suite green.
    _Done._
 2. **Engine.** Move the engine files into `packages/engine`. _Done_ (visuals
    kept as-is; see the corrections above).
-3. **MCP host.** Separate the generic coordinator from the island one, add
-   storage, briefing and observation hooks, add `dry_run_rule`, and have
-   Agent Island register its own extra tools. Turn the icon requirement and
-   the missing-sprite warning into engine options. Build the package-local
-   test harness so the helper-based engine tests can move.
-4. **Ship it.** A single-room example (an auction or Werewolf) in about 50
-   lines of JSON, a README with a ready-to-paste `.mcp.json`, a build step
-   that emits JS and types, and an npm publish.
+3. **MCP host.** Move the host into `packages/mcp`, inject the config the
+   coordinator used to import, add `dry_run_rule`, and turn the icon
+   requirement and the missing-sprite warning into engine options. _Done._
+4. **Ship it.**
+   - A briefing hook, so a host can replace the agent and GM prompts.
+   - A `serve` entry point that boots a colony from a world file and a
+     scenarios folder, so trying it needs no server code.
+   - A single-room example (an auction or Werewolf) in about 50 lines of
+     JSON, and a README with a ready-to-paste `.mcp.json`.
+   - The package-local test harness, so the helper-based engine and
+     coordinator tests can move into their packages.
+   - A build step that emits JS and types, and an npm publish.
 
 ## Status
 
@@ -157,3 +180,28 @@ Each step leaves typecheck, the web build, and the full test suite green.
 - Results: 75 core, 25 engine and 409 app tests pass (509 total). All
   typechecks, the web typecheck and the web build pass; the server boots,
   serves the genesis rules, and answers an MCP `initialize`.
+
+**Step 3, 2026-10-12, branch `extract-mcp`:**
+
+- `createColony` takes `baseScenario` (required), `graphics` and
+  `engineOptions`; `src/server.ts` passes the first two from `src/config.ts`.
+  World-file parsing moved to `world-file.ts`
+  (`scenarioFromWorldFile`, `graphicsFromWorldFile`), so a host can build a
+  base scenario without the filesystem. Tests get a `createColony` wrapper in
+  `test/helpers.ts` with the old defaults.
+- `packages/mcp` (`@agent-island/mcp`, depends on core and engine, the MCP
+  SDK, express and zod) holds the coordinator and its helpers, the journal,
+  the scenario store, the MCP handler and order schema, sense prose, the
+  world-file parser, and the briefings and tool descriptions. `src/` keeps
+  only `server.ts`, `config.ts`, `paths.ts` and the operator. The briefing
+  titles no longer name Agent Island.
+- `dry_run_rule` (GM): validates a candidate rule like `add_rule`, then
+  simulates the live rules with it added, or swapped in for a live rule with
+  the same id, and returns the report without changing anything. The engine
+  side is `dryRunCandidateRule`.
+- `EngineOptions` on `createWorld`: `requireStockIcons` and
+  `warnUnillustratedSpawns`, both default on.
+- Results: 75 core, 25 engine and 414 app tests pass (514 total; 5 new). All
+  typechecks and the web build pass. On a live server, `/mcp` lists 11 tools
+  and `/gm` lists 17, all with descriptions loaded, and a GM can call
+  `dry_run_rule` over MCP while the live rule set stays unchanged.
