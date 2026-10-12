@@ -226,6 +226,94 @@ test("add_rule and tweak_rule surface the dry-run report through the coordinator
   }
 });
 
+test("dry_run_rule previews a rule without adding it", () => {
+  let colony = createColony({ waitTimeoutMs: 500, ...survivalBoot });
+  colony.connect("c1");
+  colony.connect("gm");
+  try {
+    colony.join("c1", "Ara");
+    colony.joinAsGm("gm");
+    let rulesBefore = colony.gmRules("gm");
+
+    let preview = colony.gmDryRunRule("gm", { ...BROKEN_WATCH });
+    assert.equal(preview.id, "broken");
+    assert.match(preview.dryRun.warnings[0], /mana/);
+    assert.deepEqual(
+      colony.gmRules("gm"),
+      rulesBefore,
+      "the candidate never joined the live rule set",
+    );
+
+    // Structural validation runs too: a refused rule is refused here.
+    assert.throws(
+      () =>
+        colony.gmDryRunRule("gm", {
+          id: "hollow",
+          kind: "action",
+          duration: 1,
+          do: [],
+        }),
+      /empty body/,
+    );
+  } finally {
+    colony.stop();
+  }
+});
+
+test("dry_run_rule on a live id previews the replacement", () => {
+  let colony = createColony({ waitTimeoutMs: 500, ...survivalBoot });
+  colony.connect("c1");
+  colony.connect("gm");
+  try {
+    colony.join("c1", "Ara");
+    colony.joinAsGm("gm");
+    colony.gmAddRule("gm", { ...BROKEN_WATCH });
+
+    let preview = colony.gmDryRunRule("gm", {
+      ...BROKEN_WATCH,
+      when: { cmp: "lte", left: { stock: "energy" }, right: 1000 },
+    });
+    assert.deepEqual(preview.dryRun.warnings, [], "the fix simulates clean");
+    assert.match(
+      JSON.stringify(colony.gmRules("gm")),
+      /mana/,
+      "the live rule still reads mana",
+    );
+  } finally {
+    colony.stop();
+  }
+});
+
+// The kernel's write guard only lets a transfer mint a destination stock the
+// ruleset declares. A candidate that declares "stones" through its own spawn
+// must simulate as if it were live, so its first transfer into "stones" is
+// not reported as an unknown resource.
+test("a dry-run candidate's spawn stocks count as known to the simulation", () => {
+  let engine = survival();
+  engine.addAgent("Ada");
+  let report = engine.dryRunCandidateRule({
+    id: "pocket_stones",
+    description: "test: each agent raises a cairn and pockets a sliver",
+    phase: "transition",
+    each: { tag: "agent" },
+    when: { cmp: "gte", left: { tick: true }, right: 0 },
+    do: [
+      { spawn: { kind: "cairn", stocks: { stones: { value: 3 } } } },
+      {
+        transfer: {
+          from: { stock: "energy", of: "self" },
+          to: { stock: "stones", of: "self" },
+          amount: 0.001,
+        },
+      },
+    ],
+  } as never);
+  assert.ok(
+    !report.warnings.some((w) => w.includes("not a known resource")),
+    `the candidate's own "stones" is known: ${report.warnings.join(" | ")}`,
+  );
+});
+
 // Genesis run 3a89cfab: exposure was declared role:"vital" and wired to rise
 // toward harm - a threshold at "gte 100" harming health - while every vital
 // in this world reads up as good. The band prose read the stock backwards:

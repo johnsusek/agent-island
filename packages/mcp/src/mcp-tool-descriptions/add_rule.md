@@ -236,6 +236,8 @@ Structural validation (unique id, recognized phase/kind, structural-effect place
 - `warnings` are the rule_errors your rule threw (a bad expression, a stock some agent lacks)
 - `notes` are softer findings (the rule matched no entity, or had no observable effect — normal for a rule awaiting a season or threshold)
 
+To see this report before the rule goes live, send it to `dry_run_rule` first.
+
 Warnings do NOT block: the rule is live regardless, so a warning about a stock you are about to seed with set_stock_default is expected — fix or proceed deliberately. One is worth treating as a hard stop, because nothing downstream will catch it: an empty `do`, which lets a character pay, be told they succeeded, and describe a structure that is not in the world.
 
 The dry-run reads shape, never intent — it cannot tell you a verb promised a noun it never spawns, or that a built thing forgot to reserve its tile. Those are yours to check.

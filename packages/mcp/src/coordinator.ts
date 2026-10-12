@@ -1997,6 +1997,7 @@ export function createColony(options: ColonyOptions) {
     gmInspect: gmCommands.gmInspect,
     gmRules: gmCommands.gmRules,
     gmAddRule: gmCommands.gmAddRule,
+    gmDryRunRule: gmCommands.gmDryRunRule,
     gmRemoveRule: gmCommands.gmRemoveRule,
     gmPatchRule: gmCommands.gmPatchRule,
     gmSaveScenario,

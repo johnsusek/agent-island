@@ -101,6 +101,16 @@ export function createGmCommands(context: GmCommandContext) {
     });
   }
 
+  // Preview a rule without adding it: the same validation add_rule runs, then
+  // a dry run of the live rules with this one added (or swapped in for the
+  // live rule with its id). Read-only, so it skips the GM-edit epilogue - no
+  // feed line, no save, no wake.
+  function gmDryRunRule(sessionId: string, rule: any, ticks?: number) {
+    context.requireGm(sessionId);
+    let dryRun = context.engine.dryRunCandidateRule(rule, ticks);
+    return { ok: true, id: rule.id as string, dryRun };
+  }
+
   function gmRemoveRule(sessionId: string, id: string) {
     context.requireGm(sessionId);
     let result = context.engine.removeRule(id);
@@ -257,6 +267,7 @@ export function createGmCommands(context: GmCommandContext) {
     gmInspect,
     gmRules,
     gmAddRule,
+    gmDryRunRule,
     gmRemoveRule,
     gmPatchRule,
     gmSetStock,

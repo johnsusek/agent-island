@@ -61,7 +61,8 @@ happened. A large value there is the flatline signal.
 ## Tools
 
 `inspect_world` (drill-down: agent/entity/rule/area/include), `list_rules`,
-`add_rule` / `remove_rule` / `tweak_rule` (dry-run vetted), `set_stock`,
+`add_rule` / `remove_rule` / `tweak_rule` (dry-run vetted), `dry_run_rule`
+(preview a rule without adding it), `set_stock`,
 `set_stock_default`, `spawn_entity`, `register_terrain` / `set_terrain`,
 `register_kind_visual` (attach an inline sprite to a kind - every new kind of
 thing needs one, there is no fallback art), `announce`, `wait_for_world`.

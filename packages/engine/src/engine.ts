@@ -3266,16 +3266,49 @@ export function createWorld(scenario: Scenario) {
   // the submitting tool's own result instead of finding rule_errors in the
   // event log later.
   function dryRunLiveRule(id: string, ticks?: number): DryRunReport {
-    let live = rules;
-    let report = dryRunRule(world, live, id, {
+    return dryRunAgainst(rules, id, vocabulary, ticks);
+  }
+
+  // Dry-run a rule that is not live yet: validate it exactly as addRule would,
+  // then simulate the live rule set with it added - or swapped in for the live
+  // rule with the same id, which previews a tweak_rule. Stocks the candidate's
+  // own spawns declare count as known. Nothing changes: not the world, the
+  // rule set, the vocabulary, or the GM feed.
+  function dryRunCandidateRule(rule: Rule, ticks?: number): DryRunReport {
+    if (
+      !rule ||
+      typeof rule !== "object" ||
+      typeof (rule as Rule).id !== "string"
+    )
+      throw new Error("A rule must be an object with a string id.");
+    let replacing = rules.some((r) => r.id === rule.id) ? rule.id : undefined;
+    validateRule(rule);
+    assertValidRule(rule);
+    assertActionNamesFree(rule, replacing);
+    assertActionDoesSomething(rule);
+    let candidates = [
+      ...rules.filter((r) => r.id !== rule.id),
+      structuredClone(rule),
+    ];
+    let known = knownStockNames(candidates);
+    return dryRunAgainst(candidates, rule.id, { ...vocabulary, known }, ticks);
+  }
+
+  function dryRunAgainst(
+    ruleSet: Rule[],
+    id: string,
+    vocab: StockVocabulary,
+    ticks?: number,
+  ): DryRunReport {
+    let report = dryRunRule(world, ruleSet, id, {
       terrain: space.grid.tiles.map((row) => row.map((t) => t.terrain)),
       agents: livingIds(),
       display: stockDisplay(),
-      knownStocks: [...knownStockNames()],
-      vocabulary,
+      knownStocks: [...knownStockNames(ruleSet)],
+      vocabulary: vocab,
       ticks,
     });
-    for (let kind of unillustratedSpawns(live.find((r) => r.id === id)))
+    for (let kind of unillustratedSpawns(ruleSet.find((r) => r.id === id)))
       report.warnings.push(
         `"${id}" spawns a ${kind}, which has no sprite - it will render as a missing-art box for every character who meets it. register_kind_visual({kind: "${kind}", sprite: ...}) in this same pass.`,
       );
@@ -3516,14 +3549,14 @@ export function createWorld(scenario: Scenario) {
   // packages/core/src/kernel.ts StockVocabulary) - it is what closes the stock namespace,
   // catching a typo'd target ("self" meaning "of":"self") before it mints a
   // phantom stock instead of after.
-  function knownStockNames(): Set<string> {
+  function knownStockNames(ruleSet: Rule[] = rules): Set<string> {
     let names = new Set<string>(Object.keys(stockDefaults));
     for (let n of Object.keys(agentTemplate.stocks)) names.add(n);
     for (let fixture of spawnedFixtures)
       for (let n of Object.keys(fixture.stocks ?? {})) names.add(n);
     for (let directive of appliedSetup)
       for (let n of Object.keys(directive.scatter.stocks ?? {})) names.add(n);
-    for (let spec of liveSpawnSpecs())
+    for (let spec of spawnSpecsOf(ruleSet))
       for (let n of Object.keys(spec.stocks ?? {})) names.add(n);
     for (let e of Object.values(world.entities))
       for (let n of Object.keys(e.stocks)) names.add(n);
@@ -3534,7 +3567,7 @@ export function createWorld(scenario: Scenario) {
   // phase - a transition or event rule may spawn just as legally as an action -
   // and descends through forEach bodies, so a stock or kind introduced by a
   // nested spawn is known before it first fires rather than only after.
-  function* liveSpawnSpecs(): Generator<SpawnSpec> {
+  function* spawnSpecsOf(ruleSet: Rule[]): Generator<SpawnSpec> {
     function* walk(effects: unknown): Generator<SpawnSpec> {
       if (!Array.isArray(effects)) return;
       for (let effect of effects) {
@@ -3544,7 +3577,7 @@ export function createWorld(scenario: Scenario) {
         if (e.forEach?.do) yield* walk(e.forEach.do);
       }
     }
-    for (let rule of rules) yield* walk((rule as { do?: unknown }).do);
+    for (let rule of ruleSet) yield* walk((rule as { do?: unknown }).do);
   }
 
   // Refresh the known-stock vocabulary the kernel checks writes against. Called wherever the
@@ -4005,6 +4038,7 @@ export function createWorld(scenario: Scenario) {
     removeRule,
     patchRule,
     dryRunRule: dryRunLiveRule,
+    dryRunCandidateRule,
     setStock,
     setStockDefault,
     getStockDefaults: () => structuredClone(stockDefaults),

@@ -560,6 +560,32 @@ function registerGmTools(
 
   registerTool(
     server,
+    "dry_run_rule",
+    {
+      description: describe("dry_run_rule"),
+      inputSchema: {
+        rule: schema
+          .record(schema.string(), schema.unknown())
+          .describe("A complete rule object, exactly as add_rule takes it"),
+        ticks: schema
+          .number()
+          .int()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe("How many ticks to simulate (default 50)"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ rule, ticks }) => coordinator.gmDryRunRule(sessionId, rule, ticks),
+  );
+
+  registerTool(
+    server,
     "remove_rule",
     {
       description: describe("remove_rule"),
