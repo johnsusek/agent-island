@@ -1,0 +1,339 @@
+<title>Five Villagers, One Bay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column (~68ch) with charts allowed to run slightly wider; tick stamps set in mono like a ship's log. */
+:root {
+  --bg: #f4f7f6;
+  --surface: #fbfcfc;
+  --ink: #12201f;
+  --ink-2: #445452;
+  --ink-3: #6f7d7b;
+  --rule: #d9e1df;
+  --grid: #e3e9e7;
+  --accent: #0b6762;
+  --series: #2a78d6;
+  --series-wash: rgba(42, 120, 214, 0.1);
+  --code-bg: #eaf0ee;
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1413; --surface: #141b1a; --ink: #e9efee; --ink-2: #b2bfbd; --ink-3: #879492;
+    --rule: #28322f; --grid: #222b29; --accent: #5ab8b0; --series: #3987e5;
+    --series-wash: rgba(57, 135, 229, 0.14); --code-bg: #18211f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1413; --surface: #141b1a; --ink: #e9efee; --ink-2: #b2bfbd; --ink-3: #879492;
+  --rule: #28322f; --grid: #222b29; --accent: #5ab8b0; --series: #3987e5;
+  --series-wash: rgba(57, 135, 229, 0.14); --code-bg: #18211f; color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 1.0625rem; line-height: 1.6; }
+.wrap { max-width: 46rem; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px; display: grid; gap: 56px; }
+section { display: grid; gap: 16px; min-width: 0; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.3rem, 6vw, 3.4rem); font-weight: 700; }
+h2 { font-size: 1.6rem; font-weight: 700; }
+h3 { font-size: 1.1rem; font-weight: 500; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, [tabindex]:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.eyebrow { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.lede { font-size: 1.22rem; line-height: 1.55; color: var(--ink); }
+header { display: grid; gap: 18px; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; margin: 0; }
+.facts div { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; align-content: start; }
+.facts dt { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.facts dd { margin: 0; font-family: var(--display); font-size: 1.35rem; font-weight: 500; }
+
+figure { margin: 0; display: grid; gap: 12px; min-width: 0; }
+.chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 12px 6px; position: relative; overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; min-width: 480px; }
+figcaption { font-size: 0.95rem; color: var(--ink-2); max-width: 68ch; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .tick { fill: var(--ink-3); font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+svg .axislabel { fill: var(--ink-3); font-family: var(--mono); font-size: 11px; }
+svg .ref { stroke: var(--ink-3); stroke-width: 1; opacity: 0.7; }
+svg .reflabel { fill: var(--ink-2); font-family: var(--mono); font-size: 11px; }
+svg .area { fill: var(--series-wash); }
+svg .line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg .event { stroke: var(--ink-3); stroke-width: 1; opacity: 0.55; }
+svg .evdot { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.25; }
+svg .evnum { fill: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 500; }
+svg .dot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
+svg .note { fill: var(--ink-2); font-family: var(--mono); font-size: 11px; }
+svg .cross { stroke: var(--ink-2); stroke-width: 1; }
+svg .crossdot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 9px; font-family: var(--mono); font-size: 0.75rem; line-height: 1.4; color: var(--ink-2); box-shadow: 0 2px 10px rgba(0,0,0,0.08); white-space: nowrap; }
+.tip strong { color: var(--ink); font-weight: 500; font-size: 0.85rem; display: block; }
+
+.key { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.95rem; color: var(--ink-2); }
+.key li { display: grid; grid-template-columns: 1.5rem 3.6rem 1fr; gap: 8px; align-items: baseline; }
+.key .n { font-family: var(--mono); font-size: 0.78rem; width: 1.3rem; height: 1.3rem; display: inline-grid; place-items: center; border: 1px solid var(--ink-2); border-radius: 50%; color: var(--ink); }
+.key .t, .log .t { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+details { font-size: 0.92rem; color: var(--ink-2); }
+summary { cursor: pointer; font-family: var(--mono); font-size: 0.8rem; color: var(--ink-3); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 0.9rem; width: 100%; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); font-weight: 400; }
+td { font-variant-numeric: tabular-nums; }
+tfoot td { font-weight: 600; color: var(--ink); border-bottom: none; }
+.num { text-align: right; }
+
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 22px; }
+.log > li { display: grid; grid-template-columns: 5.2rem 1fr; gap: 14px; }
+.log > li > div { display: grid; gap: 8px; min-width: 0; }
+.log .t { padding-top: 3px; }
+blockquote { margin: 0; padding: 2px 0 2px 14px; border-left: 2px solid var(--rule); color: var(--ink); font-style: italic; }
+blockquote cite { display: block; font-style: normal; font-family: var(--mono); font-size: 0.78rem; color: var(--ink-3); margin-top: 2px; }
+.notice { font-family: var(--mono); font-size: 0.85rem; background: var(--code-bg); border-radius: 4px; padding: 10px 12px; color: var(--ink); }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 0.8rem; line-height: 1.55; color: var(--ink); }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+.findings { margin: 0; padding: 0; list-style: none; display: grid; gap: 18px; }
+.findings li { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid var(--rule); }
+footer { font-size: 0.9rem; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 18px; display: grid; gap: 8px; }
+
+@media (max-width: 560px) {
+  .log > li { grid-template-columns: 1fr; gap: 4px; }
+  .key li { grid-template-columns: 1.5rem 3.4rem 1fr; }
+  body { font-size: 1rem; }
+}
+@media (prefers-reduced-motion: no-preference) { .tip { transition: opacity 80ms; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Agent Island playtest · 12 October 2026</p>
+    <h1>Five villagers, one bay</h1>
+    <p class="lede">Five Claude agents shared a fishing bay that dies for good if it is ever emptied. Nobody told them how to handle that. Over 380 ticks they set their own fishing limit, fed each other when it pinched, had a game master make their limit a rule of the world, and then amended that rule. All five were alive at the end, and the bay held more fish than when they arrived.</p>
+    <dl class="facts">
+      <div><dt>Season</dt><dd>380 ticks</dd></div>
+      <div><dt>Wall clock</dt><dd>11 minutes</dd></div>
+      <div><dt>Alive at close</dt><dd>5 of 5</dd></div>
+      <div><dt>Fish in the bay</dt><dd>30 → 33.7</dd></div>
+      <div><dt>Rules they made</dt><dd>2</dd></div>
+      <div><dt>Reported cost</dt><dd>@@TOT_COST@@</dd></div>
+    </dl>
+  </header>
+
+  <section aria-labelledby="setup">
+    <h2 id="setup">The setup</h2>
+    <p>Agent Island is a world that LLM agents play over MCP. A deterministic engine runs JSON rules; agents act only through the actions those rules define; a game master can add or change rules while the world runs. I recently extracted the engine and the MCP server into packages anyone can use, and this run used them exactly as an outside user would: the bundled <code>commons</code> example, started with the package's <code>serve</code> command.</p>
+    <p>The world is a 5 by 5 shore around one bay. The bay starts with 30 fish and holds at most 40. Fish regrow fastest at half capacity and not at all from an empty bay, and below one fish the bay is empty for good. Casting takes 2 ticks and lands up to 2 fish if your basket (6) has room. Eating one fish restores 15 satiation, hunger costs 1 a tick, and starving costs 4 health a tick. If anyone is alive at tick 300 the season is won, and the world stays open for 80 more ticks.</p>
+    <p>The stakes were measured before the run. The package's tests play the scenario with fixed strategies for a full season: if everyone keeps a full basket, the bay collapses within 50 to 100 ticks and the whole village starves before tick 300. Fishing only when hungry survives.</p>
+    <p><strong>The players</strong> were five <code>claude -p</code> processes on Haiku 5.5 (Ara, Bo, Cy, Di, Ed), using the project's existing character prompt and no assigned personalities. Each played stretches of about 60 ticks, kept notes in a <code>memory.md</code>, and was relaunched under the same name. <strong>The game master</strong> was the project's Clerk persona on Sonnet 5.5, woken by speech and by the bay's alarms, with one standing instruction: when most living villagers clearly agree to a specific fishing rule, make exactly that rule binding, dry-run it first, and announce it once. Never set rules on its own.</p>
+  </section>
+
+  <section aria-labelledby="season">
+    <h2 id="season">The season</h2>
+    <figure>
+      <div class="chart" id="bay-wrap">
+        @@CHART1@@
+        <div class="tip" id="bay-tip" hidden></div>
+      </div>
+      <ol class="key">
+        <li><span class="n">1</span><span class="t">t222</span><span>All five agree to wait until the bay is back above 30.</span></li>
+        <li><span class="n">2</span><span class="t">t254</span><span>The Clerk makes that agreement a rule of the world.</span></li>
+        <li><span class="n">3</span><span class="t">t300</span><span>The season ends in victory, with all five alive.</span></li>
+        <li><span class="n">4</span><span class="t">t342</span><span>The Clerk adds the village's exception for the starving.</span></li>
+      </ol>
+      <figcaption>Fish in the bay at each tick. Ticks 0 to 20 come from the counts the server reported to players; everything after is the server's own history. The bay never fell below 19.1, and it closed at 33.7.</figcaption>
+      <details>
+        <summary>Bay count as a table</summary>
+        <div class="scroll"><table><thead><tr><th>Tick</th><th>Fish</th></tr></thead><tbody>@@TABLE@@</tbody></table></div>
+      </details>
+    </figure>
+  </section>
+
+  <section aria-labelledby="log">
+    <h2 id="log">How it went</h2>
+    <ol class="log">
+      <li><span class="t">t0</span><div>
+        <h3>A norm in the first minute</h3>
+        <p>In the first tick, as the first lines went into the water, Ed took the world's own description of how fish breed and turned it into a rule of thumb. Ara, Cy and Bo each agreed out loud.</p>
+        <blockquote>"The bay is shared. Fish breed fastest at half full, so let's not empty it. I'll take a few and leave plenty."<cite>Ed, tick 0</cite></blockquote>
+      </div></li>
+      <li><span class="t">t4</span><div>
+        <h3>The opening rush overshoots</h3>
+        <p>Everyone cast at once, and by tick 4 the bay was at 19.1, just under half. Cy noticed and asked the others to hold off. Di agreed and owned the overshoot.</p>
+        <blockquote>"Sorry, I was over by the time I counted."<cite>Di, tick 4</cite></blockquote>
+      </div></li>
+      <li><span class="t">t26–92</span><div>
+        <h3>Looking for anything else</h3>
+        <p>All five walked the shore in every direction looking for berries or game. There are none; the bay is the whole economy. Each one reported back before settling down to wait.</p>
+      </div></li>
+      <li><span class="t">t90–151</span><div>
+        <h3>The line moves up</h3>
+        <p>"Above half" became something stricter: stop before the bay drops under 20, and only fish again once it is back near 30. That is a stop line and a resume line, the same shape a fishery manager would use.</p>
+        <blockquote>"Let's all keep the bay above 20 and only fish once it's back near 30."<cite>Cy, tick 135</cite></blockquote>
+      </div></li>
+      <li><span class="t">t205–222</span><div>
+        <h3>Asking instead of taking</h3>
+        <p>Ed ran out of fish below the resume line. Rather than cast, he asked. Bo and Ara each gave him one. When the next catches pushed the bay down to 24.5, Bo called a halt and all five agreed within the same tick.</p>
+        <blockquote>"If either of you can spare one, I'd be grateful."<cite>Ed, tick 205</cite></blockquote>
+        <blockquote>"Please nobody fish until it's back above 30."<cite>Bo, tick 222</cite></blockquote>
+      </div></li>
+      <li><span class="t">t254</span><div>
+        <h3>The agreement becomes law</h3>
+        <p>The Clerk dry-ran a change to the <code>fish</code> action, applied it, and posted one notice. From then on the world itself refused to let anyone cast while the bay held 30 or fewer.</p>
+        <p class="notice">Village council notice: as all agreed, "nobody fish until the bay is back above 30." The bay is closed to fishing until it holds more than 30 fish.</p>
+      </div></li>
+      <li><span class="t">t260–300</span><div>
+        <h3>The law bites</h3>
+        <p>The bay climbed slowly from 25 and crossed 30 only briefly, so fishing was mostly closed, and the world refused 7 casts under the village's rules. Fish moved hand to hand instead: over the season 13 fish changed hands in ten gifts, starting with Bo's gift to Ed at tick 209. At tick 292 Ara was starving with an empty basket. Bo argued for an exception, but the rule was now part of the world, so Di passed Ara a fish instead.</p>
+        <blockquote>"I think one fish for Ara now is worth more than the 30 line."<cite>Bo, tick 292</cite></blockquote>
+      </div></li>
+      <li><span class="t">t300</span><div>
+        <h3>The season is won</h3>
+        <p>All five were alive and the bay held 26.6. The world stayed open for its 80-tick wind-down, and the villagers kept playing.</p>
+      </div></li>
+      <li><span class="t">t329–344</span><div>
+        <h3>Amending the law</h3>
+        <p>With Ara starving again, Bo proposed an exception and gave the reason. Ed, Ara and Cy agreed; Di preferred to keep the 30 line. With four of five in favor, the Clerk added a new action rather than loosen the old one.</p>
+        <blockquote>"Proposal: anyone starving may fish one, even under 30. Fish breed best near 20, so one fish won't hurt. Agree?"<cite>Bo, tick 329</cite></blockquote>
+        <p class="notice">Village council notice: "Starving only, one fish each, not below 20." Use fish_starving: satiation 10 or less, empty basket, bay over 20.</p>
+      </div></li>
+      <li><span class="t">t380</span><div>
+        <h3>The world closes</h3>
+        <p>All five alive, the bay at 33.7. But four of the five ended at zero satiation, with health between 44 and 56 and falling 4 a tick. The first death was 11 to 14 ticks away when the clock stopped.</p>
+      </div></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="clerk">
+    <h2 id="clerk">The game master</h2>
+    <p>The Clerk woke 24 times and changed the world twice. Its notes show it holding back when agreement was loose. At tick 4 only Di had explicitly agreed to Cy's "below half" pause, so it took no action, and at its next wake it noted that the proposal "still lacks 3/5 explicit agreement." It acted only at tick 254, after all five had said yes to the same sentence.</p>
+    <p>Both changes were dry-run first with <code>dry_run_rule</code>, a tool added to the server earlier the same day. The first kept every condition already on <code>fish</code> and only added the 30 line; the second added a new action instead of loosening the old one. Both wrote the refusal in the villagers' own terms. The exception it added:</p>
+    <pre><code>{
+  "id": "fish-starving",
+  "kind": "action",
+  "aliases": ["fish_starving", "starving_catch"],
+  "requires": { "all": [
+    { "cmp": "lte", "left": { "stock": "satiation" }, "right": 10 },
+    { "cmp": "lt",  "left": { "stock": "fish" }, "right": 1 },
+    { "cmp": "gt",  "left": { "stock": "school", "of": "world" }, "right": 20 }
+  ]},
+  "requireReason": "the village allows one fish only to someone who is starving (satiation 10 or less) with an empty basket, and only while the bay holds more than 20",
+  "do": [{ "transfer": { "from": { "stock": "school", "of": "world" },
+                         "to": { "stock": "fish", "of": "self" }, "amount": 1 } }]
+}</code></pre>
+    <p>One part of that rule was the Clerk's own judgment. The villagers said "starving"; the world needs a number. The Clerk chose 10 and recorded the choice in its notes: <q><q>Starving</q> threshold 10 is my reading (not stated by villagers).</q> Turning talk into law means filling gaps like that, and here the gap was named rather than hidden.</p>
+  </section>
+
+  <section aria-labelledby="hunger">
+    <h2 id="hunger">Why the village got hungry</h2>
+    <p>The village had the right model at tick 0: fish breed fastest at half full. Then caution moved the line to 30, and that is where the hunger came from.</p>
+    <figure>
+      <div class="chart" id="g-wrap">
+        @@CHART2@@
+        <div class="tip" id="g-tip" hidden></div>
+      </div>
+      <figcaption>Fish regrown per tick at each bay level, from the scenario's own rule (3% of the stock, times the room left out of 40). The flat line is what five villagers eat: 1 satiation a tick each, at 15 per fish.</figcaption>
+    </figure>
+    <p>Held at 30, the bay regrows about 0.23 fish a tick. Held at 20, it regrows 0.30. Five villagers eat 0.33. So once "above 30" became law, the village was guaranteed to fall short, and it did: from tick 254 to the close, the bay gained about 11 fish while four villagers ran their satiation down to zero. Bo's amendment pointed back toward 20, which was the better line all along.</p>
+    <p>The chart also shows that even the best line falls a little short for five people. Held near 20, this bay feeds four with some room to spare; five sit right at its edge.</p>
+  </section>
+
+  <section aria-labelledby="broke">
+    <h2 id="broke">What the run exposed</h2>
+    <ul class="findings">
+      <li><h3>The end of the game is not obvious to players</h3><p>After the world closed, the villagers were told <code>[ended]</code> but kept issuing orders, which the closed world accepted and never ran, and kept waiting in 30-second loops. I stopped them by hand. The server should say plainly that the game is over and refuse new orders.</p></li>
+      <li><h3>Survival was partly the clock</h3><p>All five lived, but the first death was 11 to 14 ticks away. A longer wind-down would have turned the village's caution into a loss.</p></li>
+      <li><h3>Movement verbs are noise in a one-room world</h3><p>The players spent 62 scans and 40 refused moves exploring a 5 by 5 shore. The engine offers <code>explore</code> and <code>scan</code> everywhere; a scenario should be able to switch them off.</p></li>
+      <li><h3>Giving is easy to get wrong</h3><p>At tick 260 Ara gave Ed both of her fish and then said it was a mistake. Worth checking whether the <code>give</code> action's amount is clear enough to a player.</p></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="cost">
+    <h2 id="cost">Cost and scale</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Seat</th><th>Role</th><th>Model</th><th class="num">Launches</th><th class="num">Turns</th><th class="num">Output tokens</th><th class="num">Cost</th></tr></thead>
+      <tbody>@@SEATS@@</tbody>
+      <tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">@@TOT_TURNS@@</td><td class="num">@@TOT_OUT@@</td><td class="num">@@TOT_COST@@</td></tr></tfoot>
+    </table></div>
+    <p>Turns, tokens and cost are as reported by Claude Code for each completed launch, on a subscription login, so the cost is Claude Code's estimate rather than a bill. Each villager's last launch was stopped by hand after the world closed and is not counted.</p>
+  </section>
+
+  <section aria-labelledby="limits">
+    <h2 id="limits">What this run does and doesn't show</h2>
+    <p>It is one run of one scenario. The players were small, fast models. I designed and tuned the scenario, and the game master had an explicit instruction to enforce only what the villagers agreed. The players had no personalities and saw the world's own description of how fish breed, which is how Ed knew the "half full" fact at tick 0. What the run does show: agents connected to a generic rules engine over MCP, without game-specific code, invented a sustainability norm, shared food under scarcity, and turned their agreements into enforced rules that they later amended.</p>
+  </section>
+
+  <section aria-labelledby="repro">
+    <h2 id="repro">Run it yourself</h2>
+    <p>From the repository root, start the world:</p>
+    <pre><code>npx tsx --conditions=source packages/mcp/src/cli.ts serve --world packages/mcp/examples/commons/world.json --scenarios packages/mcp/examples/commons/scenarios</code></pre>
+    <p>Then start one player per villager:</p>
+    <pre><code>claude -p "You are Ara, a villager in a small fishing village. Join the game as Ara and play until the season ends." --mcp-config '{"mcpServers":{"commons":{"type":"http","url":"http://127.0.0.1:3000/mcp"}}}' --strict-mcp-config --allowedTools mcp__commons</code></pre>
+    <p>A game master connects the same way to <code>/gm</code>.</p>
+  </section>
+
+  <footer>
+    <p>The engine extraction, the run harness, the run itself and this write-up were done with Claude Code. Package names in the repository are placeholders until publication.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  var data = @@DATA@@;
+  function setup(svgId, wrapId, tipId, hitId, crossId, dotId, geom, points, fmt) {
+    var svg = document.getElementById(svgId), wrap = document.getElementById(wrapId);
+    var tip = document.getElementById(tipId), hit = document.getElementById(hitId);
+    var cross = document.getElementById(crossId), dot = document.getElementById(dotId);
+    if (!svg || !hit) return;
+    var x0 = geom[0], x1 = geom[1], d0 = geom[2], d1 = geom[3], y0 = geom[4], y1 = geom[5], v0 = geom[6], v1 = geom[7];
+    function sx(d) { return x0 + (d - d0) / (d1 - d0) * (x1 - x0); }
+    function sy(v) { return y0 + (1 - (v - v0) / (v1 - v0)) * (y1 - y0); }
+    var idx = points.length - 1;
+    function show(i) {
+      idx = Math.max(0, Math.min(points.length - 1, i));
+      var p = points[idx], x = sx(p[0]), y = sy(p[1]);
+      cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("visibility", "visible");
+      var f = fmt(p);
+      tip.textContent = "";
+      var strong = document.createElement("strong"); strong.textContent = f[0];
+      tip.appendChild(strong); tip.appendChild(document.createTextNode(f[1]));
+      tip.hidden = false;
+      var box = svg.getBoundingClientRect(), wbox = wrap.getBoundingClientRect();
+      var scale = box.width / svg.viewBox.baseVal.width;
+      var left = box.left - wbox.left + wrap.scrollLeft + x * scale + 12;
+      var top = box.top - wbox.top + y * scale - 18;
+      if (left + tip.offsetWidth > wrap.scrollWidth - 8) left -= tip.offsetWidth + 24;
+      tip.style.left = left + "px"; tip.style.top = Math.max(4, top) + "px";
+    }
+    function hide() { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); }
+    function nearest(evt) {
+      var pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+      var loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+      var d = d0 + (loc.x - x0) / (x1 - x0) * (d1 - d0), best = 0, bd = Infinity;
+      for (var i = 0; i < points.length; i++) { var dd = Math.abs(points[i][0] - d); if (dd < bd) { bd = dd; best = i; } }
+      return best;
+    }
+    hit.addEventListener("pointermove", function (e) { show(nearest(e)); });
+    hit.addEventListener("pointerleave", hide);
+    hit.addEventListener("focus", function () { show(idx); });
+    hit.addEventListener("blur", hide);
+    hit.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { show(idx + 1); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { show(idx - 1); e.preventDefault(); }
+    });
+  }
+  var labels = {}; data.events.forEach(function (e) { labels[e[0]] = e[2]; });
+  setup("bay-chart", "bay-wrap", "bay-tip", "bay-hit", "bay-cross", "bay-cross-dot", @@SX@@, data.bay,
+    function (p) { return [p[1].toFixed(1) + " fish", "tick " + p[0] + (labels[p[0]] ? " · " + labels[p[0]] : "")]; });
+  var g = []; for (var b = 0; b <= 40; b += 0.5) g.push([b, 0.03 * b * (1 - b / 40)]);
+  setup("growth-chart", "g-wrap", "g-tip", "g-hit", "g-cross", "g-cross-dot", @@GX@@, g,
+    function (p) { return [p[1].toFixed(2) + " fish a tick", "bay at " + p[0]]; });
+})();
+</script>

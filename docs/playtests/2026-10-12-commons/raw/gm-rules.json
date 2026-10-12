@@ -1,0 +1,133 @@
+{
+  "world": "commons",
+  "overlay": {
+    "dynamicRules": [
+      {
+        "id": "fish",
+        "kind": "action",
+        "duration": 2,
+        "description": "Cast a line in the bay and land up to 2 fish. By village agreement, no fishing while the bay holds 30 fish or fewer.",
+        "requires": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "school",
+                "of": "world"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "school",
+                "of": "world"
+              },
+              "right": 30
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "fish"
+              },
+              "right": 6
+            }
+          ]
+        },
+        "requireReason": "the village agreed no one fishes until the bay is back above 30 fish (or your basket is full)",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "school",
+                "of": "world"
+              },
+              "to": {
+                "stock": "fish",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "school",
+                      "of": "world"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "fish-starving",
+        "kind": "action",
+        "duration": 2,
+        "aliases": [
+          "fish_starving",
+          "starving_catch"
+        ],
+        "description": "By village agreement, a starving villager with an empty basket may land one fish while the bay holds more than 20, even when it is 30 or fewer.",
+        "requires": {
+          "all": [
+            {
+              "cmp": "lte",
+              "left": {
+                "stock": "satiation"
+              },
+              "right": 10
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "fish"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "school",
+                "of": "world"
+              },
+              "right": 20
+            }
+          ]
+        },
+        "requireReason": "the village allows one fish only to someone who is starving (satiation 10 or less) with an empty basket, and only while the bay holds more than 20",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "school",
+                "of": "world"
+              },
+              "to": {
+                "stock": "fish",
+                "of": "self"
+              },
+              "amount": 1
+            }
+          }
+        ]
+      }
+    ],
+    "removedBaseIds": [],
+    "kindVisuals": {
+      "health": {
+        "icon": "health"
+      },
+      "satiation": {
+        "icon": "food"
+      },
+      "fish": {
+        "icon": "fish-bucket"
+      },
+      "school": {
+        "icon": "big-wave"
+      }
+    }
+  }
+}

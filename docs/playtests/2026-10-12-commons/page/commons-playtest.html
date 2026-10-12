@@ -1,0 +1,361 @@
+<title>Five Villagers, One Bay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column (~68ch) with charts allowed to run slightly wider; tick stamps set in mono like a ship's log. */
+:root {
+  --bg: #f4f7f6;
+  --surface: #fbfcfc;
+  --ink: #12201f;
+  --ink-2: #445452;
+  --ink-3: #6f7d7b;
+  --rule: #d9e1df;
+  --grid: #e3e9e7;
+  --accent: #0b6762;
+  --series: #2a78d6;
+  --series-wash: rgba(42, 120, 214, 0.1);
+  --code-bg: #eaf0ee;
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1413; --surface: #141b1a; --ink: #e9efee; --ink-2: #b2bfbd; --ink-3: #879492;
+    --rule: #28322f; --grid: #222b29; --accent: #5ab8b0; --series: #3987e5;
+    --series-wash: rgba(57, 135, 229, 0.14); --code-bg: #18211f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1413; --surface: #141b1a; --ink: #e9efee; --ink-2: #b2bfbd; --ink-3: #879492;
+  --rule: #28322f; --grid: #222b29; --accent: #5ab8b0; --series: #3987e5;
+  --series-wash: rgba(57, 135, 229, 0.14); --code-bg: #18211f; color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 1.0625rem; line-height: 1.6; }
+.wrap { max-width: 46rem; margin: 0 auto; padding-inline: 20px; padding-block: 48px 72px; display: grid; gap: 56px; }
+section { display: grid; gap: 16px; min-width: 0; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.12; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.3rem, 6vw, 3.4rem); font-weight: 700; }
+h2 { font-size: 1.6rem; font-weight: 700; }
+h3 { font-size: 1.1rem; font-weight: 500; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, [tabindex]:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.eyebrow { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.lede { font-size: 1.22rem; line-height: 1.55; color: var(--ink); }
+header { display: grid; gap: 18px; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; margin: 0; }
+.facts div { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; align-content: start; }
+.facts dt { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.facts dd { margin: 0; font-family: var(--display); font-size: 1.35rem; font-weight: 500; }
+
+figure { margin: 0; display: grid; gap: 12px; min-width: 0; }
+.chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 12px 6px; position: relative; overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; min-width: 480px; }
+figcaption { font-size: 0.95rem; color: var(--ink-2); max-width: 68ch; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .tick { fill: var(--ink-3); font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+svg .axislabel { fill: var(--ink-3); font-family: var(--mono); font-size: 11px; }
+svg .ref { stroke: var(--ink-3); stroke-width: 1; opacity: 0.7; }
+svg .reflabel { fill: var(--ink-2); font-family: var(--mono); font-size: 11px; }
+svg .area { fill: var(--series-wash); }
+svg .line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg .event { stroke: var(--ink-3); stroke-width: 1; opacity: 0.55; }
+svg .evdot { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.25; }
+svg .evnum { fill: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 500; }
+svg .dot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
+svg .note { fill: var(--ink-2); font-family: var(--mono); font-size: 11px; }
+svg .cross { stroke: var(--ink-2); stroke-width: 1; }
+svg .crossdot { fill: var(--series); stroke: var(--surface); stroke-width: 2; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 9px; font-family: var(--mono); font-size: 0.75rem; line-height: 1.4; color: var(--ink-2); box-shadow: 0 2px 10px rgba(0,0,0,0.08); white-space: nowrap; }
+.tip strong { color: var(--ink); font-weight: 500; font-size: 0.85rem; display: block; }
+
+.key { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.95rem; color: var(--ink-2); }
+.key li { display: grid; grid-template-columns: 1.5rem 3.6rem 1fr; gap: 8px; align-items: baseline; }
+.key .n { font-family: var(--mono); font-size: 0.78rem; width: 1.3rem; height: 1.3rem; display: inline-grid; place-items: center; border: 1px solid var(--ink-2); border-radius: 50%; color: var(--ink); }
+.key .t, .log .t { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+details { font-size: 0.92rem; color: var(--ink-2); }
+summary { cursor: pointer; font-family: var(--mono); font-size: 0.8rem; color: var(--ink-3); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 0.9rem; width: 100%; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); font-weight: 400; }
+td { font-variant-numeric: tabular-nums; }
+tfoot td { font-weight: 600; color: var(--ink); border-bottom: none; }
+.num { text-align: right; }
+
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 22px; }
+.log > li { display: grid; grid-template-columns: 5.2rem 1fr; gap: 14px; }
+.log > li > div { display: grid; gap: 8px; min-width: 0; }
+.log .t { padding-top: 3px; }
+blockquote { margin: 0; padding: 2px 0 2px 14px; border-left: 2px solid var(--rule); color: var(--ink); font-style: italic; }
+blockquote cite { display: block; font-style: normal; font-family: var(--mono); font-size: 0.78rem; color: var(--ink-3); margin-top: 2px; }
+.notice { font-family: var(--mono); font-size: 0.85rem; background: var(--code-bg); border-radius: 4px; padding: 10px 12px; color: var(--ink); }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 0.8rem; line-height: 1.55; color: var(--ink); }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+
+.findings { margin: 0; padding: 0; list-style: none; display: grid; gap: 18px; }
+.findings li { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid var(--rule); }
+footer { font-size: 0.9rem; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 18px; display: grid; gap: 8px; }
+
+@media (max-width: 560px) {
+  .log > li { grid-template-columns: 1fr; gap: 4px; }
+  .key li { grid-template-columns: 1.5rem 3.4rem 1fr; }
+  body { font-size: 1rem; }
+}
+@media (prefers-reduced-motion: no-preference) { .tip { transition: opacity 80ms; } }
+</style>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Agent Island playtest · 12 October 2026</p>
+    <h1>Five villagers, one bay</h1>
+    <p class="lede">Five Claude agents shared a fishing bay that dies for good if it is ever emptied. Nobody told them how to handle that. Over 380 ticks they set their own fishing limit, fed each other when it pinched, had a game master make their limit a rule of the world, and then amended that rule. All five were alive at the end, and the bay held more fish than when they arrived.</p>
+    <dl class="facts">
+      <div><dt>Season</dt><dd>380 ticks</dd></div>
+      <div><dt>Wall clock</dt><dd>11 minutes</dd></div>
+      <div><dt>Alive at close</dt><dd>5 of 5</dd></div>
+      <div><dt>Fish in the bay</dt><dd>30 → 33.7</dd></div>
+      <div><dt>Rules they made</dt><dd>2</dd></div>
+      <div><dt>Reported cost</dt><dd>$3.06</dd></div>
+    </dl>
+  </header>
+
+  <section aria-labelledby="setup">
+    <h2 id="setup">The setup</h2>
+    <p>Agent Island is a world that LLM agents play over MCP. A deterministic engine runs JSON rules; agents act only through the actions those rules define; a game master can add or change rules while the world runs. I recently extracted the engine and the MCP server into packages anyone can use, and this run used them exactly as an outside user would: the bundled <code>commons</code> example, started with the package's <code>serve</code> command.</p>
+    <p>The world is a 5 by 5 shore around one bay. The bay starts with 30 fish and holds at most 40. Fish regrow fastest at half capacity and not at all from an empty bay, and below one fish the bay is empty for good. Casting takes 2 ticks and lands up to 2 fish if your basket (6) has room. Eating one fish restores 15 satiation, hunger costs 1 a tick, and starving costs 4 health a tick. If anyone is alive at tick 300 the season is won, and the world stays open for 80 more ticks.</p>
+    <p>The stakes were measured before the run. The package's tests play the scenario with fixed strategies for a full season: if everyone keeps a full basket, the bay collapses within 50 to 100 ticks and the whole village starves before tick 300. Fishing only when hungry survives.</p>
+    <p><strong>The players</strong> were five <code>claude -p</code> processes on Haiku 5.5 (Ara, Bo, Cy, Di, Ed), using the project's existing character prompt and no assigned personalities. Each played stretches of about 60 ticks, kept notes in a <code>memory.md</code>, and was relaunched under the same name. <strong>The game master</strong> was the project's Clerk persona on Sonnet 5.5, woken by speech and by the bay's alarms, with one standing instruction: when most living villagers clearly agree to a specific fishing rule, make exactly that rule binding, dry-run it first, and announce it once. Never set rules on its own.</p>
+  </section>
+
+  <section aria-labelledby="season">
+    <h2 id="season">The season</h2>
+    <figure>
+      <div class="chart" id="bay-wrap">
+        <svg id="bay-chart" viewBox="0 0 720 300" role="img" aria-labelledby="bay-title bay-desc">
+<title id="bay-title">Fish in the bay, tick by tick</title>
+<desc id="bay-desc">The bay starts at 30, dips to 19.1 at tick 4, holds between about 22 and 32 for the rest of the season, and closes at 33.7 at tick 380.</desc>
+<line class="grid" x1="44" x2="592" y1="266.0" y2="266.0"/><text class="tick" x="36" y="270.0" text-anchor="end">0</text><line class="grid" x1="44" x2="592" y1="208.0" y2="208.0"/><text class="tick" x="36" y="212.0" text-anchor="end">10</text><line class="grid" x1="44" x2="592" y1="150.0" y2="150.0"/><text class="tick" x="36" y="154.0" text-anchor="end">20</text><line class="grid" x1="44" x2="592" y1="92.0" y2="92.0"/><text class="tick" x="36" y="96.0" text-anchor="end">30</text><line class="grid" x1="44" x2="592" y1="34.0" y2="34.0"/><text class="tick" x="36" y="38.0" text-anchor="end">40</text><text class="tick" x="44.0" y="286" text-anchor="middle">0</text><text class="tick" x="188.2" y="286" text-anchor="middle">100</text><text class="tick" x="332.4" y="286" text-anchor="middle">200</text><text class="tick" x="476.6" y="286" text-anchor="middle">300</text><text class="tick" x="592.0" y="286" text-anchor="middle">380</text><line class="ref" x1="44" x2="592" y1="92.0" y2="92.0"/><text class="reflabel" x="602" y="89.0">village line:</text><text class="reflabel" x="602" y="103.0">no fishing at 30</text><line class="ref" x1="44" x2="592" y1="150.0" y2="150.0"/><text class="reflabel" x="602" y="147.0">half the bay:</text><text class="reflabel" x="602" y="161.0">fastest regrowth</text>
+<path class="area" d="M44.0,266.0 L44.0,92.0 L46.9,147.1 L49.8,155.2 L65.6,136.1 L74.3,125.6 L75.7,123.9 L77.2,122.7 L78.6,121.0 L80.1,119.3 L81.5,117.5 L82.9,115.8 L84.4,114.6 L85.8,112.9 L87.3,111.1 L88.7,110.0 L90.1,108.2 L91.6,106.5 L93.0,105.3 L94.5,103.6 L95.9,102.4 L97.4,100.7 L98.8,99.5 L100.2,97.8 L101.7,96.6 L103.1,95.5 L104.6,93.7 L106.0,92.6 L107.5,91.4 L108.9,89.7 L110.3,88.5 L111.8,87.4 L113.2,86.2 L114.7,85.0 L116.1,83.9 L117.5,82.7 L119.0,81.6 L120.4,92.0 L121.9,101.9 L123.3,111.7 L124.8,110.6 L126.2,108.8 L127.6,107.1 L129.1,105.9 L130.5,104.2 L132.0,103.0 L133.4,101.3 L134.9,100.1 L136.3,98.4 L137.7,97.2 L139.2,95.5 L140.6,94.3 L142.1,93.2 L143.5,92.0 L144.9,101.9 L146.4,100.7 L147.8,99.0 L149.3,97.8 L150.7,96.1 L152.2,106.5 L153.6,104.8 L155.0,114.6 L156.5,113.5 L157.9,111.7 L159.4,110.0 L160.8,108.8 L162.3,107.1 L163.7,116.9 L165.1,115.2 L166.6,114.0 L168.0,112.3 L169.5,110.6 L170.9,109.4 L172.3,107.7 L173.8,105.9 L175.2,104.8 L176.7,103.0 L178.1,101.9 L179.6,100.1 L181.0,99.0 L182.4,97.2 L183.9,96.1 L185.3,94.9 L186.8,104.8 L188.2,114.6 L189.7,113.5 L191.1,111.7 L192.5,121.6 L194.0,119.8 L195.4,118.7 L196.9,116.9 L198.3,115.2 L199.7,113.5 L201.2,112.3 L202.6,110.6 L204.1,108.8 L205.5,107.7 L207.0,117.5 L208.4,115.8 L209.8,114.0 L211.3,112.9 L212.7,111.1 L214.2,109.4 L215.6,108.2 L217.1,106.5 L218.5,104.8 L219.9,103.6 L221.4,101.9 L222.8,100.7 L224.3,99.0 L225.7,97.8 L227.1,96.6 L228.6,106.5 L230.0,104.8 L231.5,103.6 L232.9,101.9 L234.4,100.7 L235.8,110.6 L237.2,109.4 L238.7,119.3 L240.1,117.5 L241.6,115.8 L243.0,114.0 L244.5,112.9 L245.9,111.1 L247.3,109.4 L248.8,108.2 L250.2,106.5 L251.7,105.3 L253.1,103.6 L254.5,101.9 L256.0,100.7 L257.4,99.5 L258.9,97.8 L260.3,96.6 L261.8,94.9 L263.2,93.7 L264.6,103.6 L266.1,102.4 L267.5,100.7 L269.0,99.5 L270.4,98.4 L271.9,96.6 L273.3,95.5 L274.7,93.7 L276.2,92.6 L277.6,91.4 L279.1,90.3 L280.5,88.5 L281.9,87.4 L283.4,86.2 L284.8,96.6 L286.3,106.5 L287.7,105.3 L289.2,103.6 L290.6,101.9 L292.0,100.7 L293.5,99.5 L294.9,97.8 L296.4,96.6 L297.8,94.9 L299.3,93.7 L300.7,92.6 L302.1,90.8 L303.6,89.7 L305.0,88.5 L306.5,87.4 L307.9,86.2 L309.3,85.0 L310.8,83.9 L312.2,82.7 L313.7,92.6 L315.1,91.4 L316.6,90.3 L318.0,100.1 L319.4,99.0 L320.9,97.2 L322.3,107.7 L323.8,105.9 L325.2,104.8 L326.7,103.0 L328.1,101.9 L329.5,100.1 L331.0,99.0 L332.4,97.2 L333.9,96.1 L335.3,94.9 L336.7,93.2 L338.2,92.0 L339.6,101.9 L341.1,100.7 L342.5,99.0 L344.0,97.8 L345.4,107.7 L346.8,106.5 L348.3,104.8 L349.7,103.6 L351.2,101.9 L352.6,100.7 L354.1,99.0 L355.5,97.8 L356.9,96.1 L358.4,94.9 L359.8,93.7 L361.3,92.0 L362.7,102.4 L364.1,123.9 L365.6,133.8 L367.0,132.0 L368.5,130.3 L369.9,128.5 L371.4,126.8 L372.8,125.6 L374.2,123.9 L375.7,122.2 L377.1,120.4 L378.6,118.7 L380.0,116.9 L381.5,115.8 L382.9,114.0 L384.3,112.3 L385.8,111.1 L387.2,109.4 L388.7,107.7 L390.1,106.5 L391.5,104.8 L393.0,103.6 L394.4,101.9 L395.9,100.7 L397.3,99.0 L398.8,97.8 L400.2,96.1 L401.6,94.9 L403.1,93.7 L404.5,92.0 L406.0,90.8 L407.4,112.3 L408.9,133.8 L410.3,132.0 L411.7,130.3 L413.2,129.1 L414.6,127.4 L416.1,125.6 L417.5,123.9 L418.9,122.2 L420.4,120.4 L421.8,118.7 L423.3,117.5 L424.7,115.8 L426.2,114.0 L427.6,112.3 L429.0,111.1 L430.5,109.4 L431.9,107.7 L433.4,106.5 L434.8,104.8 L436.3,103.6 L437.7,101.9 L439.1,100.7 L440.6,99.0 L442.0,97.8 L443.5,96.1 L444.9,94.9 L446.3,93.7 L447.8,92.0 L449.2,90.8 L450.7,89.7 L452.1,88.5 L453.6,87.4 L455.0,97.2 L456.4,96.1 L457.9,94.9 L459.3,93.2 L460.8,92.0 L462.2,90.8 L463.7,89.1 L465.1,99.5 L466.5,98.4 L468.0,96.6 L469.4,95.5 L470.9,93.7 L472.3,92.6 L473.7,91.4 L475.2,90.3 L476.6,111.7 L478.1,110.0 L479.5,108.8 L481.0,107.1 L482.4,105.3 L483.8,104.2 L485.3,102.4 L486.7,101.3 L488.2,99.5 L489.6,98.4 L491.1,97.2 L492.5,95.5 L493.9,94.3 L495.4,93.2 L496.8,91.4 L498.3,90.3 L499.7,89.1 L501.1,87.9 L502.6,86.2 L504.0,85.0 L505.5,83.9 L506.9,82.7 L508.4,81.6 L509.8,80.4 L511.2,79.2 L512.7,78.7 L514.1,77.5 L515.6,99.0 L517.0,109.4 L518.5,107.7 L519.9,105.9 L521.3,104.8 L522.8,103.0 L524.2,101.9 L525.7,100.1 L527.1,99.0 L528.5,97.2 L530.0,96.1 L531.4,94.9 L532.9,93.2 L534.3,92.0 L535.8,90.8 L537.2,89.7 L538.6,87.9 L540.1,98.4 L541.5,102.4 L543.0,101.3 L544.4,99.5 L545.9,104.2 L547.3,102.4 L548.7,101.3 L550.2,99.5 L551.6,98.4 L553.1,97.2 L554.5,95.5 L555.9,94.3 L557.4,93.2 L558.8,97.2 L560.3,96.1 L561.7,94.3 L563.2,93.2 L564.6,92.0 L566.0,90.8 L567.5,89.1 L568.9,87.9 L570.4,86.8 L571.8,85.6 L573.3,84.5 L574.7,83.3 L576.1,82.1 L577.6,81.0 L579.0,79.8 L580.5,78.7 L581.9,77.5 L583.3,76.3 L584.8,75.2 L586.2,74.6 L587.7,73.4 L589.1,72.3 L590.6,71.7 L592.0,70.5 L592.0,266.0 Z"/>
+<polyline class="line" points="44.0,92.0 46.9,147.1 49.8,155.2 65.6,136.1 74.3,125.6 75.7,123.9 77.2,122.7 78.6,121.0 80.1,119.3 81.5,117.5 82.9,115.8 84.4,114.6 85.8,112.9 87.3,111.1 88.7,110.0 90.1,108.2 91.6,106.5 93.0,105.3 94.5,103.6 95.9,102.4 97.4,100.7 98.8,99.5 100.2,97.8 101.7,96.6 103.1,95.5 104.6,93.7 106.0,92.6 107.5,91.4 108.9,89.7 110.3,88.5 111.8,87.4 113.2,86.2 114.7,85.0 116.1,83.9 117.5,82.7 119.0,81.6 120.4,92.0 121.9,101.9 123.3,111.7 124.8,110.6 126.2,108.8 127.6,107.1 129.1,105.9 130.5,104.2 132.0,103.0 133.4,101.3 134.9,100.1 136.3,98.4 137.7,97.2 139.2,95.5 140.6,94.3 142.1,93.2 143.5,92.0 144.9,101.9 146.4,100.7 147.8,99.0 149.3,97.8 150.7,96.1 152.2,106.5 153.6,104.8 155.0,114.6 156.5,113.5 157.9,111.7 159.4,110.0 160.8,108.8 162.3,107.1 163.7,116.9 165.1,115.2 166.6,114.0 168.0,112.3 169.5,110.6 170.9,109.4 172.3,107.7 173.8,105.9 175.2,104.8 176.7,103.0 178.1,101.9 179.6,100.1 181.0,99.0 182.4,97.2 183.9,96.1 185.3,94.9 186.8,104.8 188.2,114.6 189.7,113.5 191.1,111.7 192.5,121.6 194.0,119.8 195.4,118.7 196.9,116.9 198.3,115.2 199.7,113.5 201.2,112.3 202.6,110.6 204.1,108.8 205.5,107.7 207.0,117.5 208.4,115.8 209.8,114.0 211.3,112.9 212.7,111.1 214.2,109.4 215.6,108.2 217.1,106.5 218.5,104.8 219.9,103.6 221.4,101.9 222.8,100.7 224.3,99.0 225.7,97.8 227.1,96.6 228.6,106.5 230.0,104.8 231.5,103.6 232.9,101.9 234.4,100.7 235.8,110.6 237.2,109.4 238.7,119.3 240.1,117.5 241.6,115.8 243.0,114.0 244.5,112.9 245.9,111.1 247.3,109.4 248.8,108.2 250.2,106.5 251.7,105.3 253.1,103.6 254.5,101.9 256.0,100.7 257.4,99.5 258.9,97.8 260.3,96.6 261.8,94.9 263.2,93.7 264.6,103.6 266.1,102.4 267.5,100.7 269.0,99.5 270.4,98.4 271.9,96.6 273.3,95.5 274.7,93.7 276.2,92.6 277.6,91.4 279.1,90.3 280.5,88.5 281.9,87.4 283.4,86.2 284.8,96.6 286.3,106.5 287.7,105.3 289.2,103.6 290.6,101.9 292.0,100.7 293.5,99.5 294.9,97.8 296.4,96.6 297.8,94.9 299.3,93.7 300.7,92.6 302.1,90.8 303.6,89.7 305.0,88.5 306.5,87.4 307.9,86.2 309.3,85.0 310.8,83.9 312.2,82.7 313.7,92.6 315.1,91.4 316.6,90.3 318.0,100.1 319.4,99.0 320.9,97.2 322.3,107.7 323.8,105.9 325.2,104.8 326.7,103.0 328.1,101.9 329.5,100.1 331.0,99.0 332.4,97.2 333.9,96.1 335.3,94.9 336.7,93.2 338.2,92.0 339.6,101.9 341.1,100.7 342.5,99.0 344.0,97.8 345.4,107.7 346.8,106.5 348.3,104.8 349.7,103.6 351.2,101.9 352.6,100.7 354.1,99.0 355.5,97.8 356.9,96.1 358.4,94.9 359.8,93.7 361.3,92.0 362.7,102.4 364.1,123.9 365.6,133.8 367.0,132.0 368.5,130.3 369.9,128.5 371.4,126.8 372.8,125.6 374.2,123.9 375.7,122.2 377.1,120.4 378.6,118.7 380.0,116.9 381.5,115.8 382.9,114.0 384.3,112.3 385.8,111.1 387.2,109.4 388.7,107.7 390.1,106.5 391.5,104.8 393.0,103.6 394.4,101.9 395.9,100.7 397.3,99.0 398.8,97.8 400.2,96.1 401.6,94.9 403.1,93.7 404.5,92.0 406.0,90.8 407.4,112.3 408.9,133.8 410.3,132.0 411.7,130.3 413.2,129.1 414.6,127.4 416.1,125.6 417.5,123.9 418.9,122.2 420.4,120.4 421.8,118.7 423.3,117.5 424.7,115.8 426.2,114.0 427.6,112.3 429.0,111.1 430.5,109.4 431.9,107.7 433.4,106.5 434.8,104.8 436.3,103.6 437.7,101.9 439.1,100.7 440.6,99.0 442.0,97.8 443.5,96.1 444.9,94.9 446.3,93.7 447.8,92.0 449.2,90.8 450.7,89.7 452.1,88.5 453.6,87.4 455.0,97.2 456.4,96.1 457.9,94.9 459.3,93.2 460.8,92.0 462.2,90.8 463.7,89.1 465.1,99.5 466.5,98.4 468.0,96.6 469.4,95.5 470.9,93.7 472.3,92.6 473.7,91.4 475.2,90.3 476.6,111.7 478.1,110.0 479.5,108.8 481.0,107.1 482.4,105.3 483.8,104.2 485.3,102.4 486.7,101.3 488.2,99.5 489.6,98.4 491.1,97.2 492.5,95.5 493.9,94.3 495.4,93.2 496.8,91.4 498.3,90.3 499.7,89.1 501.1,87.9 502.6,86.2 504.0,85.0 505.5,83.9 506.9,82.7 508.4,81.6 509.8,80.4 511.2,79.2 512.7,78.7 514.1,77.5 515.6,99.0 517.0,109.4 518.5,107.7 519.9,105.9 521.3,104.8 522.8,103.0 524.2,101.9 525.7,100.1 527.1,99.0 528.5,97.2 530.0,96.1 531.4,94.9 532.9,93.2 534.3,92.0 535.8,90.8 537.2,89.7 538.6,87.9 540.1,98.4 541.5,102.4 543.0,101.3 544.4,99.5 545.9,104.2 547.3,102.4 548.7,101.3 550.2,99.5 551.6,98.4 553.1,97.2 554.5,95.5 555.9,94.3 557.4,93.2 558.8,97.2 560.3,96.1 561.7,94.3 563.2,93.2 564.6,92.0 566.0,90.8 567.5,89.1 568.9,87.9 570.4,86.8 571.8,85.6 573.3,84.5 574.7,83.3 576.1,82.1 577.6,81.0 579.0,79.8 580.5,78.7 581.9,77.5 583.3,76.3 584.8,75.2 586.2,74.6 587.7,73.4 589.1,72.3 590.6,71.7 592.0,70.5"/>
+<line class="event" x1="364.1" x2="364.1" y1="32" y2="266.0"/><circle class="evdot" cx="364.1" cy="22" r="9"/><text class="evnum" x="364.1" y="26.0" text-anchor="middle">1</text><line class="event" x1="410.3" x2="410.3" y1="32" y2="266.0"/><circle class="evdot" cx="410.3" cy="22" r="9"/><text class="evnum" x="410.3" y="26.0" text-anchor="middle">2</text><line class="event" x1="476.6" x2="476.6" y1="32" y2="266.0"/><circle class="evdot" cx="476.6" cy="22" r="9"/><text class="evnum" x="476.6" y="26.0" text-anchor="middle">3</text><line class="event" x1="537.2" x2="537.2" y1="32" y2="266.0"/><circle class="evdot" cx="537.2" cy="22" r="9"/><text class="evnum" x="537.2" y="26.0" text-anchor="middle">4</text><circle class="dot" cx="49.8" cy="155.2" r="4"/><text class="note" x="58.8" y="171.2">19.1 at tick 4</text><circle class="dot" cx="592.0" cy="70.5" r="4"/><text class="note" x="584.0" y="60.5" text-anchor="end">33.7</text>
+<line id="bay-cross" class="cross" x1="0" x2="0" y1="34" y2="266.0" visibility="hidden"/>
+<circle id="bay-cross-dot" class="crossdot" r="5" visibility="hidden"/>
+<rect id="bay-hit" x="44" y="34" width="548" height="232" fill="transparent" tabindex="0" aria-label="Explore the bay count by tick"/>
+</svg>
+        <div class="tip" id="bay-tip" hidden></div>
+      </div>
+      <ol class="key">
+        <li><span class="n">1</span><span class="t">t222</span><span>All five agree to wait until the bay is back above 30.</span></li>
+        <li><span class="n">2</span><span class="t">t254</span><span>The Clerk makes that agreement a rule of the world.</span></li>
+        <li><span class="n">3</span><span class="t">t300</span><span>The season ends in victory, with all five alive.</span></li>
+        <li><span class="n">4</span><span class="t">t342</span><span>The Clerk adds the village's exception for the starving.</span></li>
+      </ol>
+      <figcaption>Fish in the bay at each tick. Ticks 0 to 20 come from the counts the server reported to players; everything after is the server's own history. The bay never fell below 19.1, and it closed at 33.7.</figcaption>
+      <details>
+        <summary>Bay count as a table</summary>
+        <div class="scroll"><table><thead><tr><th>Tick</th><th>Fish</th></tr></thead><tbody><tr><td>0</td><td>30.0</td></tr><tr><td>4</td><td>19.1</td></tr><tr><td>15</td><td>22.4</td></tr><tr><td>40</td><td>29.2</td></tr><tr><td>60</td><td>27.9</td></tr><tr><td>80</td><td>26.9</td></tr><tr><td>100</td><td>26.1</td></tr><tr><td>120</td><td>27.5</td></tr><tr><td>140</td><td>26.7</td></tr><tr><td>160</td><td>29.7</td></tr><tr><td>180</td><td>30.4</td></tr><tr><td>200</td><td>29.1</td></tr><tr><td>220</td><td>30.0</td></tr><tr><td>240</td><td>27.5</td></tr><tr><td>260</td><td>24.8</td></tr><tr><td>280</td><td>30.0</td></tr><tr><td>300</td><td>26.6</td></tr><tr><td>320</td><td>31.4</td></tr><tr><td>340</td><td>30.0</td></tr><tr><td>360</td><td>29.8</td></tr><tr><td>380</td><td>33.7</td></tr></tbody></table></div>
+      </details>
+    </figure>
+  </section>
+
+  <section aria-labelledby="log">
+    <h2 id="log">How it went</h2>
+    <ol class="log">
+      <li><span class="t">t0</span><div>
+        <h3>A norm in the first minute</h3>
+        <p>In the first tick, as the first lines went into the water, Ed took the world's own description of how fish breed and turned it into a rule of thumb. Ara, Cy and Bo each agreed out loud.</p>
+        <blockquote>"The bay is shared. Fish breed fastest at half full, so let's not empty it. I'll take a few and leave plenty."<cite>Ed, tick 0</cite></blockquote>
+      </div></li>
+      <li><span class="t">t4</span><div>
+        <h3>The opening rush overshoots</h3>
+        <p>Everyone cast at once, and by tick 4 the bay was at 19.1, just under half. Cy noticed and asked the others to hold off. Di agreed and owned the overshoot.</p>
+        <blockquote>"Sorry, I was over by the time I counted."<cite>Di, tick 4</cite></blockquote>
+      </div></li>
+      <li><span class="t">t26–92</span><div>
+        <h3>Looking for anything else</h3>
+        <p>All five walked the shore in every direction looking for berries or game. There are none; the bay is the whole economy. Each one reported back before settling down to wait.</p>
+      </div></li>
+      <li><span class="t">t90–151</span><div>
+        <h3>The line moves up</h3>
+        <p>"Above half" became something stricter: stop before the bay drops under 20, and only fish again once it is back near 30. That is a stop line and a resume line, the same shape a fishery manager would use.</p>
+        <blockquote>"Let's all keep the bay above 20 and only fish once it's back near 30."<cite>Cy, tick 135</cite></blockquote>
+      </div></li>
+      <li><span class="t">t205–222</span><div>
+        <h3>Asking instead of taking</h3>
+        <p>Ed ran out of fish below the resume line. Rather than cast, he asked. Bo and Ara each gave him one. When the next catches pushed the bay down to 24.5, Bo called a halt and all five agreed within the same tick.</p>
+        <blockquote>"If either of you can spare one, I'd be grateful."<cite>Ed, tick 205</cite></blockquote>
+        <blockquote>"Please nobody fish until it's back above 30."<cite>Bo, tick 222</cite></blockquote>
+      </div></li>
+      <li><span class="t">t254</span><div>
+        <h3>The agreement becomes law</h3>
+        <p>The Clerk dry-ran a change to the <code>fish</code> action, applied it, and posted one notice. From then on the world itself refused to let anyone cast while the bay held 30 or fewer.</p>
+        <p class="notice">Village council notice: as all agreed, "nobody fish until the bay is back above 30." The bay is closed to fishing until it holds more than 30 fish.</p>
+      </div></li>
+      <li><span class="t">t260–300</span><div>
+        <h3>The law bites</h3>
+        <p>The bay climbed slowly from 25 and crossed 30 only briefly, so fishing was mostly closed, and the world refused 7 casts under the village's rules. Fish moved hand to hand instead: over the season 13 fish changed hands in ten gifts, starting with Bo's gift to Ed at tick 209. At tick 292 Ara was starving with an empty basket. Bo argued for an exception, but the rule was now part of the world, so Di passed Ara a fish instead.</p>
+        <blockquote>"I think one fish for Ara now is worth more than the 30 line."<cite>Bo, tick 292</cite></blockquote>
+      </div></li>
+      <li><span class="t">t300</span><div>
+        <h3>The season is won</h3>
+        <p>All five were alive and the bay held 26.6. The world stayed open for its 80-tick wind-down, and the villagers kept playing.</p>
+      </div></li>
+      <li><span class="t">t329–344</span><div>
+        <h3>Amending the law</h3>
+        <p>With Ara starving again, Bo proposed an exception and gave the reason. Ed, Ara and Cy agreed; Di preferred to keep the 30 line. With four of five in favor, the Clerk added a new action rather than loosen the old one.</p>
+        <blockquote>"Proposal: anyone starving may fish one, even under 30. Fish breed best near 20, so one fish won't hurt. Agree?"<cite>Bo, tick 329</cite></blockquote>
+        <p class="notice">Village council notice: "Starving only, one fish each, not below 20." Use fish_starving: satiation 10 or less, empty basket, bay over 20.</p>
+      </div></li>
+      <li><span class="t">t380</span><div>
+        <h3>The world closes</h3>
+        <p>All five alive, the bay at 33.7. But four of the five ended at zero satiation, with health between 44 and 56 and falling 4 a tick. The first death was 11 to 14 ticks away when the clock stopped.</p>
+      </div></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="clerk">
+    <h2 id="clerk">The game master</h2>
+    <p>The Clerk woke 24 times and changed the world twice. Its notes show it holding back when agreement was loose. At tick 4 only Di had explicitly agreed to Cy's "below half" pause, so it took no action, and at its next wake it noted that the proposal "still lacks 3/5 explicit agreement." It acted only at tick 254, after all five had said yes to the same sentence.</p>
+    <p>Both changes were dry-run first with <code>dry_run_rule</code>, a tool added to the server earlier the same day. The first kept every condition already on <code>fish</code> and only added the 30 line; the second added a new action instead of loosening the old one. Both wrote the refusal in the villagers' own terms. The exception it added:</p>
+    <pre><code>{
+  "id": "fish-starving",
+  "kind": "action",
+  "aliases": ["fish_starving", "starving_catch"],
+  "requires": { "all": [
+    { "cmp": "lte", "left": { "stock": "satiation" }, "right": 10 },
+    { "cmp": "lt",  "left": { "stock": "fish" }, "right": 1 },
+    { "cmp": "gt",  "left": { "stock": "school", "of": "world" }, "right": 20 }
+  ]},
+  "requireReason": "the village allows one fish only to someone who is starving (satiation 10 or less) with an empty basket, and only while the bay holds more than 20",
+  "do": [{ "transfer": { "from": { "stock": "school", "of": "world" },
+                         "to": { "stock": "fish", "of": "self" }, "amount": 1 } }]
+}</code></pre>
+    <p>One part of that rule was the Clerk's own judgment. The villagers said "starving"; the world needs a number. The Clerk chose 10 and recorded the choice in its notes: <q><q>Starving</q> threshold 10 is my reading (not stated by villagers).</q> Turning talk into law means filling gaps like that, and here the gap was named rather than hidden.</p>
+  </section>
+
+  <section aria-labelledby="hunger">
+    <h2 id="hunger">Why the village got hungry</h2>
+    <p>The village had the right model at tick 0: fish breed fastest at half full. Then caution moved the line to 30, and that is where the hunger came from.</p>
+    <figure>
+      <div class="chart" id="g-wrap">
+        <svg id="growth-chart" viewBox="0 0 720 260" role="img" aria-labelledby="g-title g-desc">
+<title id="g-title">How fast the bay regrows at each level</title>
+<desc id="g-desc">Regrowth peaks at 0.30 fish per tick when the bay holds 20, falls to about 0.23 at 30, and never reaches the 0.33 fish per tick that five villagers eat.</desc>
+<line class="grid" x1="52" x2="700" y1="220.0" y2="220.0"/><text class="tick" x="44" y="224.0" text-anchor="end">0.0</text><line class="grid" x1="52" x2="700" y1="164.4" y2="164.4"/><text class="tick" x="44" y="168.4" text-anchor="end">0.1</text><line class="grid" x1="52" x2="700" y1="108.9" y2="108.9"/><text class="tick" x="44" y="112.9" text-anchor="end">0.2</text><line class="grid" x1="52" x2="700" y1="53.3" y2="53.3"/><text class="tick" x="44" y="57.3" text-anchor="end">0.3</text><text class="tick" x="52.0" y="240" text-anchor="middle">0</text><text class="tick" x="214.0" y="240" text-anchor="middle">10</text><text class="tick" x="376.0" y="240" text-anchor="middle">20</text><text class="tick" x="538.0" y="240" text-anchor="middle">30</text><text class="tick" x="700.0" y="240" text-anchor="middle">40</text><text class="axislabel" x="376.0" y="256" text-anchor="middle">fish in the bay</text>
+<line class="ref" x1="52" x2="700" y1="34.8" y2="34.8"/>
+<text class="reflabel" x="694" y="28.8" text-anchor="end">what five villagers eat: 0.33 a tick</text>
+<path class="area" d="M52.0,220.0 L52.0,220.0 L56.0,215.9 L60.1,211.8 L64.2,207.7 L68.2,203.8 L72.2,199.8 L76.3,195.9 L80.3,192.1 L84.4,188.3 L88.5,184.6 L92.5,180.9 L96.6,177.3 L100.6,173.8 L104.7,170.2 L108.7,166.8 L112.8,163.4 L116.8,160.0 L120.8,156.7 L124.9,153.4 L128.9,150.2 L133.0,147.1 L137.1,144.0 L141.1,140.9 L145.1,137.9 L149.2,135.0 L153.2,132.1 L157.3,129.3 L161.4,126.5 L165.4,123.8 L169.4,121.1 L173.5,118.4 L177.6,115.9 L181.6,113.3 L185.7,110.9 L189.7,108.4 L193.8,106.1 L197.8,103.7 L201.8,101.5 L205.9,99.3 L209.9,97.1 L214.0,95.0 L218.0,92.9 L222.1,90.9 L226.2,89.0 L230.2,87.1 L234.2,85.2 L238.3,83.4 L242.3,81.7 L246.4,80.0 L250.5,78.4 L254.5,76.8 L258.5,75.2 L262.6,73.7 L266.6,72.3 L270.7,70.9 L274.8,69.6 L278.8,68.3 L282.9,67.1 L286.9,65.9 L291.0,64.8 L295.0,63.8 L299.0,62.7 L303.1,61.8 L307.1,60.9 L311.2,60.0 L315.2,59.2 L319.3,58.4 L323.4,57.7 L327.4,57.1 L331.4,56.5 L335.5,55.9 L339.6,55.4 L343.6,55.0 L347.6,54.6 L351.7,54.3 L355.8,54.0 L359.8,53.8 L363.9,53.6 L367.9,53.4 L371.9,53.4 L376.0,53.3 L380.1,53.4 L384.1,53.4 L388.2,53.6 L392.2,53.8 L396.2,54.0 L400.3,54.3 L404.3,54.6 L408.4,55.0 L412.4,55.4 L416.5,55.9 L420.6,56.5 L424.6,57.1 L428.7,57.7 L432.7,58.4 L436.8,59.2 L440.8,60.0 L444.8,60.9 L448.9,61.8 L452.9,62.7 L457.0,63.8 L461.1,64.8 L465.1,65.9 L469.2,67.1 L473.2,68.3 L477.2,69.6 L481.3,70.9 L485.3,72.3 L489.4,73.8 L493.4,75.2 L497.5,76.8 L501.6,78.4 L505.6,80.0 L509.7,81.7 L513.7,83.4 L517.8,85.2 L521.8,87.1 L525.8,89.0 L529.9,90.9 L534.0,92.9 L538.0,95.0 L542.0,97.1 L546.1,99.3 L550.2,101.5 L554.2,103.8 L558.2,106.1 L562.3,108.4 L566.4,110.9 L570.4,113.3 L574.5,115.9 L578.5,118.4 L582.5,121.1 L586.6,123.7 L590.6,126.5 L594.7,129.3 L598.8,132.1 L602.8,135.0 L606.9,137.9 L610.9,140.9 L615.0,144.0 L619.0,147.1 L623.0,150.2 L627.1,153.4 L631.1,156.7 L635.2,160.0 L639.2,163.4 L643.3,166.8 L647.4,170.2 L651.4,173.8 L655.5,177.3 L659.5,180.9 L663.5,184.6 L667.6,188.3 L671.6,192.1 L675.7,195.9 L679.8,199.8 L683.8,203.8 L687.9,207.7 L691.9,211.8 L696.0,215.9 L700.0,220.0 L700.0,220.0 Z"/>
+<polyline class="line" points="52.0,220.0 56.0,215.9 60.1,211.8 64.2,207.7 68.2,203.8 72.2,199.8 76.3,195.9 80.3,192.1 84.4,188.3 88.5,184.6 92.5,180.9 96.6,177.3 100.6,173.8 104.7,170.2 108.7,166.8 112.8,163.4 116.8,160.0 120.8,156.7 124.9,153.4 128.9,150.2 133.0,147.1 137.1,144.0 141.1,140.9 145.1,137.9 149.2,135.0 153.2,132.1 157.3,129.3 161.4,126.5 165.4,123.8 169.4,121.1 173.5,118.4 177.6,115.9 181.6,113.3 185.7,110.9 189.7,108.4 193.8,106.1 197.8,103.7 201.8,101.5 205.9,99.3 209.9,97.1 214.0,95.0 218.0,92.9 222.1,90.9 226.2,89.0 230.2,87.1 234.2,85.2 238.3,83.4 242.3,81.7 246.4,80.0 250.5,78.4 254.5,76.8 258.5,75.2 262.6,73.7 266.6,72.3 270.7,70.9 274.8,69.6 278.8,68.3 282.9,67.1 286.9,65.9 291.0,64.8 295.0,63.8 299.0,62.7 303.1,61.8 307.1,60.9 311.2,60.0 315.2,59.2 319.3,58.4 323.4,57.7 327.4,57.1 331.4,56.5 335.5,55.9 339.6,55.4 343.6,55.0 347.6,54.6 351.7,54.3 355.8,54.0 359.8,53.8 363.9,53.6 367.9,53.4 371.9,53.4 376.0,53.3 380.1,53.4 384.1,53.4 388.2,53.6 392.2,53.8 396.2,54.0 400.3,54.3 404.3,54.6 408.4,55.0 412.4,55.4 416.5,55.9 420.6,56.5 424.6,57.1 428.7,57.7 432.7,58.4 436.8,59.2 440.8,60.0 444.8,60.9 448.9,61.8 452.9,62.7 457.0,63.8 461.1,64.8 465.1,65.9 469.2,67.1 473.2,68.3 477.2,69.6 481.3,70.9 485.3,72.3 489.4,73.8 493.4,75.2 497.5,76.8 501.6,78.4 505.6,80.0 509.7,81.7 513.7,83.4 517.8,85.2 521.8,87.1 525.8,89.0 529.9,90.9 534.0,92.9 538.0,95.0 542.0,97.1 546.1,99.3 550.2,101.5 554.2,103.8 558.2,106.1 562.3,108.4 566.4,110.9 570.4,113.3 574.5,115.9 578.5,118.4 582.5,121.1 586.6,123.7 590.6,126.5 594.7,129.3 598.8,132.1 602.8,135.0 606.9,137.9 610.9,140.9 615.0,144.0 619.0,147.1 623.0,150.2 627.1,153.4 631.1,156.7 635.2,160.0 639.2,163.4 643.3,166.8 647.4,170.2 651.4,173.8 655.5,177.3 659.5,180.9 663.5,184.6 667.6,188.3 671.6,192.1 675.7,195.9 679.8,199.8 683.8,203.8 687.9,207.7 691.9,211.8 696.0,215.9 700.0,220.0"/>
+<circle class="dot" cx="376.0" cy="53.3" r="4"/><text class="note" x="376.0" y="75.3" text-anchor="middle">0.30 at 20</text><circle class="dot" cx="538.0" cy="95.0" r="4"/><text class="note" x="528.0" y="113.0" text-anchor="end">0.23 at 30</text>
+<line id="g-cross" class="cross" x1="0" x2="0" y1="20" y2="220.0" visibility="hidden"/>
+<circle id="g-cross-dot" class="crossdot" r="5" visibility="hidden"/>
+<rect id="g-hit" x="52" y="20" width="648" height="200" fill="transparent" tabindex="0" aria-label="Explore regrowth by bay level"/>
+</svg>
+        <div class="tip" id="g-tip" hidden></div>
+      </div>
+      <figcaption>Fish regrown per tick at each bay level, from the scenario's own rule (3% of the stock, times the room left out of 40). The flat line is what five villagers eat: 1 satiation a tick each, at 15 per fish.</figcaption>
+    </figure>
+    <p>Held at 30, the bay regrows about 0.23 fish a tick. Held at 20, it regrows 0.30. Five villagers eat 0.33. So once "above 30" became law, the village was guaranteed to fall short, and it did: from tick 254 to the close, the bay gained about 11 fish while four villagers ran their satiation down to zero. Bo's amendment pointed back toward 20, which was the better line all along.</p>
+    <p>The chart also shows that even the best line falls a little short for five people. Held near 20, this bay feeds four with some room to spare; five sit right at its edge.</p>
+  </section>
+
+  <section aria-labelledby="broke">
+    <h2 id="broke">What the run exposed</h2>
+    <ul class="findings">
+      <li><h3>The end of the game is not obvious to players</h3><p>After the world closed, the villagers were told <code>[ended]</code> but kept issuing orders, which the closed world accepted and never ran, and kept waiting in 30-second loops. I stopped them by hand. The server should say plainly that the game is over and refuse new orders.</p></li>
+      <li><h3>Survival was partly the clock</h3><p>All five lived, but the first death was 11 to 14 ticks away. A longer wind-down would have turned the village's caution into a loss.</p></li>
+      <li><h3>Movement verbs are noise in a one-room world</h3><p>The players spent 62 scans and 40 refused moves exploring a 5 by 5 shore. The engine offers <code>explore</code> and <code>scan</code> everywhere; a scenario should be able to switch them off.</p></li>
+      <li><h3>Giving is easy to get wrong</h3><p>At tick 260 Ara gave Ed both of her fish and then said it was a mistake. Worth checking whether the <code>give</code> action's amount is clear enough to a player.</p></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="cost">
+    <h2 id="cost">Cost and scale</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Seat</th><th>Role</th><th>Model</th><th class="num">Launches</th><th class="num">Turns</th><th class="num">Output tokens</th><th class="num">Cost</th></tr></thead>
+      <tbody><tr><td>Ara</td><td>villager</td><td>Haiku 5.5</td><td>8</td><td>180</td><td>29,426</td><td>$0.09</td></tr><tr><td>Bo</td><td>villager</td><td>Haiku 5.5</td><td>8</td><td>202</td><td>31,875</td><td>$0.11</td></tr><tr><td>Cy</td><td>villager</td><td>Haiku 5.5</td><td>7</td><td>180</td><td>27,003</td><td>$0.09</td></tr><tr><td>Di</td><td>villager</td><td>Haiku 5.5</td><td>6</td><td>178</td><td>26,860</td><td>$0.09</td></tr><tr><td>Ed</td><td>villager</td><td>Haiku 5.5</td><td>7</td><td>169</td><td>24,572</td><td>$0.08</td></tr><tr><td>Clerk</td><td>game master</td><td>Sonnet 5.5</td><td>24</td><td>154</td><td>25,868</td><td>$2.60</td></tr></tbody>
+      <tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">1,063</td><td class="num">165,604</td><td class="num">$3.06</td></tr></tfoot>
+    </table></div>
+    <p>Turns, tokens and cost are as reported by Claude Code for each completed launch, on a subscription login, so the cost is Claude Code's estimate rather than a bill. Each villager's last launch was stopped by hand after the world closed and is not counted.</p>
+  </section>
+
+  <section aria-labelledby="limits">
+    <h2 id="limits">What this run does and doesn't show</h2>
+    <p>It is one run of one scenario. The players were small, fast models. I designed and tuned the scenario, and the game master had an explicit instruction to enforce only what the villagers agreed. The players had no personalities and saw the world's own description of how fish breed, which is how Ed knew the "half full" fact at tick 0. What the run does show: agents connected to a generic rules engine over MCP, without game-specific code, invented a sustainability norm, shared food under scarcity, and turned their agreements into enforced rules that they later amended.</p>
+  </section>
+
+  <section aria-labelledby="repro">
+    <h2 id="repro">Run it yourself</h2>
+    <p>From the repository root, start the world:</p>
+    <pre><code>npx tsx --conditions=source packages/mcp/src/cli.ts serve --world packages/mcp/examples/commons/world.json --scenarios packages/mcp/examples/commons/scenarios</code></pre>
+    <p>Then start one player per villager:</p>
+    <pre><code>claude -p "You are Ara, a villager in a small fishing village. Join the game as Ara and play until the season ends." --mcp-config '{"mcpServers":{"commons":{"type":"http","url":"http://127.0.0.1:3000/mcp"}}}' --strict-mcp-config --allowedTools mcp__commons</code></pre>
+    <p>A game master connects the same way to <code>/gm</code>.</p>
+  </section>
+
+  <footer>
+    <p>The engine extraction, the run harness, the run itself and this write-up were done with Claude Code. Package names in the repository are placeholders until publication.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  var data = {"bay": [[0, 30.0], [2, 20.5], [4, 19.1], [15, 22.4], [21, 24.2], [22, 24.5], [23, 24.7], [24, 25], [25, 25.3], [26, 25.6], [27, 25.9], [28, 26.1], [29, 26.4], [30, 26.7], [31, 26.9], [32, 27.2], [33, 27.5], [34, 27.7], [35, 28], [36, 28.2], [37, 28.5], [38, 28.7], [39, 29], [40, 29.2], [41, 29.4], [42, 29.7], [43, 29.9], [44, 30.1], [45, 30.4], [46, 30.6], [47, 30.8], [48, 31], [49, 31.2], [50, 31.4], [51, 31.6], [52, 31.8], [53, 30], [54, 28.3], [55, 26.6], [56, 26.8], [57, 27.1], [58, 27.4], [59, 27.6], [60, 27.9], [61, 28.1], [62, 28.4], [63, 28.6], [64, 28.9], [65, 29.1], [66, 29.4], [67, 29.6], [68, 29.8], [69, 30], [70, 28.3], [71, 28.5], [72, 28.8], [73, 29], [74, 29.3], [75, 27.5], [76, 27.8], [77, 26.1], [78, 26.3], [79, 26.6], [80, 26.9], [81, 27.1], [82, 27.4], [83, 25.7], [84, 26], [85, 26.2], [86, 26.5], [87, 26.8], [88, 27], [89, 27.3], [90, 27.6], [91, 27.8], [92, 28.1], [93, 28.3], [94, 28.6], [95, 28.8], [96, 29.1], [97, 29.3], [98, 29.5], [99, 27.8], [100, 26.1], [101, 26.3], [102, 26.6], [103, 24.9], [104, 25.2], [105, 25.4], [106, 25.7], [107, 26], [108, 26.3], [109, 26.5], [110, 26.8], [111, 27.1], [112, 27.3], [113, 25.6], [114, 25.9], [115, 26.2], [116, 26.4], [117, 26.7], [118, 27], [119, 27.2], [120, 27.5], [121, 27.8], [122, 28], [123, 28.3], [124, 28.5], [125, 28.8], [126, 29], [127, 29.2], [128, 27.5], [129, 27.8], [130, 28], [131, 28.3], [132, 28.5], [133, 26.8], [134, 27], [135, 25.3], [136, 25.6], [137, 25.9], [138, 26.2], [139, 26.4], [140, 26.7], [141, 27], [142, 27.2], [143, 27.5], [144, 27.7], [145, 28], [146, 28.3], [147, 28.5], [148, 28.7], [149, 29], [150, 29.2], [151, 29.5], [152, 29.7], [153, 28], [154, 28.2], [155, 28.5], [156, 28.7], [157, 28.9], [158, 29.2], [159, 29.4], [160, 29.7], [161, 29.9], [162, 30.1], [163, 30.3], [164, 30.6], [165, 30.8], [166, 31], [167, 29.2], [168, 27.5], [169, 27.7], [170, 28], [171, 28.3], [172, 28.5], [173, 28.7], [174, 29], [175, 29.2], [176, 29.5], [177, 29.7], [178, 29.9], [179, 30.2], [180, 30.4], [181, 30.6], [182, 30.8], [183, 31], [184, 31.2], [185, 31.4], [186, 31.6], [187, 29.9], [188, 30.1], [189, 30.3], [190, 28.6], [191, 28.8], [192, 29.1], [193, 27.3], [194, 27.6], [195, 27.8], [196, 28.1], [197, 28.3], [198, 28.6], [199, 28.8], [200, 29.1], [201, 29.3], [202, 29.5], [203, 29.8], [204, 30], [205, 28.3], [206, 28.5], [207, 28.8], [208, 29], [209, 27.3], [210, 27.5], [211, 27.8], [212, 28], [213, 28.3], [214, 28.5], [215, 28.8], [216, 29], [217, 29.3], [218, 29.5], [219, 29.7], [220, 30], [221, 28.2], [222, 24.5], [223, 22.8], [224, 23.1], [225, 23.4], [226, 23.7], [227, 24], [228, 24.2], [229, 24.5], [230, 24.8], [231, 25.1], [232, 25.4], [233, 25.7], [234, 25.9], [235, 26.2], [236, 26.5], [237, 26.7], [238, 27], [239, 27.3], [240, 27.5], [241, 27.8], [242, 28], [243, 28.3], [244, 28.5], [245, 28.8], [246, 29], [247, 29.3], [248, 29.5], [249, 29.7], [250, 30], [251, 30.2], [252, 26.5], [253, 22.8], [254, 23.1], [255, 23.4], [256, 23.6], [257, 23.9], [258, 24.2], [259, 24.5], [260, 24.8], [261, 25.1], [262, 25.4], [263, 25.6], [264, 25.9], [265, 26.2], [266, 26.5], [267, 26.7], [268, 27], [269, 27.3], [270, 27.5], [271, 27.8], [272, 28], [273, 28.3], [274, 28.5], [275, 28.8], [276, 29], [277, 29.3], [278, 29.5], [279, 29.7], [280, 30], [281, 30.2], [282, 30.4], [283, 30.6], [284, 30.8], [285, 29.1], [286, 29.3], [287, 29.5], [288, 29.8], [289, 30], [290, 30.2], [291, 30.5], [292, 28.7], [293, 28.9], [294, 29.2], [295, 29.4], [296, 29.7], [297, 29.9], [298, 30.1], [299, 30.3], [300, 26.6], [301, 26.9], [302, 27.1], [303, 27.4], [304, 27.7], [305, 27.9], [306, 28.2], [307, 28.4], [308, 28.7], [309, 28.9], [310, 29.1], [311, 29.4], [312, 29.6], [313, 29.8], [314, 30.1], [315, 30.3], [316, 30.5], [317, 30.7], [318, 31], [319, 31.2], [320, 31.4], [321, 31.6], [322, 31.8], [323, 32], [324, 32.2], [325, 32.3], [326, 32.5], [327, 28.8], [328, 27], [329, 27.3], [330, 27.6], [331, 27.8], [332, 28.1], [333, 28.3], [334, 28.6], [335, 28.8], [336, 29.1], [337, 29.3], [338, 29.5], [339, 29.8], [340, 30], [341, 30.2], [342, 30.4], [343, 30.7], [344, 28.9], [345, 28.2], [346, 28.4], [347, 28.7], [348, 27.9], [349, 28.2], [350, 28.4], [351, 28.7], [352, 28.9], [353, 29.1], [354, 29.4], [355, 29.6], [356, 29.8], [357, 29.1], [358, 29.3], [359, 29.6], [360, 29.8], [361, 30], [362, 30.2], [363, 30.5], [364, 30.7], [365, 30.9], [366, 31.1], [367, 31.3], [368, 31.5], [369, 31.7], [370, 31.9], [371, 32.1], [372, 32.3], [373, 32.5], [374, 32.7], [375, 32.9], [376, 33], [377, 33.2], [378, 33.4], [379, 33.5], [380, 33.7]], "events": [[222, "1", "All five agree to wait until the bay is back above 30."], [254, "2", "The Clerk makes that agreement a rule of the world."], [300, "3", "The season ends in victory, with all five alive."], [342, "4", "The Clerk adds the village's exception for the starving."]]};
+  function setup(svgId, wrapId, tipId, hitId, crossId, dotId, geom, points, fmt) {
+    var svg = document.getElementById(svgId), wrap = document.getElementById(wrapId);
+    var tip = document.getElementById(tipId), hit = document.getElementById(hitId);
+    var cross = document.getElementById(crossId), dot = document.getElementById(dotId);
+    if (!svg || !hit) return;
+    var x0 = geom[0], x1 = geom[1], d0 = geom[2], d1 = geom[3], y0 = geom[4], y1 = geom[5], v0 = geom[6], v1 = geom[7];
+    function sx(d) { return x0 + (d - d0) / (d1 - d0) * (x1 - x0); }
+    function sy(v) { return y0 + (1 - (v - v0) / (v1 - v0)) * (y1 - y0); }
+    var idx = points.length - 1;
+    function show(i) {
+      idx = Math.max(0, Math.min(points.length - 1, i));
+      var p = points[idx], x = sx(p[0]), y = sy(p[1]);
+      cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("visibility", "visible");
+      var f = fmt(p);
+      tip.textContent = "";
+      var strong = document.createElement("strong"); strong.textContent = f[0];
+      tip.appendChild(strong); tip.appendChild(document.createTextNode(f[1]));
+      tip.hidden = false;
+      var box = svg.getBoundingClientRect(), wbox = wrap.getBoundingClientRect();
+      var scale = box.width / svg.viewBox.baseVal.width;
+      var left = box.left - wbox.left + wrap.scrollLeft + x * scale + 12;
+      var top = box.top - wbox.top + y * scale - 18;
+      if (left + tip.offsetWidth > wrap.scrollWidth - 8) left -= tip.offsetWidth + 24;
+      tip.style.left = left + "px"; tip.style.top = Math.max(4, top) + "px";
+    }
+    function hide() { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); }
+    function nearest(evt) {
+      var pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+      var loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+      var d = d0 + (loc.x - x0) / (x1 - x0) * (d1 - d0), best = 0, bd = Infinity;
+      for (var i = 0; i < points.length; i++) { var dd = Math.abs(points[i][0] - d); if (dd < bd) { bd = dd; best = i; } }
+      return best;
+    }
+    hit.addEventListener("pointermove", function (e) { show(nearest(e)); });
+    hit.addEventListener("pointerleave", hide);
+    hit.addEventListener("focus", function () { show(idx); });
+    hit.addEventListener("blur", hide);
+    hit.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { show(idx + 1); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { show(idx - 1); e.preventDefault(); }
+    });
+  }
+  var labels = {}; data.events.forEach(function (e) { labels[e[0]] = e[2]; });
+  setup("bay-chart", "bay-wrap", "bay-tip", "bay-hit", "bay-cross", "bay-cross-dot", [44, 592, 0, 380, 34, 266, 0, 40], data.bay,
+    function (p) { return [p[1].toFixed(1) + " fish", "tick " + p[0] + (labels[p[0]] ? " · " + labels[p[0]] : "")]; });
+  var g = []; for (var b = 0; b <= 40; b += 0.5) g.push([b, 0.03 * b * (1 - b / 40)]);
+  setup("growth-chart", "g-wrap", "g-tip", "g-hit", "g-cross", "g-cross-dot", [52, 700, 0, 40, 20, 220, 0, 0.36], g,
+    function (p) { return [p[1].toFixed(2) + " fish a tick", "bay at " + p[0]]; });
+})();
+</script>
