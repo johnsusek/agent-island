@@ -5,18 +5,59 @@
   "description": "A world host for the rules core: agents on a grid, actions and standing orders, speech, events, runtime rule edits, scenarios as overlays, and snapshots.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./engine": "./src/engine.ts",
-    "./engine-actions": "./src/engine-actions.ts",
-    "./engine-orders": "./src/engine-orders.ts",
-    "./orders": "./src/orders.ts",
-    "./overlays": "./src/overlays.ts",
-    "./scenario": "./src/scenario.ts",
-    "./sprite": "./src/sprite.ts",
-    "./vitals": "./src/vitals.ts"
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./engine": {
+      "source": "./src/engine.ts",
+      "types": "./dist/engine.d.ts",
+      "default": "./dist/engine.js"
+    },
+    "./engine-actions": {
+      "source": "./src/engine-actions.ts",
+      "types": "./dist/engine-actions.d.ts",
+      "default": "./dist/engine-actions.js"
+    },
+    "./engine-orders": {
+      "source": "./src/engine-orders.ts",
+      "types": "./dist/engine-orders.d.ts",
+      "default": "./dist/engine-orders.js"
+    },
+    "./orders": {
+      "source": "./src/orders.ts",
+      "types": "./dist/orders.d.ts",
+      "default": "./dist/orders.js"
+    },
+    "./overlays": {
+      "source": "./src/overlays.ts",
+      "types": "./dist/overlays.d.ts",
+      "default": "./dist/overlays.js"
+    },
+    "./scenario": {
+      "source": "./src/scenario.ts",
+      "types": "./dist/scenario.d.ts",
+      "default": "./dist/scenario.js"
+    },
+    "./sprite": {
+      "source": "./src/sprite.ts",
+      "types": "./dist/sprite.d.ts",
+      "default": "./dist/sprite.js"
+    },
+    "./vitals": {
+      "source": "./src/vitals.ts",
+      "types": "./dist/vitals.d.ts",
+      "default": "./dist/vitals.js"
+    }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "test": "node --import tsx --test test/*.test.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --conditions=source --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

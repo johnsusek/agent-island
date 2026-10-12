@@ -50,6 +50,8 @@ run(
   "tsx",
   [
     "watch",
+    // Resolve the workspace packages to their TypeScript sources, not dist.
+    "--conditions=source",
     "--include",
     "config/config.json",
     "--include",

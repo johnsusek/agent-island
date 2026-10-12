@@ -8,18 +8,19 @@
   ],
   "scripts": {
     "dev": "AGENT_ISLAND_RULESET=config/config.json node scripts/dev.mjs",
-    "dev:server": "AGENT_ISLAND_RULESET=config/config.json AGENT_ISLAND_LOG=1 AGENT_ISLAND_SESSION_TTL_MS=600000 AGENT_ISLAND_IDLE_MS=900000 tsx src/server.ts",
+    "dev:server": "AGENT_ISLAND_RULESET=config/config.json AGENT_ISLAND_LOG=1 AGENT_ISLAND_SESSION_TTL_MS=600000 AGENT_ISLAND_IDLE_MS=900000 tsx --conditions=source src/server.ts",
     "dev:web": "vite",
-    "serve": "npm run build:web && AGENT_ISLAND_RULESET=config/config.json AGENT_ISLAND_LOG=1 tsx src/server.ts",
+    "serve": "npm run build:web && AGENT_ISLAND_RULESET=config/config.json AGENT_ISLAND_LOG=1 tsx --conditions=source src/server.ts",
     "build:web": "vite build",
     "world": "node scripts/world.mjs",
     "crew": "node scripts/crew.mjs",
-    "operator": "node --import tsx src/operator/main.ts",
-    "generate-map": "node --import tsx scripts/generate-map.ts",
+    "operator": "node --conditions=source --import tsx src/operator/main.ts",
+    "generate-map": "node --conditions=source --import tsx scripts/generate-map.ts",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspaces",
     "typecheck:web": "vue-tsc -p web/tsconfig.json --noEmit",
     "format": "prettier --write . --ignore-path .gitignore",
-    "test": "npm test --workspaces --if-present && AGENT_ISLAND_RULESET=config/config.test.json node --import tsx --test --test-concurrency=4 test/*.test.ts test/*.test.mjs"
+    "test": "npm test --workspaces --if-present && AGENT_ISLAND_RULESET=config/config.test.json node --conditions=source --import tsx --test --test-concurrency=4 test/*.test.ts test/*.test.mjs",
+    "build:packages": "npm run build --workspaces"
   },
   "dependencies": {
     "@agent-island/core": "0.1.0",

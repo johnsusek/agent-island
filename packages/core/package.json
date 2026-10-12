@@ -5,15 +5,44 @@
   "description": "A deterministic, data-driven rules engine for agent simulations: entities with numeric stocks, JSON rules evaluated in fixed tick phases, and dry runs for rules authored at runtime.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./kernel": "./src/kernel.ts",
-    "./space": "./src/space.ts",
-    "./rule-schema": "./src/rule-schema.ts",
-    "./dryrun": "./src/dryrun.ts",
-    "./stock-display": "./src/stock-display.ts"
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./kernel": {
+      "source": "./src/kernel.ts",
+      "types": "./dist/kernel.d.ts",
+      "default": "./dist/kernel.js"
+    },
+    "./space": {
+      "source": "./src/space.ts",
+      "types": "./dist/space.d.ts",
+      "default": "./dist/space.js"
+    },
+    "./rule-schema": {
+      "source": "./src/rule-schema.ts",
+      "types": "./dist/rule-schema.d.ts",
+      "default": "./dist/rule-schema.js"
+    },
+    "./dryrun": {
+      "source": "./src/dryrun.ts",
+      "types": "./dist/dryrun.d.ts",
+      "default": "./dist/dryrun.js"
+    },
+    "./stock-display": {
+      "source": "./src/stock-display.ts",
+      "types": "./dist/stock-display.d.ts",
+      "default": "./dist/stock-display.js"
+    }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "test": "node --import tsx --test test/*.test.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --conditions=source --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

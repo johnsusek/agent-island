@@ -29,7 +29,7 @@ npm install
 ```
 
 ```bash
-npx tsx packages/mcp/src/cli.ts serve --world packages/mcp/examples/commons/world.json --scenarios packages/mcp/examples/commons/scenarios
+npx tsx --conditions=source packages/mcp/src/cli.ts serve --world packages/mcp/examples/commons/world.json --scenarios packages/mcp/examples/commons/scenarios
 ```
 
 That serves:
@@ -40,6 +40,10 @@ That serves:
 
 The world is in memory. Add `--data ./commons-data` to keep it across
 restarts.
+
+`--conditions=source` runs the packages from their TypeScript sources.
+Once published, the same command is `npx agent-island-mcp serve ...`, and
+`npm run build:packages` builds that CLI here (`packages/mcp/dist/cli.js`).
 
 ## Add players
 
@@ -268,5 +272,5 @@ world.tick();
 ## Tests
 
 ```bash
-npm test --workspaces --if-present
+npm test
 ```
