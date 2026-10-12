@@ -15,6 +15,14 @@ project previously explored "speculative physics" (agents' attempted verbs
 ratified into rules); those docs are in [docs/archive/](docs/archive/), and
 the run retros that informed the change are in `results/`.
 
+## Use the engine in your own simulation
+
+The rules engine and MCP server are being extracted into packages anyone can
+use to run a rule-based world for agents. Start with
+[packages/mcp/README.md](packages/mcp/README.md): it runs a small example
+(a fishing village sharing one bay) and shows how to connect Claude Code
+players and write your own rules.
+
 ## Architecture
 
 Everything meets over MCP; the server never launches an LLM.

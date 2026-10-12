@@ -112,3 +112,34 @@ test("fishing only when hungry keeps the bay alive and wins the season", () => {
   assert.equal(result.alive, 4);
   assert.ok(result.events.includes("victory"));
 });
+
+// The README's quota: a GM tightens the fish action, and the refusal reaches
+// the character in the GM's own words.
+test("a GM can close the bay with a quota", () => {
+  let colony = createColony({
+    baseScenario: base,
+    scenariosDir: `${dir}scenarios`,
+    scenarios: ["commons"],
+  });
+  colony.connect("a");
+  colony.connect("gm");
+  try {
+    colony.join("a", "Ara");
+    colony.joinAsGm("gm");
+    colony.gmPatchRule("gm", "fish", {
+      requires: {
+        all: [
+          { cmp: "gte", left: { stock: "school", of: "world" }, right: 35 },
+          { cmp: "lt", left: { stock: "fish" }, right: 6 },
+        ],
+      },
+      requireReason: "the council has closed the bay until it holds 35 fish",
+    });
+    assert.throws(
+      () => colony.act("a", { type: "fish" }),
+      /the council has closed the bay/,
+    );
+  } finally {
+    colony.stop();
+  }
+});
