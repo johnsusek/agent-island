@@ -9,7 +9,6 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import * as schema from "zod/v4";
 
-import { characterBriefing, gmBriefing } from "./briefing.js";
 import type { Colony } from "./coordinator.js";
 import { MAX_INSCRIPTION } from "@agent-island/core/kernel";
 import { orderInputSchema } from "./mcp-order-schema.js";
@@ -100,7 +99,18 @@ interface McpSession {
   server: McpServer;
 }
 
-export function createMcpHandler(coordinator: Colony) {
+export interface McpHandlerOptions {
+  // The name both MCP surfaces report to clients; the GM endpoint appends
+  // "-gm". The prompts themselves come from the colony (see
+  // ColonyOptions.briefings).
+  serverName?: string;
+}
+
+export function createMcpHandler(
+  coordinator: Colony,
+  options: McpHandlerOptions = {},
+) {
+  let serverName = options.serverName ?? "agent-island";
   let sessions = new Map<string, McpSession>();
 
   // Let the coordinator's idle reaper tear down a transport whose client is gone
@@ -222,10 +232,10 @@ export function createMcpHandler(coordinator: Colony) {
   // ?rawJson=1 is a GM-only escape hatch now: the character surface has no
   // structured payload to duplicate.
   let characterPost = makePost((id) =>
-    createCharacterMcpServer(id, coordinator),
+    createCharacterMcpServer(id, coordinator, serverName),
   );
   let gmPost = makePost((id, includeRawJson) =>
-    createGmMcpServer(id, coordinator, includeRawJson),
+    createGmMcpServer(id, coordinator, `${serverName}-gm`, includeRawJson),
   );
 
   return {
@@ -238,14 +248,15 @@ export function createMcpHandler(coordinator: Colony) {
 function createCharacterMcpServer(
   sessionId: string,
   coordinator: Colony,
+  serverName: string,
 ): McpServer {
   // The server carries the game briefing so clients only need a tiny local
   // prompt (name, personality, how to connect). Clients that surface MCP
   // instructions get it here at connect; join_game also returns it to a fresh
   // spawn as a fallback for clients that don't.
   let server = new McpServer(
-    { name: "agent-island", version: "0.4.0" },
-    { instructions: characterBriefing },
+    { name: serverName, version: "0.4.0" },
+    { instructions: coordinator.briefings.character },
   );
   let registerTool = bindRegisterTool({ prose: true });
 
@@ -410,13 +421,14 @@ function createCharacterMcpServer(
 function createGmMcpServer(
   sessionId: string,
   coordinator: Colony,
+  serverName: string,
   includeRawJson: boolean,
 ): McpServer {
   // Like the character server, the endpoint carries the seat's mechanics
   // briefing so a bring-your-own-director client only ships its personality.
   let server = new McpServer(
-    { name: "agent-island-gm", version: "0.4.0" },
-    { instructions: gmBriefing },
+    { name: serverName, version: "0.4.0" },
+    { instructions: coordinator.briefings.gm },
   );
   let registerTool = bindRegisterTool({ prose: false, includeRawJson });
 

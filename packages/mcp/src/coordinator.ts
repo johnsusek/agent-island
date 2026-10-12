@@ -32,7 +32,7 @@ import {
   subtractOverlay,
 } from "@agent-island/engine/overlays";
 import { normalizeScenarioName, type ScenarioFile } from "./scenarios.js";
-import { characterBriefing } from "./briefing.js";
+import { characterBriefing, gmBriefing } from "./briefing.js";
 import type { InspectionContext } from "./coordinator-inspection.js";
 import {
   createScenarioBoot,
@@ -78,6 +78,11 @@ export interface ColonyOptions extends ScenarioBootOptions {
   engineOptions?: EngineOptions;
   // Presentation config the map payload carries for spectator UIs.
   graphics?: GraphicsConfig;
+  // The prompts the MCP surfaces hand their clients: `character` is the
+  // character endpoint's instructions and rides a fresh join_game result;
+  // `gm` is the GM endpoint's instructions. Each defaults to the bundled
+  // briefing.md / gm-briefing.md, which describe the default engine options.
+  briefings?: { character?: string; gm?: string };
   // Force a tick if the world stays paused this long waiting on an un-parked
   // player (the cap on how long any one model may hold up the turn).
   maxWaitMs?: number;
@@ -279,6 +284,10 @@ interface Session {
 export function createColony(options: ColonyOptions) {
   let scenarios = createScenarioBoot(options);
   let graphics = options.graphics ?? DEFAULT_GRAPHICS;
+  let briefings = {
+    character: options.briefings?.character ?? characterBriefing,
+    gm: options.briefings?.gm ?? gmBriefing,
+  };
   let { scenarioStore, activeScenarios, writeActiveScenarios } = scenarios;
   // An injected engine may run a scenario the scenario boot knows nothing
   // about, so the reset-time terrain merge (built from the config scenario)
@@ -1260,7 +1269,7 @@ export function createColony(options: ColonyOptions) {
       status: "joined",
       worldId,
       reclaimed,
-      ...(reclaimed ? {} : { briefing: characterBriefing }),
+      ...(reclaimed ? {} : { briefing: briefings.character }),
       ...(intro !== undefined ? { intro } : {}),
       ...deliver(session),
     };
@@ -1968,6 +1977,7 @@ export function createColony(options: ColonyOptions) {
   }
 
   return {
+    briefings,
     start,
     stop,
     setTransportCloser,

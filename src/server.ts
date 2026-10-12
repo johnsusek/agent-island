@@ -211,7 +211,9 @@ export function createAgentIslandServer(options: ServerOptions = {}) {
       idleMs,
     });
   let app = express();
-  let mcpHandler = createMcpHandler(coordinator);
+  let mcpHandler = createMcpHandler(coordinator, {
+    serverName: "agent-island",
+  });
 
   app.use(express.json());
   app.use(express.static(path.join(directory, "dist", "web")));

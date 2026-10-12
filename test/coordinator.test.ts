@@ -492,6 +492,22 @@ test("a reincarnating character reclaims its body and is backfilled recent histo
   }
 });
 
+test("a host's own briefing replaces the bundled one", () => {
+  let colony = createColony({
+    ...survivalBoot,
+    briefings: { character: "# Auction house rules" },
+  });
+  colony.connect("a");
+  try {
+    let fresh = colony.join("a", "Ara");
+    assert.equal(fresh.briefing, "# Auction house rules");
+    assert.equal(colony.briefings.character, "# Auction house rules");
+    assert.match(colony.briefings.gm, /^# GM briefing/, "gm keeps its default");
+  } finally {
+    colony.stop();
+  }
+});
+
 test("a reclaimed character receives only the last 10 ticks of history", async () => {
   let colony = createColony({ waitTimeoutMs: 2000, ...survivalBoot });
   colony.start();
