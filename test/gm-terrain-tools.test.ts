@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createWorld } from "@agent-island/engine/engine";
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { makeSurvivalEngine } from "./helpers.js";
 
 const LAVA = {

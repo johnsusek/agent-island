@@ -33,7 +33,11 @@ import {
 import { normalizeScenarioName, type ScenarioFile } from "./scenarios.js";
 import { characterBriefing } from "./briefing.js";
 import type { InspectionContext } from "./coordinator-inspection.js";
-import { createScenarioBoot } from "./coordinator-scenarios.js";
+import {
+  createScenarioBoot,
+  type ScenarioBootOptions,
+} from "./coordinator-scenarios.js";
+import { DEFAULT_GRAPHICS, type GraphicsConfig } from "./world-file.js";
 import {
   buildAdminPayload,
   buildMapPayload,
@@ -66,8 +70,10 @@ import { createGmCommands } from "./coordinator-gm.js";
 // world keeps its state but only advances while at least one live player drives
 // it.
 
-interface ColonyOptions {
+export interface ColonyOptions extends ScenarioBootOptions {
   engine?: WorldEngine;
+  // Presentation config the map payload carries for spectator UIs.
+  graphics?: GraphicsConfig;
   // Force a tick if the world stays paused this long waiting on an un-parked
   // player (the cap on how long any one model may hold up the turn).
   maxWaitMs?: number;
@@ -266,8 +272,9 @@ interface Session {
   closing: boolean;
 }
 
-export function createColony(options: ColonyOptions = {}) {
+export function createColony(options: ColonyOptions) {
   let scenarios = createScenarioBoot(options);
+  let graphics = options.graphics ?? DEFAULT_GRAPHICS;
   let { scenarioStore, activeScenarios, writeActiveScenarios } = scenarios;
   // An injected engine may run a scenario the scenario boot knows nothing
   // about, so the reset-time terrain merge (built from the config scenario)
@@ -1668,7 +1675,7 @@ export function createColony(options: ColonyOptions = {}) {
   }
 
   function getMapPayload() {
-    return buildMapPayload(engine, worldId);
+    return buildMapPayload(engine, worldId, graphics);
   }
 
   function getFogPayload() {

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { createWorld } from "@agent-island/engine/engine";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
 import type { Scenario } from "@agent-island/engine/scenario";

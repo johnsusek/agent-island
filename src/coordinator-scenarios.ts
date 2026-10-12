@@ -5,9 +5,8 @@ import {
   renameSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 
-import { scenario } from "./config.js";
 import type { Scenario, TerrainSpec } from "@agent-island/engine/scenario";
 import {
   pickSpawn,
@@ -24,6 +23,11 @@ import {
 } from "./scenarios.js";
 
 export interface ScenarioBootOptions {
+  // The world file's canvas every scenario is shaped onto (see
+  // scenarioFromWorldFile). The bare world when no scenario is active.
+  baseScenario: Scenario;
+  // Where authored scenarios are read from. Omitted or null, there is no
+  // scenario store and the colony runs baseScenario alone.
   scenariosDir?: string | null;
   scenariosSaveDir?: string | null;
   activeScenariosPath?: string | null;
@@ -173,10 +177,8 @@ export function scenarioBootScenario(
 }
 
 export function createScenarioBoot(options: ScenarioBootOptions): ScenarioBoot {
-  let scenariosDir =
-    options.scenariosDir === undefined
-      ? resolve("config/scenarios")
-      : options.scenariosDir;
+  let scenario = options.baseScenario;
+  let scenariosDir = options.scenariosDir ?? null;
   let scenarioStore = scenariosDir
     ? createScenarioStore(
         scenariosDir,

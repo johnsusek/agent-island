@@ -8,6 +8,7 @@ import {
   parseWorldDimensions,
   type Colony,
 } from "./coordinator.js";
+import { graphics, scenario } from "./config.js";
 import { createMcpHandler } from "./mcp-handler.js";
 import { homePath } from "./paths.js";
 
@@ -166,6 +167,10 @@ export function createAgentIslandServer(options: ServerOptions = {}) {
   let coordinator =
     options.coordinator ??
     createColony({
+      // The world file's canvas (see config.ts for how it is selected) and
+      // its presentation config.
+      baseScenario: scenario,
+      graphics,
       // Runtime state lives under AGENT_ISLAND_HOME (default ~/.agent-island),
       // never in the repo, so a clean checkout carries no world. Each slot below
       // keeps its own AGENT_ISLAND_* override for one-off relocation.

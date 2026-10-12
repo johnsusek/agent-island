@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { survivalBoot } from "./helpers.js";
 import { renderCharacterResult } from "../src/sense-prose.js";
 

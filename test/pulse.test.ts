@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { createWorld } from "@agent-island/engine/engine";
 import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";

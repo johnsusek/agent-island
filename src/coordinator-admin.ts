@@ -1,6 +1,6 @@
 import type { RuleOverlay, WorldEngine } from "@agent-island/engine/engine";
 import type { JournalHealth } from "./journal.js";
-import { graphics } from "./config.js";
+import type { GraphicsConfig } from "./world-file.js";
 import { overlayRuleIds } from "@agent-island/engine/overlays";
 
 export interface AdminSessionView {
@@ -125,7 +125,11 @@ export function buildAdminPayload(context: AdminPayloadContext) {
   };
 }
 
-export function buildMapPayload(engine: WorldEngine, worldId: string) {
+export function buildMapPayload(
+  engine: WorldEngine,
+  worldId: string,
+  graphics: GraphicsConfig,
+) {
   // Sprites ride inline in the terrain/kind visuals now, so graphics is just
   // presentation config (the default zoom scale) - there are no asset packs.
   return {

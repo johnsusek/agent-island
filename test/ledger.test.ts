@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { describeSense } from "../src/sense-prose.js";
 import { makeSurvivalEngine, survivalBoot } from "./helpers.js";
 

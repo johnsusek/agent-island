@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { survivalBoot } from "./helpers.js";
 
 test("a reset banks the outgoing world into runsDir instead of only deleting it", async () => {

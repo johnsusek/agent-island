@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { WorldEngine } from "@agent-island/engine/engine";
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { makeSurvivalEngine, survivalBoot } from "./helpers.js";
 
 function survival(): WorldEngine {

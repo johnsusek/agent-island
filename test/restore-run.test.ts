@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { createColony } from "../src/coordinator.js";
+import { createColony } from "./helpers.js";
 import { survivalBoot } from "./helpers.js";
 
 test("restore banks the current world and loads a previously archived run back as live", async () => {

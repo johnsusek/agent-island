@@ -29,7 +29,11 @@ import {
   type TokenScatter,
   type Space,
 } from "@agent-island/core/space";
-import { scenario } from "../src/config.js";
+import { graphics, scenario } from "../src/config.js";
+import {
+  createColony as createHostColony,
+  type ColonyOptions,
+} from "../src/coordinator.js";
 import { mergeOverlays } from "@agent-island/engine/overlays";
 import { resolveIncludes, rulesetsDirFor } from "../src/scenarios.js";
 import type { Scenario, StockSpec } from "@agent-island/engine/scenario";
@@ -349,4 +353,16 @@ export function declareProgress<Engine extends ReturnType<typeof createWorld>>(
   };
   engine.restore(snap);
   return engine;
+}
+
+// A colony on the test world file (config/config.test.json) with the bundled
+// scenarios directory, the defaults every coordinator test was written
+// against. Options override them.
+export function createColony(options: Partial<ColonyOptions> = {}) {
+  return createHostColony({
+    baseScenario: scenario,
+    graphics,
+    scenariosDir: path.resolve("config/scenarios"),
+    ...options,
+  });
 }
