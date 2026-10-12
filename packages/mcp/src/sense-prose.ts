@@ -62,6 +62,22 @@ function carriedLine(you: Dict | undefined, display?: Dict): string {
   return "Carrying: " + parts.join(", ") + ".";
 }
 
+// Shared quantities the whole world holds - a bay's fish, a common granary -
+// as figures, like the pack line: a world stock whose role is "pack" is a
+// count everyone can see and argue over. World vitals and stats stay out of
+// prose; a scenario reaches characters about those through events.
+function worldLine(world: Dict | undefined, display?: Dict): string {
+  let shared = carriedStocks(world?.stocks, display).filter(
+    (c) => display?.[c.name]?.scope === "world",
+  );
+  if (!shared.length) return "";
+  let parts = shared.map((c) => {
+    let label = display?.[c.name]?.label ?? c.name;
+    return `${label} ${c.value}${c.max !== undefined ? `/${c.max}` : ""}`;
+  });
+  return "The world holds: " + parts.join(", ") + ".";
+}
+
 // One order, read back to the player: what it does, how far it has got, and
 // where it stands. Shared by the envelope's order line and the order tools'
 // own receipts, so an order reads the same wherever it appears.
@@ -111,6 +127,7 @@ function envelope(
   you: Dict,
   here?: Dict,
   display?: Dict,
+  world?: Dict,
 ): string {
   let at = you.at ? ` at ${you.at}` : "";
   let terrain = here?.terrain ? ` (${here.terrain})` : "";
@@ -120,6 +137,7 @@ function envelope(
     vitals(you.stocks, display),
     bandedLine(you.stocks, display, "stat"),
     carriedLine(you, display),
+    worldLine(world, display),
     orderLine(you),
   ];
   return lines.filter(Boolean).join(" ");
@@ -140,7 +158,7 @@ function ledgerLines(colony: Dict | undefined): string[] {
 }
 
 function describeSituation(r: Dict): string {
-  let lines = [envelope(r.tick, r.you, r.here, r.display)];
+  let lines = [envelope(r.tick, r.you, r.here, r.display, r.world)];
   let around = othersLines(r.others);
   if (around) lines.push(around + ".");
   lines.push(...ledgerLines(r.colony));
@@ -289,7 +307,15 @@ function optionLabel(opt: unknown): string {
 function describeChanges(r: Dict): string {
   let you = r.observation?.you;
   let lines = you
-    ? [envelope(r.observation.tick, you, undefined, r.observation.display)]
+    ? [
+        envelope(
+          r.observation.tick,
+          you,
+          undefined,
+          r.observation.display,
+          r.observation.world,
+        ),
+      ]
     : [];
   let events = eventLines(r.events);
   if (events.length) {
@@ -309,6 +335,7 @@ export function renderWake(r: Dict): string {
       r.observation.you,
       undefined,
       r.observation.display,
+      r.observation.world,
     )}`;
   lines.push(...receipt(r));
   let events = eventLines(r.events);
