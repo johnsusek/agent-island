@@ -310,8 +310,16 @@ test("canSeeMapEdge grows the map while a character is still `within` tiles from
   engine.tick();
 
   let map = engine.getMap();
-  assert.equal(map.width, 10, "grew by 2 on the east edge, before Ara ever reached it");
-  assert.deepEqual(engine.getEntities()[agentId].pos, position, "Ara never moved");
+  assert.equal(
+    map.width,
+    10,
+    "grew by 2 on the east edge, before Ara ever reached it",
+  );
+  assert.deepEqual(
+    engine.getEntities()[agentId].pos,
+    position,
+    "Ara never moved",
+  );
 });
 
 test("a growWorld effect is rejected in a buffered threshold phase", () => {

@@ -943,14 +943,8 @@ export function pregeneratedRoom(
   return {
     north: Math.max(0, origin.y - map.origin.y),
     west: Math.max(0, origin.x - map.origin.x),
-    east: Math.max(
-      0,
-      map.origin.x + map.width - (origin.x + grid.width),
-    ),
-    south: Math.max(
-      0,
-      map.origin.y + map.height - (origin.y + grid.height),
-    ),
+    east: Math.max(0, map.origin.x + map.width - (origin.x + grid.width)),
+    south: Math.max(0, map.origin.y + map.height - (origin.y + grid.height)),
   };
 }
 
@@ -1333,7 +1327,9 @@ export function pickSpawn(gen?: WorldGen, pregen?: PregeneratedMap): Position {
   // Only the pick among candidates uses the derived `rand` stream. With a
   // pregenerated map, makeGrid slices from it instead of painting - so spawn
   // must judge passability against the same slice, not a phantom fresh paint.
-  let paintedFallback = pregen ? undefined : paintedTiles(gen, width, height, fill);
+  let paintedFallback = pregen
+    ? undefined
+    : paintedTiles(gen, width, height, fill);
   let terrainAt = (x: number, y: number): Terrain =>
     pregen
       ? (pregeneratedTerrainAt(pregen, x, y) ?? fill)

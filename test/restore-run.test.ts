@@ -1,10 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -80,10 +75,18 @@ test("restore banks the current world and loads a previously archived run back a
     // Restoring auto-archives the world that was live just before the swap
     // (the post-reset one Bea joined), so nothing is lost.
     let runsAfter = readdirSync(runsDir);
-    assert.equal(runsAfter.length, 2, "the discarded live world got banked too");
+    assert.equal(
+      runsAfter.length,
+      2,
+      "the discarded live world got banked too",
+    );
 
     assert.equal(restored.length, 1, "restoreRunArtifacts ran once");
-    assert.equal(restored[0], join(runsDir, runId), "handed the right run folder");
+    assert.equal(
+      restored[0],
+      join(runsDir, runId),
+      "handed the right run folder",
+    );
   } finally {
     colony.stop();
     rmSync(dir, { recursive: true, force: true });

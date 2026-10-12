@@ -257,7 +257,11 @@ test("a threshold that harms when a vital is HIGH is flagged as backwards", () =
 // the shape every real alarm in this codebase already takes.
 test("a threshold that harms when a vital is LOW is not flagged", () => {
   let engine = survival();
-  engine.setStockDefault("exposure", { value: 100, role: "vital", icon: "sun" });
+  engine.setStockDefault("exposure", {
+    value: 100,
+    role: "vital",
+    icon: "sun",
+  });
   engine.addAgent("Ada");
   engine.addRule({
     id: "exposure_hurts",

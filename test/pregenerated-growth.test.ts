@@ -154,7 +154,10 @@ test("growWorld reveals pregenerated tiles, blobs included, with no RNG call", (
 test("growWorld clamps to the pregenerated map's own extent", () => {
   let fullTiles = paintFullMap(40, 40, 7);
   // A small pregenerated map: only 2 tiles of room east of the 8-wide start.
-  let map = encodePregen(fullTiles.slice(0, 8).map((row) => row.slice(0, 10)), 7);
+  let map = encodePregen(
+    fullTiles.slice(0, 8).map((row) => row.slice(0, 10)),
+    7,
+  );
 
   let engine = createWorld(pregenScenario(map));
   engine.addAgent("Ara");
@@ -162,7 +165,11 @@ test("growWorld clamps to the pregenerated map's own extent", () => {
   engine.tick();
 
   let mapState = engine.getMap();
-  assert.equal(mapState.width, 10, "grew only the 2 tiles the pregenerated map had");
+  assert.equal(
+    mapState.width,
+    10,
+    "grew only the 2 tiles the pregenerated map had",
+  );
   let gm = engine.recentGmEvents().find((e) => e.kind === "world_grew");
   assert.equal((gm!.detail as { clamped?: boolean }).clamped, true);
 });
