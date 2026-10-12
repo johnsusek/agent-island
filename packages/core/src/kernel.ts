@@ -3052,9 +3052,14 @@ function checkActionRule(
   });
 }
 
+// Advance the clock and hand back the world as it stood before this tick - the
+// snapshot watch rules compare against to tell a fresh crossing from a
+// standing condition. It is taken before the increment, so a watch on
+// `{tick: true}` sees the clock move like any other value.
 export function beginTick(world: KernelWorld): KernelWorld {
+  let before = structuredClone(world);
   world.tick += 1;
-  return structuredClone(world);
+  return before;
 }
 
 export function runRulesForTick(

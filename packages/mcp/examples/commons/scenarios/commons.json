@@ -21,14 +21,6 @@
         "icon": "big-wave",
         "role": "pack",
         "label": "fish in the bay"
-      },
-      "elapsed": {
-        "value": 0,
-        "min": 0,
-        "max": 100000,
-        "icon": "sands-of-time",
-        "role": "stat",
-        "label": "ticks elapsed"
       }
     },
     "stockDefaults": {
@@ -68,18 +60,6 @@
       }
     },
     "dynamicRules": [
-      {
-        "id": "season-clock",
-        "description": "Count the season's ticks on the world, so the season's end is a change a watch can see.",
-        "phase": "derived",
-        "each": {
-          "tag": "world"
-        },
-        "target": "elapsed",
-        "value": {
-          "tick": true
-        }
-      },
       {
         "id": "school-regrows",
         "description": "The fish breed from what is left: fastest at half the bay's capacity, never from an empty bay.",
@@ -344,7 +324,7 @@
             {
               "cmp": "gte",
               "left": {
-                "stock": "elapsed"
+                "tick": true
               },
               "right": 300
             },
