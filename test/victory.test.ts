@@ -12,7 +12,7 @@ import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";
 
 test("shipped victory scenarios expose agent-facing descriptions", () => {
-  let expected = ["survival"];
+  let expected = ["quiet-world", "survival"];
   let actual: string[] = [];
 
   // The shipped scenarios live in config/scenarios; the survival fixture lives

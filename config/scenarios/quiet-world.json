@@ -1,0 +1,587 @@
+{
+  "name": "quiet-world",
+  "description": "A stalker sleeps somewhere on the plain and wakes only to sound: every word spoken aloud, anywhere, pulls it three steps toward the speaker, and standing beside it is death within a few ticks. Whispers and signs are silent. Berries are scattered, so the group has to spread out and coordinate without calling to each other. Survive 500 ticks. Built for 6 to 10 players.",
+  "recommendedPlayers": {
+    "min": 6,
+    "max": 10
+  },
+  "include": [],
+  "overlay": {
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1.2,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find berries soon.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "berries": {
+        "value": 4,
+        "min": 0,
+        "max": 8,
+        "icon": "berries",
+        "color": "#c23b3b",
+        "role": "pack",
+        "label": "berries"
+      }
+    },
+    "worldStocks": {},
+    "setup": [
+      {
+        "scatter": {
+          "kind": "bush",
+          "namePrefix": "bush",
+          "tags": ["bush"],
+          "density": 0.6,
+          "onTerrain": ["plains"],
+          "minSpacing": 4,
+          "spawnKeepout": 5,
+          "stocks": {
+            "berries": {
+              "value": [5, 9],
+              "min": 0,
+              "max": [10, 14],
+              "icon": "berries",
+              "color": "#c23b3b"
+            }
+          },
+          "occupancy": "tile"
+        }
+      },
+      {
+        "scatter": {
+          "kind": "stalker",
+          "namePrefix": "stalker",
+          "tags": ["stalker"],
+          "count": 1,
+          "onTerrain": ["plains"],
+          "spawnKeepout": 18,
+          "occupancy": "tile"
+        }
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "warning-stone",
+        "kind": "sign",
+        "tags": ["sign"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "It sleeps in the grass until it hears a voice. Then it comes for the voice. Whisper. Write. Do not call out."
+      }
+    ],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "bush": {
+        "icon": "berries",
+        "color": "#c23b3b",
+        "label": "berry bush",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 5
+        }
+      },
+      "stalker": {
+        "icon": "wolf-head",
+        "color": "#2b2733",
+        "label": "stalker",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 111
+        }
+      }
+    },
+    "describeEvent": {
+      "mauled": "The stalker is on {{ ctx.name }}.",
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - find berries and eat"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "bushes-regrow",
+        "description": "Berry bushes slowly fruit again, up to their capacity.",
+        "phase": "flow",
+        "each": {
+          "kind": "bush"
+        },
+        "target": "berries",
+        "rate": 0.02
+      },
+      {
+        "id": "forage",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["pick_berries", "gather", "pick"],
+        "description": "Pick up to 2 berries from a bush beside you.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "bush",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "berries"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "berries"
+              },
+              "right": 8
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside a bush with ripe berries, and have room in your pouch",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "bush",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "berries"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the bush was picked bare",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "berries",
+                "of": {
+                  "colocated": {
+                    "kind": "bush",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "berries"
+                      },
+                      "right": 1
+                    },
+                    "pick": {
+                      "highest": "berries"
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "berries",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "berries",
+                      "of": {
+                        "colocated": {
+                          "kind": "bush",
+                          "range": 1,
+                          "where": {
+                            "cmp": "gte",
+                            "left": {
+                              "stock": "berries"
+                            },
+                            "right": 1
+                          },
+                          "pick": {
+                            "highest": "berries"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "berries"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one berry (+20 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "berries"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no berries",
+        "do": [
+          {
+            "adjust": {
+              "target": "berries",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "sound-draws-it",
+        "description": "Every word spoken aloud, anywhere, pulls the stalker three steps toward the speaker. Whispers and writing make no sound.",
+        "phase": "event",
+        "on": "said",
+        "when": {
+          "colocated": {
+            "kind": "stalker",
+            "range": 99
+          }
+        },
+        "do": [
+          {
+            "moveToward": {
+              "of": {
+                "colocated": {
+                  "kind": "stalker",
+                  "range": 99
+                }
+              },
+              "target": "self",
+              "steps": 3
+            }
+          }
+        ]
+      },
+      {
+        "id": "stalker-drifts",
+        "description": "Left in silence, the stalker rarely shifts a step.",
+        "phase": "transition",
+        "each": {
+          "kind": "stalker"
+        },
+        "chance": 0.1,
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "near": 2
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "move": {
+              "dx": {
+                "round": {
+                  "rand": [-1, 1, "dx"]
+                }
+              },
+              "dy": {
+                "round": {
+                  "rand": [-1, 1, "dy"]
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "stalker-lunges",
+        "description": "Anyone within two paces of the stalker may be lunged at.",
+        "phase": "transition",
+        "each": {
+          "kind": "stalker"
+        },
+        "chance": 0.5,
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "near": 2
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "moveToward": {
+              "target": {
+                "colocated": {
+                  "tag": "agent",
+                  "range": 2,
+                  "pick": "nearest"
+                }
+              },
+              "steps": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "stalker-mauls",
+        "description": "Standing beside the stalker costs 25 health a tick.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "colocated": {
+            "kind": "stalker",
+            "range": 1
+          }
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -25
+            }
+          }
+        ]
+      },
+      {
+        "id": "stalker-close",
+        "description": "The alarm when the stalker is on you.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "colocated": {
+            "kind": "stalker",
+            "range": 1
+          }
+        },
+        "emit": {
+          "type": "mauled",
+          "text": "The stalker is on them.",
+          "interrupt": "the stalker is right beside you, tearing at you - get away from it now"
+        }
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "dawn",
+        "description": "Anyone still alive at tick 500 has outlasted it.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 500
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "Dawn comes, and the stalker sinks back into the ground. The quiet ones made it.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}
