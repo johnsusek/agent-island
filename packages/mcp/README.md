@@ -145,6 +145,8 @@ every rule that checks who is nearby reach everyone. The movement verbs
 nowhere to go. Any larger world is a **map**: characters have positions, walk,
 see a limited distance and talk within earshot, and terrain matters. A rule
 that grows a room (`growWorld`) turns it into a map and brings movement back.
+A scenario can set its own size with `"mapSize": {"width": 1, "height": 1}` in
+its overlay, which replaces the world file's width and height.
 
 **A scenario** is everything else, as an overlay:
 

@@ -268,6 +268,7 @@ export interface GmEventView {
     | "stock_set"
     | "stock_default_set"
     | "entity_spawned"
+    | "entity_edited"
     | "terrain_registered"
     | "terrain_painted"
     | "world_regenerated"

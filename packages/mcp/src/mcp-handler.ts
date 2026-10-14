@@ -1016,6 +1016,43 @@ function registerGmTools(
 
   registerTool(
     server,
+    "edit_entity",
+    {
+      description: describe("edit_entity"),
+      inputSchema: {
+        id: schema
+          .string()
+          .trim()
+          .min(1)
+          .describe("The entity to edit: a sign, a stake, an agent's name"),
+        text: schema
+          .string()
+          .trim()
+          .min(1)
+          .max(MAX_INSCRIPTION)
+          .optional()
+          .describe("Replace the entity's inscription with these words"),
+        addTags: schema
+          .array(schema.string().trim().min(1))
+          .optional()
+          .describe("Tags to add, e.g. a new owner's id on a stake"),
+        removeTags: schema
+          .array(schema.string().trim().min(1))
+          .optional()
+          .describe("Tags to remove"),
+      },
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ id, text, addTags, removeTags }) =>
+      coordinator.gmEditEntity(sessionId, id, { text, addTags, removeTags }),
+  );
+
+  registerTool(
+    server,
     "register_terrain",
     {
       description: describe("register_terrain"),

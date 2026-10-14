@@ -133,3 +133,44 @@ test("a regenerate effect is rejected in a buffered threshold phase", () => {
     /structural effects.*regenerate.*cannot run in a buffered/,
   );
 });
+
+test("regenerate re-rolls the scenario's setup scatter on the new floor", () => {
+  let engine = createWorld(floorScenario());
+  engine.applyOverlay({
+    dynamicRules: [],
+    removedBaseIds: [],
+    setup: [
+      {
+        scatter: {
+          namePrefix: "bush",
+          kind: "bush",
+          tags: ["bush"],
+          count: 3,
+          stocks: { berries: { value: 4, min: 0, max: 4 } },
+        },
+      },
+    ],
+  });
+  let ara = engine.addAgent("Ara").id;
+  let bushes = () =>
+    Object.values(engine.getEntities()).filter((e) => e.kind === "bush");
+  assert.equal(bushes().length, 3);
+  engine.setStock("bush-1", "berries", 0);
+
+  engine.setStock("world", "floor", 5, { min: 0, max: 99 }, { icon: "stairs" });
+  engine.setStock(
+    "world",
+    "descend",
+    1,
+    { min: 0, max: 9 },
+    { icon: "down-arrow" },
+  );
+  engine.tick();
+
+  assert.equal(bushes().length, 3, "the new floor has its own bushes");
+  assert.ok(
+    bushes().every((b) => b.stocks.berries.value === 4),
+    "rebuilt full, not carried over",
+  );
+  assert.ok(engine.getEntities()[ara], "Ara made it down");
+});

@@ -55,6 +55,7 @@ export function mergeOverlays(
   let connect: RuleOverlay["connect"];
   let worldWidth: RuleOverlay["worldWidth"];
   let worldHeight: RuleOverlay["worldHeight"];
+  let mapSize: RuleOverlay["mapSize"];
   let kindVisuals: RuleOverlay["kindVisuals"] = {};
   let describeEvent: RuleOverlay["describeEvent"] = {};
 
@@ -86,6 +87,7 @@ export function mergeOverlays(
     if (overlay.connect !== undefined) connect = overlay.connect;
     if (overlay.worldWidth !== undefined) worldWidth = overlay.worldWidth;
     if (overlay.worldHeight !== undefined) worldHeight = overlay.worldHeight;
+    if (overlay.mapSize !== undefined) mapSize = { ...overlay.mapSize };
     Object.assign(kindVisuals, structuredClone(overlay.kindVisuals ?? {}));
     Object.assign(describeEvent, structuredClone(overlay.describeEvent ?? {}));
     for (let fixture of overlay.fixtures ?? [])
@@ -109,6 +111,7 @@ export function mergeOverlays(
     connect,
     worldWidth,
     worldHeight,
+    mapSize,
     kindVisuals,
     describeEvent,
   });
@@ -180,6 +183,9 @@ export function subtractOverlay(
     worldHeight: sameJson(value.worldHeight, baseline.worldHeight)
       ? undefined
       : value.worldHeight,
+    mapSize: sameJson(value.mapSize, baseline.mapSize)
+      ? undefined
+      : value.mapSize,
     kindVisuals: subtractRecord(value.kindVisuals, baseline.kindVisuals),
     describeEvent: subtractRecord(value.describeEvent, baseline.describeEvent),
   });
@@ -209,6 +215,7 @@ export function compactOverlay(overlay: RuleOverlay): RuleOverlay {
   if (overlay.worldWidth !== undefined) compact.worldWidth = overlay.worldWidth;
   if (overlay.worldHeight !== undefined)
     compact.worldHeight = overlay.worldHeight;
+  if (overlay.mapSize !== undefined) compact.mapSize = overlay.mapSize;
   if (Object.keys(overlay.kindVisuals ?? {}).length)
     compact.kindVisuals = overlay.kindVisuals;
   if (Object.keys(overlay.describeEvent ?? {}).length)

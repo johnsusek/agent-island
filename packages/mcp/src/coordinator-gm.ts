@@ -213,6 +213,20 @@ export function createGmCommands(context: GmCommandContext) {
     );
   }
 
+  function gmEditEntity(
+    sessionId: string,
+    id: string,
+    edit: { text?: string; addTags?: string[]; removeTags?: string[] },
+  ) {
+    context.requireGm(sessionId);
+    let entity = context.engine.editEntity(id, edit);
+    return finishGmEdit(
+      `* GM edited entity ${id}`,
+      { ok: true, entity },
+      { rulesChanged: false },
+    );
+  }
+
   function gmRegisterTerrain(
     sessionId: string,
     name: string,
@@ -273,6 +287,7 @@ export function createGmCommands(context: GmCommandContext) {
     gmSetStock,
     gmSetStockDefault,
     gmSpawnEntity,
+    gmEditEntity,
     gmRegisterTerrain,
     gmRegisterKindVisual,
     gmSetTerrain,

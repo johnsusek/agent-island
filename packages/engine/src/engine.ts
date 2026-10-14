@@ -19,6 +19,7 @@ import {
   roundStock,
   runRulesForTick,
   stock,
+  RETIRED_OCCUPANCY_TAGS,
   validateRule,
   validInscription,
   type Args,
@@ -187,6 +188,7 @@ export interface GmEvent {
     | "stock_set"
     | "stock_default_set"
     | "entity_spawned"
+    | "entity_edited"
     | "terrain_registered"
     | "terrain_painted"
     | "world_regenerated"
@@ -395,6 +397,11 @@ export interface RuleOverlay {
   // Present only alongside a scenario that ships a pregenerated map.
   worldWidth?: number;
   worldHeight?: number;
+  // The live map this scenario plays on, replacing the world file's canvas
+  // width/height: {width:1, height:1} makes the scenario a room, a large one a
+  // wide fogged map. Unlike worldWidth/worldHeight (a pregenerated bake's
+  // extent) this sizes the grid the world actually starts with.
+  mapSize?: { width: number; height: number };
   // Kind-tag icons/colors the GM added at runtime (set_stock_default's icon/color,
   // a terrain coupling's icon) - the divergence from the scenario's kindVisuals.
   kindVisuals?: Record<string, Visual>;
@@ -3186,8 +3193,9 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   // design: living characters keep their tags and stocks and land on the new
   // spawn; the world entity keeps its stocks (else the counter that drove the
   // reroll would die in the reroll it caused); every other entity - old tokens,
-  // corpses, GM fixtures, dropped items - is cleared and rebuilt by worldgen and
-  // the scenario's own spawn rules over the ticks that follow.
+  // corpses, GM fixtures, dropped items - is cleared and rebuilt by worldgen,
+  // the scenario's setup scatter, and its own spawn rules over the ticks that
+  // follow.
   function regenerate(seed: number) {
     activeSeed = seed;
     let effectiveWorldgen = scenario.worldgen
@@ -3253,6 +3261,10 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     let liveTerrainSpecs = terrainSpecs;
     terrainSpecs = {};
     reapplyTerrainSpecs(liveTerrainSpecs);
+    // The scenario's setup scatter is part of the land, not of the run: a new
+    // floor gets its own bushes, gate, or herd, rolled from the new seed. GM
+    // fixtures and everything characters made or dropped stay behind.
+    applySetup(appliedSetup);
 
     // Each survivor wakes on the new floor: drop any order that was steering it
     // across the old map, and seed fresh fog so it perceives only what sight
@@ -4097,6 +4109,48 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     return pos ? tokenNameAt(space.grid, pos) === spec.id : false;
   }
 
+  // Rewrite what an existing entity says and how rules see it: replace its
+  // inscription (a chronicler restating the monument), and add or remove tags
+  // (a judge handing a disputed stake to its new owner). Kind, stocks, and
+  // position have their own tools; this is the rest of an entity's identity.
+  function editEntity(
+    id: string,
+    edit: { text?: string; addTags?: string[]; removeTags?: string[] },
+  ): Entity {
+    let e = world.entities[id];
+    if (!e) throw new Error(`No entity "${id}".`);
+    if (id === "world")
+      throw new Error("The world entity carries no tags or text to edit.");
+    let add = edit.addTags ?? [];
+    let remove = edit.removeTags ?? [];
+    if (edit.text === undefined && !add.length && !remove.length)
+      throw new Error("Nothing to edit: pass text, addTags, or removeTags.");
+    for (let tag of [...add, ...remove]) {
+      if (typeof tag !== "string" || !tag.trim())
+        throw new Error("A tag must be a non-empty string.");
+      if (RETIRED_OCCUPANCY_TAGS.has(tag))
+        throw new Error(
+          `"${tag}" is no longer a tag; how an entity sits on its tile is its occupancy.`,
+        );
+    }
+    let text =
+      edit.text === undefined ? undefined : validInscription(edit.text);
+    if (text !== undefined) e.text = text;
+    e.tags = e.tags.filter((t) => !remove.includes(t));
+    for (let tag of add) if (!e.tags.includes(tag)) e.tags.push(tag);
+    if (text !== undefined) tokenRevision += 1;
+    let parts = [
+      ...(text !== undefined ? ["rewrote its text"] : []),
+      ...(add.length ? [`+${add.join(", +")}`] : []),
+      ...(remove.length ? [`-${remove.join(", -")}`] : []),
+    ];
+    recordGm("entity_edited", `edited ${id}: ${parts.join("; ")}`, {
+      target: id,
+      detail: { entity: structuredClone(e) },
+    });
+    return structuredClone(e);
+  }
+
   function spawnEntity(spec: {
     id: string;
     kind?: string;
@@ -4332,6 +4386,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     registerKindVisual,
     setTerrainTiles,
     spawnEntity,
+    editEntity,
     recentEvents,
     recordGm,
     recentGmEvents,
