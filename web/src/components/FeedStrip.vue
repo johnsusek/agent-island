@@ -8,11 +8,13 @@ let props = defineProps<{
   feed: FeedItem[];
   chat: ChatItem[];
   height: number;
+  collapsed: boolean;
 }>();
 
 let emit = defineEmits<{
   (event: "select", id: string): void;
   (event: "resize", height: number): void;
+  (event: "toggle"): void;
 }>();
 
 type Filter = "all" | "talk" | "world";
@@ -114,8 +116,13 @@ let FILTERS: { key: Filter; label: string }[] = [
 </script>
 
 <template>
-  <section class="feed panel">
+  <section
+    class="feed panel"
+    :class="{ 'panel--collapsed': collapsed }"
+    :style="collapsed ? undefined : { height: `${height}px` }"
+  >
     <div
+      v-if="!collapsed"
       class="feed__splitter"
       role="separator"
       aria-label="Resize Feed"
@@ -128,7 +135,7 @@ let FILTERS: { key: Filter; label: string }[] = [
       @keydown="resizeWithKeyboard"
     ></div>
     <header class="feed__head panel__bar">
-      <h2 class="feed__title panel__title">Feed</h2>
+      <h2 class="feed__title panel__title">Log</h2>
       <nav class="feed__filters">
         <button
           v-for="f in FILTERS"
@@ -140,8 +147,17 @@ let FILTERS: { key: Filter; label: string }[] = [
           {{ f.label }}
         </button>
       </nav>
+      <button
+        class="panel__fold"
+        :aria-expanded="!collapsed"
+        :aria-label="collapsed ? 'Expand the log' : 'Collapse the log'"
+        :title="collapsed ? 'Expand (C)' : 'Collapse (C)'"
+        @click="emit('toggle')"
+      >
+        {{ collapsed ? "+" : "-" }}
+      </button>
     </header>
-    <div ref="scrollHost" class="feed__scroll">
+    <div v-show="!collapsed" ref="scrollHost" class="feed__scroll">
       <template v-for="row in rows" :key="row.rowKind + row.key">
         <div v-if="row.rowKind === 'chat'" class="row row--chat">
           <span class="row__tick">t{{ row.tick }}</span>
