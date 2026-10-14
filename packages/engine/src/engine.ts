@@ -3643,7 +3643,19 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       // presentation (see stockDisplay), so a captured overlay that dropped
       // them would restore a world whose season pill had lost its name.
       worldStocks: structuredClone(worldStockSpecs),
+      // The overlay's event prose: without it a snapshot restores a world whose
+      // own events read as bare "<name> <type>".
+      describeEvent: runtimeDescribeEvent(),
     };
+  }
+
+  // Event templates the applied overlay added or changed, beyond the scenario's.
+  function runtimeDescribeEvent(): Record<string, string> {
+    let base = scenario.describeEvent ?? {};
+    let out: Record<string, string> = {};
+    for (let [type, template] of Object.entries(describeTemplates))
+      if (base[type] !== template) out[type] = template;
+    return out;
   }
 
   // The kind-tag icons/colors the GM added at runtime: the divergence from the
