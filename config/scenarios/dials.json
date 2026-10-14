@@ -19,11 +19,11 @@
     ],
     "describeEvent": {
       "quota_raised": "At the assembly stone, {{ ctx.name }} turned the quota dial up. It now reads {{ ctx.world.quota.value }}.",
-      "quota_lowerd": "At the assembly stone, {{ ctx.name }} turned the quota dial down. It now reads {{ ctx.world.quota.value }}.",
+      "quota_lowered": "At the assembly stone, {{ ctx.name }} turned the quota dial down. It now reads {{ ctx.world.quota.value }}.",
       "tax_raised": "At the assembly stone, {{ ctx.name }} turned the tax dial up. It now reads {{ ctx.world.tax.value }}.",
-      "tax_lowerd": "At the assembly stone, {{ ctx.name }} turned the tax dial down. It now reads {{ ctx.world.tax.value }}.",
+      "tax_lowered": "At the assembly stone, {{ ctx.name }} turned the tax dial down. It now reads {{ ctx.world.tax.value }}.",
       "ration_raised": "At the assembly stone, {{ ctx.name }} turned the ration dial up. It now reads {{ ctx.world.ration.value }}.",
-      "ration_lowerd": "At the assembly stone, {{ ctx.name }} turned the ration dial down. It now reads {{ ctx.world.ration.value }}."
+      "ration_lowered": "At the assembly stone, {{ ctx.name }} turned the ration dial down. It now reads {{ ctx.world.ration.value }}."
     },
     "dynamicRules": [
       {
@@ -158,7 +158,7 @@
           }
         ],
         "emit": {
-          "type": "quota_lowerd",
+          "type": "quota_lowered",
           "global": true
         }
       },
@@ -294,7 +294,7 @@
           }
         ],
         "emit": {
-          "type": "tax_lowerd",
+          "type": "tax_lowered",
           "global": true
         }
       },
@@ -430,7 +430,7 @@
           }
         ],
         "emit": {
-          "type": "ration_lowerd",
+          "type": "ration_lowered",
           "global": true
         }
       }

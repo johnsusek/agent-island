@@ -193,6 +193,15 @@
           "sheet": "tiles/kenney-tiny-town.png",
           "tile": 81
         }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
       }
     },
     "describeEvent": {

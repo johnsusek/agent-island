@@ -60,7 +60,7 @@ test("lightning hunts the hoarder and never touches anyone at or below average",
   let [hoarder, fair, poor] = ids;
   let struck: Record<string, number> = {};
   let seen = new Set<string>();
-  for (let i = 0; i < 400; i += 1) {
+  for (let i = 0; i < 800; i += 1) {
     // Pin the shares: 10 / 4 / 1 gives an average of 5, so only the hoarder
     // is above it, and Fair sits below. Keep everyone alive and fed.
     engine.setStock(hoarder, "fish", 10);
@@ -80,7 +80,7 @@ test("lightning hunts the hoarder and never touches anyone at or below average",
     }
   }
   let hits = struck[hoarder] ?? 0;
-  assert.ok(hits >= 4 && hits <= 30, `hoarder struck ${hits} times in 400`);
+  assert.ok(hits >= 4 && hits <= 30, `hoarder struck ${hits} times in 800`);
   assert.equal(struck[fair] ?? 0, 0, "below average is never struck");
   assert.equal(struck[poor] ?? 0, 0, "far below average is never struck");
 });
@@ -91,26 +91,33 @@ test("a strike burns 35 health, is heard by all, and stops the hoarder's hands",
   engine.setStock(hoarder, "fish", 12);
   engine.setStock(other, "fish", 0);
   let event: any;
-  for (let i = 0; i < 400 && !event; i += 1) {
-    engine.setStock(hoarder, "health", 100);
+  for (let i = 0; i < 1200 && !event; i += 1) {
+    // Keep both alive: with the other dead, nobody is above the average.
+    for (let id of ids) {
+      engine.setStock(id, "health", 100);
+      engine.setStock(id, "satiation", 100);
+    }
     // Keep the hoarder busy walking, so we can see the strike stop them.
     if (!entities(engine)[hoarder].action)
       engine.commitIntent(hoarder, {
         type: "explore",
         direction: i % 20 < 10 ? "north" : "south",
       });
+    let walking = Boolean(entities(engine)[hoarder].action);
     engine.tick();
-    event = engine
-      .recentEvents()
-      .find(
-        (e: any) =>
-          e.type === "struck" && e.tick === engine.getAdminState().tick,
-      );
+    // Only a strike that lands mid-walk can show the hands stopping.
+    let now = engine.getAdminState().tick;
+    let thisTick = engine.recentEvents().filter((e: any) => e.tick === now);
+    if (!walking || thisTick.some((e: any) => e.type === "arrived")) continue;
+    event = thisTick.find((e: any) => e.type === "struck");
   }
-  assert.ok(event, "struck within 400 ticks");
+  assert.ok(event, "struck mid-walk within 1200 ticks");
   assert.equal(event.agentId, hoarder);
   assert.equal(event.global, true);
-  assert.match(event.text, /Lightning strikes Hoarder/);
+  assert.match(
+    event.text,
+    /Lightning strikes Hoarder, who was carrying 12 fish/,
+  );
   assert.ok(event.audience.includes(other), "the other hears it");
   let health = stock(engine, hoarder, "health");
   assert.ok(health <= 66 && health >= 64, `health ${health}`);

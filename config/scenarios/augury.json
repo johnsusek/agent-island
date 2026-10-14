@@ -138,13 +138,8 @@
         "max": 1,
         "icon": "lightning-bolt",
         "color": "#f2d45c",
-        "role": "stat",
-        "label": "calm",
-        "bands": {
-          "pressing": "Your skin still tingles from the lightning.",
-          "serious": "Your skin still tingles from the lightning.",
-          "critical": "Your skin still tingles from the lightning."
-        }
+        "role": "hidden",
+        "label": "calm"
       }
     },
     "worldStocks": {},
@@ -195,10 +190,19 @@
           "sheet": "tiles/kenney-tiny-dungeon.png",
           "tile": 20
         }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
       }
     },
     "describeEvent": {
-      "struck": "Lightning strikes {{ ctx.name }}.",
+      "struck": "Lightning strikes {{ ctx.name }}, who was carrying {{ ctx.stocks.fish.value }} fish.",
       "offering": "{{ ctx.name }} burns a fish at the shrine.",
       "death": "{{ ctx.name }} has died.",
       "starving": "{{ ctx.name }} is starving."
@@ -372,12 +376,12 @@
       },
       {
         "id": "lightning",
-        "description": "THE HIDDEN LAW: lightning only ever strikes someone carrying more fish than the living group's average, at 3% a tick each (-35 health). Offerings protect only because they lower the count.",
+        "description": "THE HIDDEN LAW: lightning only ever strikes someone carrying more fish than the living group's average, at 1.5% a tick each (-35 health). Offerings protect only because they lower the count.",
         "phase": "threshold",
         "each": {
           "tag": "agent"
         },
-        "chance": 0.03,
+        "chance": 0.015,
         "when": {
           "cmp": "gt",
           "left": {
