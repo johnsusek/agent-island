@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "An MCP host for agent simulations: a colony coordinator (sessions, the turn barrier or real-time clock, victory, an event journal, optional file persistence) and two Streamable HTTP MCP surfaces, one for characters and one for game masters who edit the rules at runtime.",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "agent-island-mcp": "./dist/cli.js"
@@ -82,7 +83,8 @@
   "files": [
     "dist",
     "examples",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node -e \"const fs=require('fs');for(const f of ['briefing.md','gm-briefing.md','mcp-tool-descriptions'])fs.cpSync('src/'+f,'dist/'+f,{recursive:true})\"",
