@@ -67,13 +67,30 @@ const spriteSpecSchema = schema
       ),
     palette: schema
       .record(schema.string(), schema.string())
+      .optional()
       .describe(
         'Single-character glyph -> "#rrggbb" or "none"; "." is transparent by default',
       ),
     grid: schema
       .array(schema.string())
       .min(1)
+      .optional()
       .describe("Rows of glyphs, top first, one character per pixel"),
+    sheet: schema
+      .string()
+      .optional()
+      .describe(
+        'Instead of palette + grid: a tileset PNG the viewport serves, e.g. "tiles/kenney-tiny-town.png"',
+      ),
+    tile: schema
+      .union([
+        schema.number().int().min(0),
+        schema.array(schema.number().int().min(0)).min(1).max(4),
+      ])
+      .optional()
+      .describe(
+        "With sheet: which tile, counting left to right then top to bottom in cells of size; a list is drawn bottom to top (grass, then a tree)",
+      ),
     mirror: schema
       .enum(["horizontal", "vertical", "none"])
       .optional()
@@ -91,7 +108,7 @@ const spriteSpecSchema = schema
       ),
   })
   .describe(
-    "An inline sprite: palette + character grid, baked to pixels by the viewport",
+    "A sprite: palette + character grid baked to pixels by the viewport, or sheet + tile cut from a served tileset",
   );
 
 interface McpSession {

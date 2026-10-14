@@ -6,6 +6,15 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "agent-island-scratch",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "AGENT_ISLAND_HOME=\"${TMPDIR:-/tmp}/agent-island-scratch\" npm run dev"
+      ],
+      "port": 5173
     }
   ]
 }

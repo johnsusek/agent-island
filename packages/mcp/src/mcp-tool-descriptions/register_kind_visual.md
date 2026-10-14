@@ -13,6 +13,15 @@ checker; there is no icon/color fallback on the map. `icon`, `color`, and
 `label` feed the HUD: legend, inspector, and tooltips. At least one field is
 required.
 
+Instead of `palette` + `grid`, a sprite can cut a tile from a tileset the
+observatory serves: `sheet` is the PNG path and `tile` the index, counting
+left to right then top to bottom in cells of `size`. A list of tiles is drawn
+bottom to top. Two Kenney sheets ship, both 12 tiles wide:
+`tiles/kenney-tiny-town.png` (grass, trees, buildings, fences, signs, tools)
+and `tiles/kenney-tiny-dungeon.png` (characters, monsters, chests, potions,
+weapons). `{size:[16,16], sheet:"tiles/kenney-tiny-dungeon.png", tile:111}`
+is a hooded figure.
+
 Example:
 
 ```

@@ -1,10 +1,11 @@
 import { Texture } from "pixi.js";
 import type { SpriteSpec } from "./types";
 
-// The sprite baker: turns an inline sprite spec (palette + character grid, the
-// DSL register_kind_visual / register_terrain take) into a Pixi texture via an offscreen
-// canvas. This replaced the asset-pack catalog when sprites moved inline into
-// the scenario's visuals - there are no PNGs or atlases; the grid is the art.
+// The sprite baker: turns a sprite spec into a Pixi texture via an offscreen
+// canvas. Most sprites are inline art (palette + character grid, the DSL
+// register_kind_visual / register_terrain take); a sprite may instead name one
+// tile of a tileset PNG this page serves (`sheet` + `tile`), which loads
+// asynchronously - see sheetsVersion for how the map redraws once it lands.
 //
 // Textures are cached by the spec's JSON, so an edited sprite is simply a new
 // key (the old texture ages out with its world) and identical specs share one
@@ -31,11 +32,45 @@ let cache = new Map<string, Texture>();
 let warned = new Set<string>();
 let missingTexture: Texture | null = null;
 
+// Tileset images by path. A sheet still loading resolves to an empty texture
+// (and is not cached); when it lands, sheetsVersion bumps so the map's
+// signatures change and the layers that used it redraw on the next poll.
+let sheets = new Map<string, HTMLImageElement | "loading" | "failed">();
+let sheetLoads = 0;
+
+export function sheetsVersion(): number {
+  return sheetLoads;
+}
+
+function sheetImage(path: string): HTMLImageElement | "loading" | "failed" {
+  let known = sheets.get(path);
+  if (known) return known;
+  sheets.set(path, "loading");
+  let image = new Image();
+  image.onload = () => {
+    sheets.set(path, image);
+    sheetLoads += 1;
+  };
+  image.onerror = () => {
+    sheets.set(path, "failed");
+    sheetLoads += 1;
+    warnOnce(path, `Tileset ${path} failed to load.`);
+  };
+  image.src = `/${path}`;
+  return "loading";
+}
+
 export function resolveSprite(
   spec: SpriteSpec | null | undefined,
 ): ResolvedSprite {
   if (!spec)
     return { texture: missing(), anchor: DEFAULT_ANCHOR, missing: true };
+  if (spec.sheet !== undefined && sheetImage(spec.sheet) === "loading")
+    return {
+      texture: Texture.EMPTY,
+      anchor: spec.anchor ?? DEFAULT_ANCHOR,
+      missing: false,
+    };
   let key = JSON.stringify(spec);
   let texture = cache.get(key);
   if (!texture) {
@@ -94,7 +129,8 @@ function bakeCanvas(spec: SpriteSpec): HTMLCanvasElement {
     height < 1
   )
     throw new Error(`bad size ${JSON.stringify(spec.size)}`);
-  let grid = expandGrid(spec);
+  if (spec.sheet !== undefined) return cutTile(spec, width, height);
+  let grid = expandGrid(spec as { grid: string[] });
   if (grid.length !== height)
     throw new Error(`grid is ${grid.length} rows for height ${height}`);
 
@@ -108,7 +144,7 @@ function bakeCanvas(spec: SpriteSpec): HTMLCanvasElement {
     if (row.length !== width)
       throw new Error(`row ${y} is ${row.length} wide for width ${width}`);
     for (let x = 0; x < width; x += 1) {
-      let rgba = colorFor(spec.palette, row[x]);
+      let rgba = colorFor(spec.palette ?? {}, row[x]);
       let offset = (y * width + x) * 4;
       image.data[offset] = rgba[0];
       image.data[offset + 1] = rgba[1];
@@ -117,6 +153,42 @@ function bakeCanvas(spec: SpriteSpec): HTMLCanvasElement {
     }
   }
   context.putImageData(image, 0, 0);
+  return canvas;
+}
+
+// Copy a tile (or a stack of tiles) of a loaded tileset onto a fresh canvas,
+// counting tiles left to right then top to bottom in cells of the sprite's size.
+function cutTile(
+  spec: SpriteSpec,
+  width: number,
+  height: number,
+): HTMLCanvasElement {
+  let image = sheetImage(spec.sheet!);
+  if (image === "loading" || image === "failed")
+    throw new Error(`tileset ${spec.sheet} is not available`);
+  let columns = Math.floor(image.naturalWidth / width);
+  let rows = Math.floor(image.naturalHeight / height);
+  let tiles = Array.isArray(spec.tile) ? spec.tile : [spec.tile ?? 0];
+  let canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  let context = canvas.getContext("2d")!;
+  // Drawn bottom to top, so [grass, tree] stands a tree on grass.
+  for (let tile of tiles) {
+    if (!columns || tile >= columns * rows)
+      throw new Error(`tile ${tile} is outside ${spec.sheet}`);
+    context.drawImage(
+      image,
+      (tile % columns) * width,
+      Math.floor(tile / columns) * height,
+      width,
+      height,
+      0,
+      0,
+      width,
+      height,
+    );
+  }
   return canvas;
 }
 
@@ -130,6 +202,8 @@ export function spriteDataUrl(
   spec: SpriteSpec | null | undefined,
 ): string | null {
   if (!spec) return null;
+  if (spec.sheet !== undefined && sheetImage(spec.sheet) === "loading")
+    return null;
   let key = JSON.stringify(spec);
   if (dataUrlCache.has(key)) return dataUrlCache.get(key)!;
   let url: string | null;

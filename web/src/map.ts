@@ -8,6 +8,7 @@ import {
 import {
   SPRITE_GRID,
   missing as missingSpriteTexture,
+  sheetsVersion,
   resolveSprite,
 } from "./sprites";
 import { nameTint } from "./glyphs";
@@ -276,7 +277,7 @@ function terrainSignature(
   graphics: GraphicsConfig,
   terrainVisuals: Record<string, VisualSpec>,
 ): string {
-  return `${worldId}:${terrainRevision}:${dims}:${JSON.stringify(graphics)}:${JSON.stringify(terrainVisuals)}`;
+  return `${worldId}:${terrainRevision}:${dims}:${sheetsVersion()}:${JSON.stringify(graphics)}:${JSON.stringify(terrainVisuals)}`;
 }
 
 function tokenSignature(
@@ -286,7 +287,7 @@ function tokenSignature(
   graphics: GraphicsConfig,
   kindVisuals: Record<string, VisualSpec>,
 ): string {
-  return `${worldId}:${tokenRevision}:${bounds}:${JSON.stringify(graphics)}:${JSON.stringify(kindVisuals)}`;
+  return `${worldId}:${tokenRevision}:${bounds}:${sheetsVersion()}:${JSON.stringify(graphics)}:${JSON.stringify(kindVisuals)}`;
 }
 
 function fogSignature(

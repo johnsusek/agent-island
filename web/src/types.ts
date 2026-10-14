@@ -59,8 +59,11 @@ export interface HeldItem {
 export interface SpriteSpec {
   size: [number, number];
   kind?: "token" | "terrain";
-  palette: Record<string, string>;
-  grid: string[];
+  palette?: Record<string, string>;
+  grid?: string[];
+  // Or one tile cut from a served tileset PNG (see the server's sprite.ts).
+  sheet?: string;
+  tile?: number | number[];
   mirror?: "horizontal" | "vertical" | "none";
   anchor?: { x: number; y: number };
 }
