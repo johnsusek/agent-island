@@ -202,6 +202,12 @@ test("villagers vote on a motion and the director hears the result", async () =>
     assert.equal(passed.type, "motion_passed");
     assert.equal(passed.message, wording);
     assert.match(passed.text, /2 yes, 0 no, of 3 living/);
+
+    // A director that joins later still finds it, in its join inspection.
+    colony.connect("gm2");
+    let late = colony.joinAsGm("gm2");
+    assert.equal(late.motions[0].status, "passed");
+    assert.equal(late.motions[0].text, wording);
   } finally {
     colony.stop();
   }

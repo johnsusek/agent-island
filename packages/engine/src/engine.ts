@@ -2153,6 +2153,18 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     };
   }
 
+  // Every motion this run, open and closed, for the director: a motion that
+  // passed while no GM was parked is still here to carry out.
+  function getMotions() {
+    return structuredClone(
+      motions.map((m) => ({
+        ...motionView(m),
+        openedAt: m.openedAt,
+        ...(m.closedAt !== undefined ? { closedAt: m.closedAt } : {}),
+      })),
+    );
+  }
+
   function openMotions(viewer?: string) {
     return motions
       .filter((m) => m.status === "open")
@@ -4231,6 +4243,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     inscribe,
     propose,
     vote,
+    getMotions,
     announce,
     visibleTo,
     visibleEventsSince,
