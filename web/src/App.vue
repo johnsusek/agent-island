@@ -12,9 +12,10 @@ let world = useWorldState();
 // One selection for the whole observatory: a character. Selecting narrows the
 // map's fog to their personal knowledge and opens their dossier over the
 // ledger; clicking empty ground (or the dossier's close) restores the wide view.
+// The map fills the window; every panel floats over it in the HUD layer.
 let selectedAgentId = ref<string | null>(null);
 let feedHeight = ref(
-  Math.round(Math.min(136, Math.max(112, window.innerHeight * 0.17))),
+  Math.round(Math.min(176, Math.max(128, window.innerHeight * 0.2))),
 );
 
 let selectedAgent = computed(() => {
@@ -26,37 +27,38 @@ let selectedAgent = computed(() => {
 
 <template>
   <div class="observatory" :style="{ '--feed-height': `${feedHeight}px` }">
-    <ClockStrip
-      :payload="world.payload.value"
-      :liveness="world.liveness.value"
-      :error="world.stateError.value"
+    <WorldMap
+      class="observatory__map"
+      :map="world.mapView.value"
+      :world-id="world.worldId.value"
+      :terrain-revision="world.terrainRevision.value"
+      :tokens="world.mapTokens.value"
+      :token-revision="world.tokenRevision.value"
+      :fog="world.fog.value"
+      :fog-revision="world.fogRevision.value"
+      :graphics="world.graphics.value"
       :agents="world.agents.value"
+      :entities="world.entities.value"
+      :terrain-visuals="world.terrainVisuals.value"
+      :kind-visuals="world.kindVisuals.value"
+      :selected-agent-id="selectedAgentId"
+      :shared-fog="world.sharedFog.value"
+      :chat="world.chat.value"
+      :tick="world.payload.value?.state.tick ?? 0"
       @select="(id) => (selectedAgentId = id)"
     />
 
-    <main class="observatory__main">
-      <WorldMap
-        class="observatory__map"
-        :map="world.mapView.value"
-        :world-id="world.worldId.value"
-        :terrain-revision="world.terrainRevision.value"
-        :tokens="world.mapTokens.value"
-        :token-revision="world.tokenRevision.value"
-        :fog="world.fog.value"
-        :fog-revision="world.fogRevision.value"
-        :graphics="world.graphics.value"
+    <div class="hud">
+      <ClockStrip
+        class="hud__top"
+        :payload="world.payload.value"
+        :liveness="world.liveness.value"
+        :error="world.stateError.value"
         :agents="world.agents.value"
-        :entities="world.entities.value"
-        :terrain-visuals="world.terrainVisuals.value"
-        :kind-visuals="world.kindVisuals.value"
-        :selected-agent-id="selectedAgentId"
-        :shared-fog="world.sharedFog.value"
-        :chat="world.chat.value"
-        :tick="world.payload.value?.state.tick ?? 0"
         @select="(id) => (selectedAgentId = id)"
       />
 
-      <div class="observatory__rail">
+      <div class="hud__rail">
         <DossierDrawer
           v-if="selectedAgent"
           :agent="selectedAgent"
@@ -66,19 +68,17 @@ let selectedAgent = computed(() => {
           :feed="world.feed.value"
           @close="selectedAgentId = null"
         />
-        <LedgerRail
-          v-else
-          :laws="world.laws.value"
-        />
+        <LedgerRail v-else :laws="world.laws.value" />
       </div>
-    </main>
 
-    <FeedStrip
-      :feed="world.feed.value"
-      :chat="world.chat.value"
-      :height="feedHeight"
-      @select="(id) => (selectedAgentId = id)"
-      @resize="(height) => (feedHeight = height)"
-    />
+      <FeedStrip
+        class="hud__feed"
+        :feed="world.feed.value"
+        :chat="world.chat.value"
+        :height="feedHeight"
+        @select="(id) => (selectedAgentId = id)"
+        @resize="(height) => (feedHeight = height)"
+      />
+    </div>
   </div>
 </template>

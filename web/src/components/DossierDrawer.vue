@@ -85,8 +85,8 @@ let activity = computed(() => {
 </script>
 
 <template>
-  <aside class="dossier">
-    <header class="dossier__head">
+  <aside class="dossier panel">
+    <header class="dossier__head panel__bar">
       <div class="dossier__identity">
         <h2 class="dossier__name" :style="{ color: nameTint(agent.name) }">
           {{ agent.name }}

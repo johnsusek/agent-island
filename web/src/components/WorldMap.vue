@@ -155,6 +155,10 @@ let bubbles = computed(() =>
 
 onMounted(async () => {
   if (!host.value) return;
+  // Pixi rasterizes nameplates once, so the pixel font has to be ready before
+  // the first token draws or the labels stay in the fallback face.
+  await document.fonts.load('16px "Pixelify Sans"').catch(() => {});
+  if (disposed || !host.value) return;
   let nextController = await createWorldViewportController(
     host.value,
     handleHover,

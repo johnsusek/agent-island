@@ -14,7 +14,7 @@ function visibleStocks(stocks: TooltipStock[]) {
 </script>
 
 <template>
-  <div class="tip" :class="{ 'tip--pinned': pinned }">
+  <div class="tip panel" :class="{ 'tip--pinned': pinned }">
     <button
       v-if="pinned"
       class="tip__close"

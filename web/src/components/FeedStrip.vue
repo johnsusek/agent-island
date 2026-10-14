@@ -114,7 +114,7 @@ let FILTERS: { key: Filter; label: string }[] = [
 </script>
 
 <template>
-  <section class="feed">
+  <section class="feed panel">
     <div
       class="feed__splitter"
       role="separator"
@@ -127,8 +127,8 @@ let FILTERS: { key: Filter; label: string }[] = [
       @pointerdown="beginResize"
       @keydown="resizeWithKeyboard"
     ></div>
-    <header class="feed__head">
-      <h2 class="feed__title">Feed</h2>
+    <header class="feed__head panel__bar">
+      <h2 class="feed__title panel__title">Feed</h2>
       <nav class="feed__filters">
         <button
           v-for="f in FILTERS"

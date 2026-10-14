@@ -181,7 +181,7 @@ function createActor(position: Position, unit: number): ActorVisual {
   container.addChild(warning);
   let name = new Text({
     style: {
-      fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+      fontFamily: '"Pixelify Sans", system-ui, sans-serif',
       fontSize: 4.5 * unit,
       fontWeight: "bold",
       fill: 0xf6f3ec,
@@ -198,7 +198,7 @@ function createActor(position: Position, unit: number): ActorVisual {
   // name (hidden entirely when idle - see activityLabel).
   let activity = new Text({
     style: {
-      fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+      fontFamily: '"Pixelify Sans", system-ui, sans-serif',
       fontSize: 4 * unit,
       fill: 0xf4c879,
       stroke: { color: 0x0b0b0c, width: unit },

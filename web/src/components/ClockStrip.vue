@@ -84,7 +84,7 @@ function setCadence(ms: number) {
 </script>
 
 <template>
-  <header class="clock">
+  <header class="clock panel">
     <div class="clock__brand">
       <span class="clock__logo">AGENT ISLAND</span>
       <span class="clock__world" :title="payload?.worldId">{{ scenario }}</span>
@@ -102,7 +102,7 @@ function setCadence(ms: number) {
         >
           {{ population }} alive
         </button>
-        <div v-if="rosterOpen" class="roster">
+        <div v-if="rosterOpen" class="roster panel">
           <button
             v-for="agent in roster"
             :key="agent.id"
