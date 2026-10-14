@@ -212,6 +212,14 @@ result never depends on the order rules were added.
 | `transition`       | once, when `when` newly holds, after thresholds     | one-way changes such as death                       |
 | `kind: "modifier"` | wherever a flow or adjust names its `channel`       | "in winter, gather at half rate"                    |
 
+An `event` rule also hears what characters do outside the rules, on the
+tick after it happens: `said`, `whispered`, `given`, `joined`, `voted`,
+`motion_proposed`, `motion_passed`, `motion_failed`, `inscribed`,
+`picked_up` and `dropped`. The rule runs on the actor (on the world for a
+motion's result) and reads `{"arg": "target"}`, `message` and `motion`
+where they apply, plus `amount` and `resource` on a gift and `choice` on a
+vote.
+
 `each: { "tag": "agent" }` runs a rule once per character, and
 `each: { "tag": "world" }` once on the world.
 

@@ -536,6 +536,15 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   let terrainRevision: number;
   let tokenRevision: number;
   let orders: Map<string, OrderState>;
+  // Events the host raised outside the rules (speech, gifts, joins, votes,
+  // pickups, ...), queued for the next tick's event rules so a scenario can
+  // react to them with `phase: "event", on: "said"` like any rule-emitted
+  // event. Events the rules produced themselves are not queued again: they
+  // already ran past the event rules in the tick that made them. Transient on
+  // purpose - a snapshot taken between ticks drops at most one tick's worth.
+  let hostEvents: KernelEvent[] = [];
+  let enriching = false;
+
   // Every motion this run, open and closed, oldest first (see Motion).
   let motions: Motion[];
   let nextMotionId: number;
@@ -650,6 +659,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     meta = new Map();
     log = [];
     nextSeq = 0;
+    hostEvents = [];
     gmLog = [];
     nextGmSeq = 0;
     rules = [...scenario.rules];
@@ -973,16 +983,43 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   function push(
     event: Omit<GameEvent, "seq" | "tick" | "wake"> & {
       wake?: GameEvent["wake"];
+      // Extra flat data for rules only (a gift's amount, a vote's choice),
+      // kept off the logged event.
+      ruleArgs?: Args;
     },
   ) {
+    let { ruleArgs, ...logged } = event;
     log.push({
       seq: nextSeq,
       tick: world.tick,
-      wake: event.wake ?? "decision",
-      ...event,
+      wake: logged.wake ?? "decision",
+      ...logged,
     });
     nextSeq += 1;
     if (log.length > 50_000) log.shift();
+    if (!enriching) hostEvents.push(toKernelEvent(logged, ruleArgs));
+  }
+
+  // The rule-facing shape of a host event: bound to the actor (or the world
+  // when there is none), with its flat fields as args - `target` (an agent
+  // id, usable as an entity selector via {arg:"target"}), `message`, `motion`.
+  function toKernelEvent(
+    event: Omit<GameEvent, "seq" | "tick">,
+    ruleArgs: Args | undefined,
+  ): KernelEvent {
+    let args: Args = {};
+    if (event.target !== undefined) args.target = event.target;
+    if (event.message !== undefined) args.message = event.message;
+    if (event.motion !== undefined) args.motion = event.motion;
+    Object.assign(args, ruleArgs);
+    return {
+      tick: world.tick,
+      type: event.type,
+      ...(event.agentId ? { entity: event.agentId } : {}),
+      ...(event.text !== undefined ? { text: event.text } : {}),
+      ...(event.global ? { global: true } : {}),
+      ...(Object.keys(args).length ? { args } : {}),
+    };
   }
 
   function recentEvents(limit = 200) {
@@ -1253,13 +1290,18 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   function tick() {
     let from = nextSeq;
     let before = beginTick(world);
-    let raw = advanceSpace(space, world, []);
+    // Host events since the last tick go first, so event rules see them in
+    // the tick's opening pass; only what the rules and the grid raise after
+    // them is rendered into the log below (the host events are logged already).
+    let forwarded = hostEvents;
+    hostEvents = [];
+    let all = [...forwarded, ...advanceSpace(space, world, [])];
     let live = rules;
     runRulesForTick(
       world,
       live,
       before,
-      raw,
+      all,
       terrainAt,
       writeTerrain,
       revealFog,
@@ -1274,7 +1316,13 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       tokenRevision += 1;
       replanRoutesForSolids(space, world);
     }
-    for (let event of raw) enrich(event);
+    let raw = all.slice(forwarded.length);
+    enriching = true;
+    try {
+      for (let event of raw) enrich(event);
+    } finally {
+      enriching = false;
+    }
     // Alarms loud enough to stop hands (a watch emit marked `interrupt`) land
     // after the prose so the feed reads cause then effect, and before orders
     // advance so an interrupted order commits nothing further this tick.
@@ -2096,6 +2144,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       global: true,
       wake: "routine",
       motion: motion.id,
+      ruleArgs: { choice: said },
       text: `${displayName(id)} ${before && before !== said ? "changes their vote to" : "votes"} ${said} on motion ${motion.id}.`,
     });
     let outcome = settleMotion(motion);
@@ -2238,6 +2287,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       target,
       audience: witnessAudience(id),
       text: `${displayName(id)} gives ${displayName(target)} ${transferred} ${resource}.`,
+      ruleArgs: { amount: transferred, resource },
     });
     return transferred;
   }
@@ -4210,6 +4260,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     meta = new Map(clone.meta);
     log = clone.log;
     nextSeq = clone.nextSeq;
+    hostEvents = [];
     gmLog = clone.gmLog ?? [];
     nextGmSeq = clone.nextGmSeq ?? 0;
     orders = new Map(clone.orders ?? []);
