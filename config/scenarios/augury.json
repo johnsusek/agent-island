@@ -1,0 +1,516 @@
+{
+  "name": "augury",
+  "description": "A fishing camp on a plain dotted with lakes. Fish from any shore and eat what you catch to keep your strength. The sky here is not kind: now and then lightning comes down on someone, and it burns badly. A stone shrine stands at camp, and offerings of fish can be burned there. Survive 400 ticks. Built for 5 to 8 players.",
+  "recommendedPlayers": {
+    "min": 5,
+    "max": 8
+  },
+  "include": [],
+  "overlay": {
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "water",
+        "gen": {
+          "noise": {
+            "scale": 9,
+            "above": 0.62,
+            "octaves": 2
+          }
+        }
+      },
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 0.8,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      },
+      "water": {
+        "moveCost": 3,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              ".": "none",
+              "b": "#484a77",
+              "r": "#4d65b4",
+              "k": "#323353"
+            },
+            "grid": [
+              "bbbbbbbbbbbbbbbb",
+              "bbbrrbbbbbbbbbbb",
+              "bbbbbbbbbbrrrbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bkbbbbbbbbbbbbbb",
+              "bbbbbbrrbbbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbbbbbbbbbbrrb",
+              "bbrrbbbbbbbbbbbb",
+              "bbbbbbbbbkbbbbbb",
+              "bbbbbbbrrrbbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "brrbbbbbbbbbbkbb",
+              "bbbbbbbbbrrbbbbb",
+              "bbbbbbbbbbbbbbbb",
+              "bbbbrrbbbbbbbbbb"
+            ],
+            "mirror": "none"
+          },
+          "color": "#2b4a6b"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly burned.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - eat a fish soon.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "fish": {
+        "value": 3,
+        "min": 0,
+        "max": 12,
+        "icon": "fish",
+        "color": "#7fa7c9",
+        "role": "pack",
+        "label": "fish"
+      },
+      "calm": {
+        "value": 1,
+        "min": 0,
+        "max": 1,
+        "icon": "lightning-bolt",
+        "color": "#f2d45c",
+        "role": "stat",
+        "label": "calm",
+        "bands": {
+          "pressing": "Your skin still tingles from the lightning.",
+          "serious": "Your skin still tingles from the lightning.",
+          "critical": "Your skin still tingles from the lightning."
+        }
+      }
+    },
+    "worldStocks": {},
+    "setup": [],
+    "fixtures": [
+      {
+        "id": "shrine",
+        "kind": "shrine",
+        "tags": ["shrine"],
+        "atSpawn": true,
+        "occupancy": "tile"
+      }
+    ],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "shrine": {
+        "icon": "stone-tablet",
+        "color": "#9aa3b5",
+        "label": "shrine",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 20
+        }
+      }
+    },
+    "describeEvent": {
+      "struck": "Lightning strikes {{ ctx.name }}.",
+      "offering": "{{ ctx.name }} burns a fish at the shrine.",
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - eat a fish"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "mending",
+        "description": "A fed body slowly heals burns: about 20 health per 100 ticks while well fed.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 40
+        },
+        "target": "health",
+        "rate": 0.2
+      },
+      {
+        "id": "fish",
+        "kind": "action",
+        "duration": 3,
+        "aliases": ["fishing", "catch", "cast"],
+        "description": "Fish from the shore: stand beside water and catch one fish.",
+        "requires": {
+          "all": [
+            {
+              "nearTerrain": {
+                "type": "water",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "fish"
+              },
+              "right": 12
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside water, with room in your basket (12 fish at most)",
+        "do": [
+          {
+            "adjust": {
+              "target": "fish",
+              "by": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one fish (+25 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "fish"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no fish",
+        "do": [
+          {
+            "adjust": {
+              "target": "fish",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 25
+            }
+          }
+        ]
+      },
+      {
+        "id": "offer",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["sacrifice", "pray", "make_offering"],
+        "description": "Burn one fish as an offering at the shrine.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "shrine",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "fish"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "you must stand at the shrine with a fish to burn",
+        "do": [
+          {
+            "adjust": {
+              "target": "fish",
+              "by": -1
+            }
+          }
+        ],
+        "emit": {
+          "type": "offering"
+        }
+      },
+      {
+        "id": "lightning",
+        "description": "THE HIDDEN LAW: lightning only ever strikes someone carrying more fish than the living group's average, at 3% a tick each (-35 health). Offerings protect only because they lower the count.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "chance": 0.03,
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "stock": "fish"
+          },
+          "right": {
+            "avg": {
+              "tag": "agent",
+              "stock": "fish"
+            }
+          }
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -35
+            }
+          },
+          {
+            "set": {
+              "target": "calm",
+              "to": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "struck",
+        "description": "Everyone hears who was struck; the struck one's hands stop.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "calm"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "struck",
+          "text": "Lightning strikes.",
+          "global": true,
+          "interrupt": "lightning struck you - you are burned"
+        }
+      },
+      {
+        "id": "after-the-flash",
+        "description": "The strike marker clears once everyone has heard.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "calm"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "calm",
+              "to": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "season-ends",
+        "description": "Anyone still alive at tick 400 has outlasted the storms.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 400
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "The storm season breaks. Whoever is left has outlasted the sky.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

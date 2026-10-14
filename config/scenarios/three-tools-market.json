@@ -1,0 +1,345 @@
+{
+  "name": "three-tools-market",
+  "description": "Winter in a one-room camp beside a bay, a grove and a well. Staying alive takes three things - fish to eat, firewood to burn, water to drink - and each runs down every tick. Fish, wood and water are plentiful, but you can only fish with a rod in your hand, chop with an axe, and draw water with a bucket, and there are just two of each for the whole camp. Tools are picked up, dropped, or lent hand to hand; goods are given. Everything said and handed over in the room is seen by all. Survive 500 ticks. A trading post stands in the room: hand it some of one good and it hands back another, and its prices move with its stock - the more of something it already holds, the less it pays for more. Built for 6 to 9 players.",
+  "recommendedPlayers": {
+    "min": 6,
+    "max": 9
+  },
+  "include": ["three-tools"],
+  "overlay": {
+    "fixtures": [
+      {
+        "id": "exchange",
+        "kind": "exchange",
+        "tags": ["exchange"],
+        "atSpawn": true,
+        "stocks": {
+          "fish": {
+            "value": 12,
+            "min": 0,
+            "max": 500
+          },
+          "firewood": {
+            "value": 12,
+            "min": 0,
+            "max": 500
+          },
+          "water": {
+            "value": 12,
+            "min": 0,
+            "max": 500
+          }
+        }
+      }
+    ],
+    "kindVisuals": {
+      "exchange": {
+        "icon": "shop",
+        "color": "#c9a14a",
+        "label": "trading post",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 104
+        }
+      }
+    },
+    "describeEvent": {
+      "traded": "{{ ctx.name }} trades {{ ctx.args.give }} for {{ ctx.args.get }} at the trading post."
+    },
+    "dynamicRules": [
+      {
+        "id": "trade",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["exchange", "barter", "swap"],
+        "description": "Trade at the trading post: hand over `amount` of one good (`give`) and receive another (`get`). It pays floor(amount x its stock of what you get / (its stock of what you give + amount)): the more it already holds of what you bring, the less it pays.",
+        "params": [
+          {
+            "name": "give",
+            "type": "enum",
+            "values": ["fish", "firewood", "water"],
+            "required": true,
+            "description": "the good you hand over"
+          },
+          {
+            "name": "get",
+            "type": "enum",
+            "values": ["fish", "firewood", "water"],
+            "required": true,
+            "description": "the good you want back"
+          },
+          {
+            "name": "amount",
+            "type": "number",
+            "integer": true,
+            "min": 1,
+            "required": true,
+            "description": "how many of `give` to hand over"
+          }
+        ],
+        "requires": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": {
+                  "arg": "give"
+                }
+              },
+              "right": {
+                "arg": "amount"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "floor": {
+                  "div": [
+                    {
+                      "mul": [
+                        {
+                          "arg": "amount"
+                        },
+                        {
+                          "stock": {
+                            "arg": "get"
+                          },
+                          "of": "exchange"
+                        }
+                      ]
+                    },
+                    {
+                      "add": [
+                        {
+                          "stock": {
+                            "arg": "give"
+                          },
+                          "of": "exchange"
+                        },
+                        {
+                          "arg": "amount"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": {
+                  "arg": "get"
+                }
+              },
+              "right": {
+                "floor": {
+                  "div": [
+                    {
+                      "mul": [
+                        {
+                          "arg": "amount"
+                        },
+                        {
+                          "stock": {
+                            "arg": "get"
+                          },
+                          "of": "exchange"
+                        }
+                      ]
+                    },
+                    {
+                      "add": [
+                        {
+                          "stock": {
+                            "arg": "give"
+                          },
+                          "of": "exchange"
+                        },
+                        {
+                          "arg": "amount"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "you do not have that many to trade, the post would pay you nothing for so few, or you have no room for what it would pay",
+        "fizzleWhen": {
+          "not": {
+            "all": [
+              {
+                "cmp": "gte",
+                "left": {
+                  "stock": {
+                    "arg": "give"
+                  }
+                },
+                "right": {
+                  "arg": "amount"
+                }
+              },
+              {
+                "cmp": "gte",
+                "left": {
+                  "floor": {
+                    "div": [
+                      {
+                        "mul": [
+                          {
+                            "arg": "amount"
+                          },
+                          {
+                            "stock": {
+                              "arg": "get"
+                            },
+                            "of": "exchange"
+                          }
+                        ]
+                      },
+                      {
+                        "add": [
+                          {
+                            "stock": {
+                              "arg": "give"
+                            },
+                            "of": "exchange"
+                          },
+                          {
+                            "arg": "amount"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "right": 1
+              },
+              {
+                "cmp": "gte",
+                "left": {
+                  "headroom": {
+                    "arg": "get"
+                  }
+                },
+                "right": {
+                  "floor": {
+                    "div": [
+                      {
+                        "mul": [
+                          {
+                            "arg": "amount"
+                          },
+                          {
+                            "stock": {
+                              "arg": "get"
+                            },
+                            "of": "exchange"
+                          }
+                        ]
+                      },
+                      {
+                        "add": [
+                          {
+                            "stock": {
+                              "arg": "give"
+                            },
+                            "of": "exchange"
+                          },
+                          {
+                            "arg": "amount"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "fizzleReason": "the post's prices moved and the trade no longer works",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": {
+                  "arg": "get"
+                },
+                "of": "exchange"
+              },
+              "to": {
+                "stock": {
+                  "arg": "get"
+                },
+                "of": "self"
+              },
+              "amount": {
+                "floor": {
+                  "div": [
+                    {
+                      "mul": [
+                        {
+                          "arg": "amount"
+                        },
+                        {
+                          "stock": {
+                            "arg": "get"
+                          },
+                          "of": "exchange"
+                        }
+                      ]
+                    },
+                    {
+                      "add": [
+                        {
+                          "stock": {
+                            "arg": "give"
+                          },
+                          "of": "exchange"
+                        },
+                        {
+                          "arg": "amount"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "transfer": {
+              "from": {
+                "stock": {
+                  "arg": "give"
+                },
+                "of": "self"
+              },
+              "to": {
+                "stock": {
+                  "arg": "give"
+                },
+                "of": "exchange"
+              },
+              "amount": {
+                "arg": "amount"
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "traded",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

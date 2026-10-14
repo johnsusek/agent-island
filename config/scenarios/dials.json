@@ -1,0 +1,440 @@
+{
+  "name": "dials",
+  "description": "A small fishing village on an island in a bay. You land fish by casting a net from the shore, and you eat them. The bay regrows from what is left - fastest at half full, never from empty. Three dials, posted for everyone to read, govern the catch: the quota (fish that must stay in the bay; nobody can fish while the bay is at or below it), the tax (0 to 50 percent of every catch goes into the village granary), and the ration (fish the granary hands each villager every 50 ticks, while it has enough). The assembly stone stands at the village center. Anyone can turn a dial - quota by 10, tax by 10, ration by 1 - but only while standing at the assembly stone with more than half of the living villagers within a step of it. Every turn of a dial is announced to all. Survive 400 ticks. Built for 5 to 8 players.",
+  "recommendedPlayers": {
+    "min": 5,
+    "max": 8
+  },
+  "include": ["dials-village"],
+  "overlay": {
+    "fixtures": [
+      {
+        "id": "assembly-stone",
+        "kind": "stone",
+        "tags": ["stone"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "The assembly stone. The quota, the tax and the ration are turned here, and only while most of the village stands around this stone."
+      }
+    ],
+    "describeEvent": {
+      "quota_raised": "At the assembly stone, {{ ctx.name }} turned the quota dial up. It now reads {{ ctx.world.quota.value }}.",
+      "quota_lowerd": "At the assembly stone, {{ ctx.name }} turned the quota dial down. It now reads {{ ctx.world.quota.value }}.",
+      "tax_raised": "At the assembly stone, {{ ctx.name }} turned the tax dial up. It now reads {{ ctx.world.tax.value }}.",
+      "tax_lowerd": "At the assembly stone, {{ ctx.name }} turned the tax dial down. It now reads {{ ctx.world.tax.value }}.",
+      "ration_raised": "At the assembly stone, {{ ctx.name }} turned the ration dial up. It now reads {{ ctx.world.ration.value }}.",
+      "ration_lowerd": "At the assembly stone, {{ ctx.name }} turned the ration dial down. It now reads {{ ctx.world.ration.value }}."
+    },
+    "dynamicRules": [
+      {
+        "id": "raise_quota",
+        "kind": "action",
+        "duration": 1,
+        "description": "Turn the quota dial up by 10 (it runs 0 to 110: fish that must stay in the bay). Only at the assembly stone, and only while more than half of the living villagers stand within a step of it.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "stone",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "mul": [
+                  {
+                    "count": {
+                      "tag": "agent",
+                      "where": {
+                        "colocated": {
+                          "kind": "stone",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  2
+                ]
+              },
+              "right": {
+                "count": {
+                  "tag": "agent"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "the dials turn only at the assembly stone: you must stand within a step of it, and so must more than half of the living villagers",
+        "do": [
+          {
+            "set": {
+              "target": "quota",
+              "of": "world",
+              "to": {
+                "clamp": [
+                  {
+                    "add": [
+                      {
+                        "stock": "quota",
+                        "of": "world"
+                      },
+                      10
+                    ]
+                  },
+                  0,
+                  110
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "quota_raised",
+          "global": true
+        }
+      },
+      {
+        "id": "lower_quota",
+        "kind": "action",
+        "duration": 1,
+        "description": "Turn the quota dial down by 10 (it runs 0 to 110: fish that must stay in the bay). Only at the assembly stone, and only while more than half of the living villagers stand within a step of it.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "stone",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "mul": [
+                  {
+                    "count": {
+                      "tag": "agent",
+                      "where": {
+                        "colocated": {
+                          "kind": "stone",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  2
+                ]
+              },
+              "right": {
+                "count": {
+                  "tag": "agent"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "the dials turn only at the assembly stone: you must stand within a step of it, and so must more than half of the living villagers",
+        "do": [
+          {
+            "set": {
+              "target": "quota",
+              "of": "world",
+              "to": {
+                "clamp": [
+                  {
+                    "add": [
+                      {
+                        "stock": "quota",
+                        "of": "world"
+                      },
+                      -10
+                    ]
+                  },
+                  0,
+                  110
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "quota_lowerd",
+          "global": true
+        }
+      },
+      {
+        "id": "raise_tax",
+        "kind": "action",
+        "duration": 1,
+        "description": "Turn the tax dial up by 10 (it runs 0 to 50: percent of every catch owed to the granary). Only at the assembly stone, and only while more than half of the living villagers stand within a step of it.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "stone",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "mul": [
+                  {
+                    "count": {
+                      "tag": "agent",
+                      "where": {
+                        "colocated": {
+                          "kind": "stone",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  2
+                ]
+              },
+              "right": {
+                "count": {
+                  "tag": "agent"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "the dials turn only at the assembly stone: you must stand within a step of it, and so must more than half of the living villagers",
+        "do": [
+          {
+            "set": {
+              "target": "tax",
+              "of": "world",
+              "to": {
+                "clamp": [
+                  {
+                    "add": [
+                      {
+                        "stock": "tax",
+                        "of": "world"
+                      },
+                      10
+                    ]
+                  },
+                  0,
+                  50
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "tax_raised",
+          "global": true
+        }
+      },
+      {
+        "id": "lower_tax",
+        "kind": "action",
+        "duration": 1,
+        "description": "Turn the tax dial down by 10 (it runs 0 to 50: percent of every catch owed to the granary). Only at the assembly stone, and only while more than half of the living villagers stand within a step of it.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "stone",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "mul": [
+                  {
+                    "count": {
+                      "tag": "agent",
+                      "where": {
+                        "colocated": {
+                          "kind": "stone",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  2
+                ]
+              },
+              "right": {
+                "count": {
+                  "tag": "agent"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "the dials turn only at the assembly stone: you must stand within a step of it, and so must more than half of the living villagers",
+        "do": [
+          {
+            "set": {
+              "target": "tax",
+              "of": "world",
+              "to": {
+                "clamp": [
+                  {
+                    "add": [
+                      {
+                        "stock": "tax",
+                        "of": "world"
+                      },
+                      -10
+                    ]
+                  },
+                  0,
+                  50
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "tax_lowerd",
+          "global": true
+        }
+      },
+      {
+        "id": "raise_ration",
+        "kind": "action",
+        "duration": 1,
+        "description": "Turn the ration dial up by 1 (it runs 0 to 6: fish each villager draws from the granary every 50 ticks). Only at the assembly stone, and only while more than half of the living villagers stand within a step of it.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "stone",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "mul": [
+                  {
+                    "count": {
+                      "tag": "agent",
+                      "where": {
+                        "colocated": {
+                          "kind": "stone",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  2
+                ]
+              },
+              "right": {
+                "count": {
+                  "tag": "agent"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "the dials turn only at the assembly stone: you must stand within a step of it, and so must more than half of the living villagers",
+        "do": [
+          {
+            "set": {
+              "target": "ration",
+              "of": "world",
+              "to": {
+                "clamp": [
+                  {
+                    "add": [
+                      {
+                        "stock": "ration",
+                        "of": "world"
+                      },
+                      1
+                    ]
+                  },
+                  0,
+                  6
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "ration_raised",
+          "global": true
+        }
+      },
+      {
+        "id": "lower_ration",
+        "kind": "action",
+        "duration": 1,
+        "description": "Turn the ration dial down by 1 (it runs 0 to 6: fish each villager draws from the granary every 50 ticks). Only at the assembly stone, and only while more than half of the living villagers stand within a step of it.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "stone",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "mul": [
+                  {
+                    "count": {
+                      "tag": "agent",
+                      "where": {
+                        "colocated": {
+                          "kind": "stone",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  2
+                ]
+              },
+              "right": {
+                "count": {
+                  "tag": "agent"
+                }
+              }
+            }
+          ]
+        },
+        "requireReason": "the dials turn only at the assembly stone: you must stand within a step of it, and so must more than half of the living villagers",
+        "do": [
+          {
+            "set": {
+              "target": "ration",
+              "of": "world",
+              "to": {
+                "clamp": [
+                  {
+                    "add": [
+                      {
+                        "stock": "ration",
+                        "of": "world"
+                      },
+                      -1
+                    ]
+                  },
+                  0,
+                  6
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "ration_lowerd",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

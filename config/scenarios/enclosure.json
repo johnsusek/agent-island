@@ -1,0 +1,738 @@
+{
+  "name": "enclosure",
+  "description": "A shared meadow country. Patches of grass feed everyone, and they regrow from what is left - a patch grazed bare never comes back. Wood from the woods buys stakes that carry your name and fences nobody can walk through, and anyone can pull either up. Walking onto ground staked by someone else is allowed, but everyone hears of it. A court hears petitions: set one down and it will rule. Last 600 ticks. Built for 6 to 10 players.",
+  "recommendedPlayers": {
+    "min": 6,
+    "max": 10
+  },
+  "include": [],
+  "overlay": {
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - graze and eat soon.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "forage": {
+        "value": 3,
+        "min": 0,
+        "max": 8,
+        "icon": "forage",
+        "color": "#9bbf4a",
+        "role": "pack",
+        "label": "forage"
+      },
+      "wood": {
+        "value": 2,
+        "min": 0,
+        "max": 6,
+        "icon": "wood",
+        "color": "#8b5a2b",
+        "role": "pack",
+        "label": "wood"
+      }
+    },
+    "worldStocks": {},
+    "setup": [
+      {
+        "scatter": {
+          "kind": "meadow",
+          "namePrefix": "meadow",
+          "tags": ["meadow"],
+          "count": 10,
+          "onTerrain": ["plains"],
+          "minSpacing": 4,
+          "spawnKeepout": 3,
+          "stocks": {
+            "grass": {
+              "value": [5, 9],
+              "min": 0,
+              "max": [10, 14],
+              "icon": "forage",
+              "color": "#9bbf4a"
+            }
+          },
+          "occupancy": "tile"
+        }
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "courthouse-post",
+        "kind": "sign",
+        "tags": ["sign"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "Grass grows back from what is left. Bare ground stays bare. Grievances go to the court by petition."
+      }
+    ],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "meadow": {
+        "icon": "forage",
+        "color": "#9bbf4a",
+        "label": "meadow",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 17
+        }
+      },
+      "bare": {
+        "icon": "dead",
+        "color": "#a0723f",
+        "label": "bare ground",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 13
+        }
+      },
+      "stake": {
+        "icon": "marker",
+        "color": "#b07b3e",
+        "label": "stake",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 59
+        }
+      },
+      "wall": {
+        "icon": "structure",
+        "color": "#8b5a2b",
+        "label": "fence",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 81
+        }
+      }
+    },
+    "describeEvent": {
+      "trespass": "{{ ctx.name }} has stepped onto ground someone else staked.",
+      "pulled_up": "{{ ctx.name }} pulled up a stake or fence.",
+      "petition": "{{ ctx.name }} petitions the court: {{ ctx.args.complaint }}",
+      "staked": "{{ ctx.name }} drove a stake.",
+      "walled": "{{ ctx.name }} raised a fence.",
+      "meadow_dies": "A meadow has been grazed to bare dirt.",
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - graze a meadow and eat"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "meadow-regrows",
+        "description": "Meadow grass grows from what is left: fastest at half its capacity, slow when nearly bare.",
+        "phase": "flow",
+        "each": {
+          "kind": "meadow"
+        },
+        "target": "grass",
+        "rate": {
+          "div": [
+            {
+              "mul": [
+                0.03,
+                {
+                  "stock": "grass"
+                },
+                {
+                  "headroom": "grass"
+                }
+              ]
+            },
+            {
+              "add": [
+                {
+                  "stock": "grass"
+                },
+                {
+                  "headroom": "grass"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "meadow-dies",
+        "description": "A meadow grazed below one handful is bare ground for good.",
+        "phase": "transition",
+        "each": {
+          "kind": "meadow"
+        },
+        "when": {
+          "cmp": "lt",
+          "left": {
+            "stock": "grass"
+          },
+          "right": 1
+        },
+        "do": [
+          {
+            "set": {
+              "target": "grass",
+              "to": 0
+            }
+          },
+          {
+            "kind": {
+              "set": "bare"
+            }
+          },
+          {
+            "tag": {
+              "remove": "meadow"
+            }
+          }
+        ],
+        "emit": {
+          "type": "meadow_dies",
+          "text": "The meadow has been grazed to bare dirt."
+        }
+      },
+      {
+        "id": "graze",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["forage", "gather", "harvest", "pick"],
+        "description": "Gather up to 2 forage from a meadow beside you. A meadow grazed bare never grows back.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "meadow",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "grass"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "forage"
+              },
+              "right": 8
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside a meadow with grass on it, and have room in your bundle",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "meadow",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "grass"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the meadow was grazed out from under you",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "grass",
+                "of": {
+                  "colocated": {
+                    "kind": "meadow",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "grass"
+                      },
+                      "right": 1
+                    },
+                    "pick": {
+                      "highest": "grass"
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "forage",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "grass",
+                      "of": {
+                        "colocated": {
+                          "kind": "meadow",
+                          "range": 1,
+                          "where": {
+                            "cmp": "gte",
+                            "left": {
+                              "stock": "grass"
+                            },
+                            "right": 1
+                          },
+                          "pick": {
+                            "highest": "grass"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "forage"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one forage (+20 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "forage"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no forage",
+        "do": [
+          {
+            "adjust": {
+              "target": "forage",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "cut_wood",
+        "kind": "action",
+        "duration": 3,
+        "aliases": ["chop", "gather_wood", "chop_wood"],
+        "description": "Cut 1 wood from the woods beside you.",
+        "requires": {
+          "all": [
+            {
+              "nearTerrain": {
+                "type": "forest",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "wood"
+              },
+              "right": 6
+            }
+          ]
+        },
+        "requireReason": "you need to stand in or beside the woods, and have room to carry more wood",
+        "do": [
+          {
+            "adjust": {
+              "target": "wood",
+              "by": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "stake",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["stake_claim", "claim", "drive_stake"],
+        "description": "Drive a stake carrying your name into the ground where you stand (1 wood). The ground around it is yours to point to.",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "wood"
+          },
+          "right": 1
+        },
+        "requireReason": "you need 1 wood for a stake",
+        "do": [
+          {
+            "adjust": {
+              "target": "wood",
+              "by": -1
+            }
+          },
+          {
+            "spawn": {
+              "kind": "stake",
+              "idPrefix": "stake",
+              "tags": [
+                "claim",
+                {
+                  "nameOf": "self"
+                }
+              ],
+              "occupancy": "tile"
+            }
+          }
+        ],
+        "emit": {
+          "type": "staked"
+        }
+      },
+      {
+        "id": "wall",
+        "kind": "action",
+        "duration": 4,
+        "aliases": ["build_wall", "fence", "build_fence"],
+        "description": "Raise a fence carrying your name where you stand (2 wood). Nobody can walk through it; step off it when it is done.",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "wood"
+          },
+          "right": 2
+        },
+        "requireReason": "you need 2 wood for a length of fence",
+        "do": [
+          {
+            "adjust": {
+              "target": "wood",
+              "by": -2
+            }
+          },
+          {
+            "spawn": {
+              "kind": "wall",
+              "idPrefix": "wall",
+              "tags": [
+                "claim",
+                {
+                  "nameOf": "self"
+                }
+              ],
+              "occupancy": "blocking"
+            }
+          }
+        ],
+        "emit": {
+          "type": "walled"
+        }
+      },
+      {
+        "id": "pull_up",
+        "kind": "action",
+        "duration": 3,
+        "aliases": ["remove_stake", "tear_down", "uproot"],
+        "description": "Pull up a stake or fence beside you, yours or anyone's. Everyone hears about it.",
+        "params": [
+          {
+            "name": "target",
+            "type": "entity",
+            "required": true,
+            "description": "the stake or fence to pull up",
+            "match": {
+              "tag": "claim",
+              "range": 1
+            }
+          }
+        ],
+        "requires": {
+          "colocated": {
+            "tag": "claim",
+            "range": 1
+          }
+        },
+        "requireReason": "there is no stake or fence beside you",
+        "do": [
+          {
+            "destroy": {
+              "of": {
+                "arg": "target"
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "pulled_up",
+          "global": true
+        }
+      },
+      {
+        "id": "petition",
+        "kind": "action",
+        "duration": 5,
+        "aliases": ["complain", "sue", "appeal", "file_complaint"],
+        "description": "Spend a while setting down a complaint for the court to hear. Say who wronged you and how.",
+        "params": [
+          {
+            "name": "complaint",
+            "type": "string",
+            "required": true,
+            "description": "who wronged you, how, and what you ask for"
+          }
+        ],
+        "do": [],
+        "emit": {
+          "type": "petition",
+          "global": true
+        }
+      },
+      {
+        "id": "trespass",
+        "description": "Stepping beside a stake that carries someone else's name is noticed by everyone.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "kind": "stake",
+              "near": 1
+            }
+          },
+          "right": {
+            "count": {
+              "kind": "stake",
+              "tag": {
+                "nameOf": "self"
+              },
+              "near": 1
+            }
+          }
+        },
+        "emit": {
+          "type": "trespass",
+          "global": true
+        }
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "harvest-home",
+        "description": "Anyone still alive at tick 600 has seen the season through.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 600
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "The season turns. Whoever still stands on this meadow has lasted it.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}
