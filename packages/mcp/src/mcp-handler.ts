@@ -821,10 +821,10 @@ function registerGmTools(
             "Optional CSS hex tint for the resource's icon, e.g. '#e6b84a'; omit for a neutral auto tint",
           ),
         role: schema
-          .enum(["vital", "stat", "pack"])
+          .enum(["vital", "stat", "pack", "hidden"])
           .optional()
           .describe(
-            'What this stock IS to a character: "vital" (a pressure that can hurt or kill - band-alarmed prose, never a figure, never givable), "stat" (a personal dimension worth a mention only when notable - never givable), or "pack" (a fungible carried quantity - "Carrying:" figures, the only role give/stockpile touch). Omit to default to "pack".',
+            'What this stock IS to a character: "vital" (a pressure that can hurt or kill - band-alarmed prose, never a figure, never givable), "stat" (a personal dimension worth a mention only when notable - never givable), "pack" (a fungible carried quantity - "Carrying:" figures, the only role give/stockpile touch), or "hidden" (bookkeeping the character never perceives - no prose, never givable). Omit to default to "pack".',
           ),
         stockpilable: schema
           .boolean()

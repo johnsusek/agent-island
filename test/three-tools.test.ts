@@ -84,8 +84,10 @@ test("fishing without a rod is refused; with a rod it lands fish", () => {
   pickUp(engine, ara, "rod-1");
   assert.deepEqual(held(engine, ara), ["rod-1"]);
   engine.commitIntent(ara, { type: "fish" });
-  for (let i = 0; i < 3; i += 1) engine.tick();
-  assert.equal(stockOf(engine, ara, "fish"), 4, "2 at start + 2 landed");
+  for (let i = 0; i < 5; i += 1) engine.tick();
+  assert.equal(stockOf(engine, ara, "fish"), 2, "slow work: nothing yet");
+  engine.tick();
+  assert.equal(stockOf(engine, ara, "fish"), 3, "2 at start + 1 landed");
 
   // The rod does not chop wood.
   assert.throws(
@@ -108,8 +110,8 @@ test("a lent rod goes into the borrower's hand, everyone sees, and they can fish
 
   assert.throws(() => engine.commitIntent(ara, { type: "fish" }));
   engine.commitIntent(bo, { type: "fish" });
-  for (let i = 0; i < 3; i += 1) engine.tick();
-  assert.equal(stockOf(engine, bo, "fish"), 4);
+  for (let i = 0; i < 6; i += 1) engine.tick();
+  assert.equal(stockOf(engine, bo, "fish"), 3);
 });
 
 test("vitals drain, eating restores, and running dry kills", () => {

@@ -104,7 +104,7 @@
           "kind": "meadow",
           "namePrefix": "meadow",
           "tags": ["meadow"],
-          "count": 10,
+          "count": 6,
           "onTerrain": ["plains"],
           "minSpacing": 4,
           "spawnKeepout": 3,
@@ -270,7 +270,7 @@
           "div": [
             {
               "mul": [
-                0.03,
+                0.02,
                 {
                   "stock": "grass"
                 },

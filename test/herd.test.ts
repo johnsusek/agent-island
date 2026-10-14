@@ -98,13 +98,13 @@ function chase(engine: Engine, hunters: string[], ticks: number) {
 
 const CENTER = { x: 48, y: 48 };
 
-test("a 96x96 fogged map with the herd far from camp", () => {
+test("a 64x64 fogged map with the herd far from camp", () => {
   let { engine, ids } = boot(["Ara"]);
   let map = engine.getMap() as { width: number; height: number };
-  assert.equal(map.width, 96);
-  assert.equal(map.height, 96);
+  assert.equal(map.width, 64);
+  assert.equal(map.height, 64);
   let ara = entities(engine)[ids[0]];
-  assert.ok(gap(herd(engine).pos, ara.pos) >= 30, "far beyond sight");
+  assert.ok(gap(herd(engine).pos, ara.pos) >= 20, "far beyond sight");
   assert.equal(herd(engine).stocks.meat.value, 12);
   let roots = Object.values(entities(engine)).filter((e) => e.kind === "roots");
   assert.ok(roots.length >= 10, `${roots.length} root patches`);
@@ -190,4 +190,27 @@ test("hunting is refused alone and works with two beside the herd", () => {
   engine.commitIntent(ara, { type: "eat", food: "meat" });
   engine.tick();
   assert.equal(entities(engine)[ara].stocks.meat.value, 3);
+});
+
+test("two diggers at a one-root patch: one gets it, the other's dig fizzles cleanly", () => {
+  let { engine, ids } = boot(["Ara", "Bo"]);
+  let [ara, bo] = ids;
+  let patch = Object.values(entities(engine)).find(
+    (e) => e.kind === "roots" && e.pos.x > 2 && e.pos.y > 2,
+  );
+  place(engine, {
+    [ara]: { x: patch.pos.x - 1, y: patch.pos.y },
+    [bo]: { x: patch.pos.x + 1, y: patch.pos.y },
+  });
+  engine.setStock(patch.id, "roots", 1);
+  engine.commitIntent(ara, { type: "dig" });
+  engine.commitIntent(bo, { type: "dig" });
+  let seen: any[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    engine.tick();
+    seen.push(...engine.recentEvents());
+  }
+  let dug = [ara, bo].map((id) => entities(engine)[id].stocks.roots.value);
+  assert.deepEqual(dug.sort(), [2, 3], "2 at start each; exactly one root dug");
+  assert.ok(!seen.some((e) => e.type === "rule_error"), "no rule error");
 });

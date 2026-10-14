@@ -8,8 +8,8 @@
   "include": [],
   "overlay": {
     "mapSize": {
-      "width": 96,
-      "height": 96
+      "width": 64,
+      "height": 64
     },
     "defaultTerrain": "plains",
     "terrainLayers": [
@@ -131,7 +131,7 @@
           "tags": ["herd"],
           "count": 1,
           "onTerrain": ["plains"],
-          "spawnKeepout": 30,
+          "spawnKeepout": 20,
           "stocks": {
             "meat": {
               "value": 12,
@@ -495,6 +495,22 @@
           ]
         },
         "requireReason": "you need to stand beside a root patch that still has roots, with room to carry them (6 at most)",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "roots",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "roots"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the patch was dug out",
         "do": [
           {
             "transfer": {

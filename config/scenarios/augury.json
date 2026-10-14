@@ -156,6 +156,14 @@
         "tags": ["shrine"],
         "atSpawn": true,
         "occupancy": "tile"
+      },
+      {
+        "id": "shrine-words",
+        "kind": "sign",
+        "tags": ["sign"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "Old words cut beside the shrine: The sky watches what each of you carries. Burn what you do not need."
       }
     ],
     "kindVisuals": {

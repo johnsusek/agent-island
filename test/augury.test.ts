@@ -188,3 +188,14 @@ test("fishing works from a shore and feeds", () => {
   engine.tick();
   assert.equal(stock(engine, ara, "fish"), 3);
 });
+
+test("old words by the shrine hint at what the sky watches, without stating the law", () => {
+  let { engine } = boot(["Ara"]);
+  let all = Object.values(entities(engine));
+  let shrine = all.find((e) => e.kind === "shrine");
+  let words = all.find((e) => e.id === "shrine-words");
+  assert.ok(shrine && words, "shrine and its words stand at camp");
+  assert.ok(gap(shrine.pos, words.pos) <= 2, "the words stand by the shrine");
+  assert.match(words.text, /carries/);
+  assert.doesNotMatch(words.text, /average|lightning|more than/i);
+});

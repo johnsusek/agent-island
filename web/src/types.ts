@@ -18,7 +18,7 @@ export interface Stock {
 }
 
 // What a stock IS to a character (mirrors the engine's scenario.StockRole).
-export type StockRole = "vital" | "stat" | "pack";
+export type StockRole = "vital" | "stat" | "pack" | "hidden";
 
 // How a per-character stock starts out (mirrors the engine's scenario.StockSpec).
 // `icon` is the game-icons slug it draws with. The overview payload strips the

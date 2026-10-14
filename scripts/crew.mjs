@@ -908,13 +908,17 @@ class Crew {
       seat.childPid = child.pid ?? null;
       seat.state = "running";
       seat.spawnedAt = Date.now();
+      seat.exitCode = null;
       this.notifySeat(seat);
 
       child.on("error", (error) => {
         seat.error = error instanceof Error ? error.message : String(error);
         if (child.pid == null) settle(error);
       });
-      child.once("exit", () => settle());
+      child.once("exit", (code) => {
+        seat.exitCode = code;
+        settle();
+      });
     } catch (error) {
       settle(error);
     }
@@ -960,7 +964,14 @@ class Crew {
     if (seat.role === "director") {
       let now = Date.now();
       let ranMs = seat.spawnedAt ? now - seat.spawnedAt : 0;
-      let healthy = !spawnError && ranMs >= CONFIG.storm.healthyRunMs;
+      // A scheduled director's quiet pass can finish in a few seconds, and it
+      // then waits for its next launch tick anyway, so a clean exit counts as
+      // a completed pass however short; otherwise quick quiet passes would
+      // relaunch back to back and trip the storm guard.
+      let healthy =
+        !spawnError &&
+        (ranMs >= CONFIG.storm.healthyRunMs ||
+          (seat.cadenceTicks > 0 && seat.exitCode === 0));
       if (healthy) seat.restartTimes = [];
       else {
         seat.restartTimes.push(now);

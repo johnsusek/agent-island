@@ -159,13 +159,14 @@ test("fishing lands 10 and the tax splits it exactly into the granary", () => {
   placeAt(engine, ara, edge.x, edge.y);
   engine.setStock("world", "ration", 0);
   engine.setStock("world", "tax", 30);
+  engine.setStock(ara, "fish", 0); // room for a whole net in a 12-fish basket
   let bay = world(engine, "bay");
   let granary = world(engine, "granary");
 
   engine.commitIntent(ara, { type: "fish" });
   engine.tick();
   engine.tick();
-  assert.equal(mine(engine, ara, "fish"), 4 + 7, "the fisher keeps 7 of 10");
+  assert.equal(mine(engine, ara, "fish"), 7, "the fisher keeps 7 of 10");
   assert.equal(world(engine, "granary"), granary + 3, "the granary gets 3");
   assert.equal(mine(engine, ara, "landed"), 0, "the tally is cleared");
   assert.ok(
@@ -175,11 +176,12 @@ test("fishing lands 10 and the tax splits it exactly into the granary", () => {
 
   // At 0 tax the whole catch is the fisher's.
   engine.setStock("world", "tax", 0);
+  engine.setStock(ara, "fish", 0);
   let before = world(engine, "granary");
   engine.commitIntent(ara, { type: "fish" });
   engine.tick();
   engine.tick();
-  assert.equal(mine(engine, ara, "fish"), 21);
+  assert.equal(mine(engine, ara, "fish"), 10);
   assert.equal(world(engine, "granary"), before);
 });
 

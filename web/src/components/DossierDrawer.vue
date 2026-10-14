@@ -46,7 +46,8 @@ function conditionMeter(name: string, stock: Stock) {
 }
 
 // Vitals and stats show as bars (a gauge in a band); pack shows as compact
-// name/value rows (a carried quantity). Grouping key is the server-projected
+// name/value rows (a carried quantity), and so does hidden bookkeeping - the
+// character never perceives it, but a spectator should. Grouping key is the server-projected
 // role, so the dashboard reads the same taxonomy as the character's prose.
 let vitals = computed(() =>
   Object.entries(props.agent.stocks)
@@ -60,7 +61,7 @@ let stats = computed(() =>
 );
 let pack = computed(() =>
   Object.entries(props.agent.stocks)
-    .filter(([name]) => roleOf(name) === "pack")
+    .filter(([name]) => ["pack", "hidden"].includes(roleOf(name)))
     .filter(([, stock]) => stock.value !== 0)
     .map(([name, stock]) => ({
       name,

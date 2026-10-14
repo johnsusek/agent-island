@@ -121,7 +121,8 @@
         "max": 20,
         "icon": "eye-target",
         "color": "#8a2b2b",
-        "label": "suspicion"
+        "label": "suspicion",
+        "role": "hidden"
       }
     },
     "worldStocks": {
@@ -130,7 +131,8 @@
         "min": 0,
         "max": 1,
         "icon": "flag-objective",
-        "label": "game over"
+        "label": "game over",
+        "role": "hidden"
       }
     },
     "setup": [
@@ -145,9 +147,9 @@
           "spawnKeepout": 6,
           "stocks": {
             "berries": {
-              "value": [5, 9],
+              "value": [3, 6],
               "min": 0,
-              "max": [10, 14],
+              "max": [6, 9],
               "icon": "berries",
               "color": "#c23b3b"
             }
@@ -222,7 +224,12 @@
         "description": "The hunger alarm.",
         "phase": "watch",
         "each": {
-          "tag": "agent"
+          "tag": "agent",
+          "where": {
+            "not": {
+              "tag": "hollow"
+            }
+          }
         },
         "when": {
           "cmp": "lte",
@@ -234,6 +241,28 @@
         "emit": {
           "type": "starving",
           "interrupt": "you are starving - find berries and eat"
+        }
+      },
+      {
+        "id": "starving-hollow",
+        "description": "The hunger alarm, as the hollow one hears it. Others see only that they are starving.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent",
+          "where": {
+            "tag": "hollow"
+          }
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - berries will not help; find someone alone and devour them"
         }
       },
       {
@@ -267,7 +296,7 @@
           "kind": "bush"
         },
         "target": "berries",
-        "rate": 0.02
+        "rate": 0.015
       },
       {
         "id": "forage",
@@ -626,7 +655,7 @@
       },
       {
         "id": "hollowing",
-        "description": "Once at least 8 people are here (or by tick 60 with at least 4), one of them, at random, becomes hollow. Only they are told.",
+        "description": "Once at least 8 people are here (or by tick 60 with at least 4), one of them, at random, becomes hollow - and starts fresh, fully fed. Only they are told.",
         "phase": "transition",
         "each": {
           "tag": "agent"
@@ -691,6 +720,12 @@
             "set": {
               "target": "humanity",
               "to": 0
+            }
+          },
+          {
+            "set": {
+              "target": "satiation",
+              "to": 100
             }
           }
         ]

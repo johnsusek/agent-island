@@ -95,7 +95,7 @@ function events(engine: Engine, type: string) {
 test("the meadow country starts with grass patches and a posted rule", () => {
   let { engine, ids } = boot(["Ara"]);
   let meadows = ofKind(engine, "meadow");
-  assert.equal(meadows.length, 10, `${meadows.length} meadows`);
+  assert.equal(meadows.length, 6, `${meadows.length} meadows`);
   for (let m of meadows) assert.ok(m.stocks.grass.value >= 5);
   let situation = JSON.stringify(engine.sense(ids[0], "situation"));
   assert.match(situation, /Bare ground stays bare/);

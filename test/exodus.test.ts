@@ -128,9 +128,10 @@ test("bushes regrow at half speed two floors down", () => {
     engine.setStock("world", "floor", depth);
     let bush = ofKind(engine, "bush")[0];
     engine.setStock(bush.id, "berries", 0);
-    for (let i = 0; i < 10; i += 1) engine.tick();
-    return entities(engine)[bush.id].stocks.berries.value / 10;
+    // Long enough that the read-side rounding (to 0.1) cannot hide the rate.
+    for (let i = 0; i < 100; i += 1) engine.tick();
+    return entities(engine)[bush.id].stocks.berries.value / 100;
   };
-  assert.ok(Math.abs(rateOn(0) - 0.02) < 1e-9, `floor 0: ${rateOn(0)}`);
-  assert.ok(Math.abs(rateOn(2) - 0.01) < 1e-9, `floor 2: ${rateOn(2)}`);
+  assert.ok(Math.abs(rateOn(0) - 0.01) < 1e-3, `floor 0: ${rateOn(0)}`);
+  assert.ok(Math.abs(rateOn(2) - 0.005) < 1e-3, `floor 2: ${rateOn(2)}`);
 });

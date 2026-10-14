@@ -147,7 +147,7 @@
       "fish": {
         "value": 4,
         "min": 0,
-        "max": 30,
+        "max": 12,
         "icon": "fish-bucket",
         "color": "#5b9cc8",
         "role": "pack",
@@ -235,7 +235,7 @@
         "target": "bay",
         "rate": {
           "mul": [
-            0.03,
+            0.012,
             {
               "stock": "bay"
             },

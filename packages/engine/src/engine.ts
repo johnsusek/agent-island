@@ -3993,7 +3993,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   // and a single missing stock fails the whole tick for everyone. The default
   // never overwrites a stock a character already has - re-running it, or setting a
   // default for a stock some already carry, only fills the gaps.
-  const STOCK_ROLES: StockRole[] = ["vital", "stat", "pack"];
+  const STOCK_ROLES: StockRole[] = ["vital", "stat", "pack", "hidden"];
   const VITAL_BAND_NAMES = ["pressing", "serious", "critical"] as const;
 
   function assertValidBands(

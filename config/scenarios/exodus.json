@@ -184,7 +184,7 @@
       "death": "{{ ctx.name }} has died.",
       "starving": "{{ ctx.name }} is starving.",
       "descent": "The gate opens. The ground gives way, and everyone falls to a new floor.",
-      "gate-stirs": "The gate stirs under {{ ctx.name }}."
+      "gate-stirs": "The gate stirs under {{ ctx.name }}. It will open when half of the living stand at it."
     },
     "dynamicRules": [
       {
@@ -247,7 +247,7 @@
           "kind": "bush"
         },
         "target": "berries",
-        "rate": 0.02,
+        "rate": 0.01,
         "channel": "regrowth"
       },
       {

@@ -1,6 +1,6 @@
 {
   "name": "fever",
-  "description": "A fever is going around the camp. It passes between people who stand close together, and those who catch it feel nothing at first - by the time they feel feverish, the fever is already half done with them, and it kills if it runs its course. No one can tell by looking who carries it, not even the one who does. A bitter herb that cures it grows only on the rocky highlands, far from camp; it can be carried and handed to someone else. Berries grow scattered across the plain. Anyone still alive at tick 500 has outlasted the fever. Built for 6 to 10 players.",
+  "description": "A fever is going around the camp. It passes between people who stand close together, and those who catch it feel nothing at first - by the time they feel feverish, the fever is already half done with them, and it kills if it runs its course. No one can tell by looking who carries it, not even the one who does. A bitter herb that cures it grows only on the rocky highlands, far from camp; it grows back slowly, and it can be carried and handed to someone else. When the fever seems gone, it is not always gone. Berries grow scattered across the plain. Anyone still alive at tick 500 has outlasted the fever. Built for 6 to 10 players.",
   "recommendedPlayers": {
     "min": 6,
     "max": 10
@@ -135,12 +135,13 @@
         "max": 1,
         "icon": "virus",
         "color": "#7a9a3a",
-        "label": "infected"
+        "label": "infected",
+        "role": "hidden"
       },
       "herb": {
         "value": 0,
         "min": 0,
-        "max": 3,
+        "max": 2,
         "icon": "herbs-bundle",
         "color": "#6ab04c",
         "role": "pack",
@@ -175,15 +176,15 @@
           "kind": "herbplant",
           "namePrefix": "herb",
           "tags": ["herbplant"],
-          "count": 8,
+          "count": 5,
           "onTerrain": ["highland"],
           "minSpacing": 4,
           "spawnKeepout": 16,
           "stocks": {
             "herb": {
-              "value": [2, 3],
+              "value": [1, 2],
               "min": 0,
-              "max": 3,
+              "max": 2,
               "icon": "herbs-bundle",
               "color": "#6ab04c"
             }
@@ -517,6 +518,50 @@
         ]
       },
       {
+        "id": "fever-returns",
+        "description": "The fever lingers in the land: once nobody carries it, after tick 120 it can take hold of someone again - about once every 80 ticks among six people. Nobody is told.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "chance": 0.002,
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 120
+            },
+            {
+              "cmp": "eq",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "where": {
+                    "cmp": "gte",
+                    "left": {
+                      "stock": "infected"
+                    },
+                    "right": 1
+                  }
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "infected",
+              "to": 1
+            }
+          }
+        ]
+      },
+      {
         "id": "contagion",
         "description": "Each tick you stand beside (within one tile of) someone carrying the fever, there is a 4% chance you catch it. You do not notice.",
         "phase": "threshold",
@@ -593,13 +638,13 @@
       },
       {
         "id": "herbs-regrow",
-        "description": "Bitterleaf slowly grows back, up to three sprigs a plant.",
+        "description": "Bitterleaf grows back very slowly - about a sprig every 250 ticks - up to two sprigs a plant.",
         "phase": "flow",
         "each": {
           "kind": "herbplant"
         },
         "target": "herb",
-        "rate": 0.01
+        "rate": 0.004
       },
       {
         "id": "gather_herb",

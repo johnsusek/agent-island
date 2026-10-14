@@ -287,9 +287,9 @@
       {
         "id": "fish",
         "kind": "action",
-        "duration": 3,
+        "duration": 6,
         "aliases": ["cast", "angle", "catch_fish"],
-        "description": "Cast a line in the bay and land up to 2 fish. You need a fishing rod in your hand.",
+        "description": "Cast a line in the bay and land a fish - slow, patient work. You need a fishing rod in your hand.",
         "requires": {
           "all": [
             {
@@ -348,7 +348,7 @@
               },
               "amount": {
                 "min": [
-                  2,
+                  1,
                   {
                     "floor": {
                       "stock": "bay",
@@ -367,9 +367,9 @@
       {
         "id": "chop",
         "kind": "action",
-        "duration": 3,
+        "duration": 6,
         "aliases": ["chop_wood", "cut_wood", "gather_wood"],
-        "description": "Chop up to 2 bundles of firewood in the grove. You need an axe in your hand.",
+        "description": "Chop a bundle of firewood in the grove - slow, heavy work. You need an axe in your hand.",
         "requires": {
           "all": [
             {
@@ -428,7 +428,7 @@
               },
               "amount": {
                 "min": [
-                  2,
+                  1,
                   {
                     "floor": {
                       "stock": "grove",
@@ -447,9 +447,9 @@
       {
         "id": "draw_water",
         "kind": "action",
-        "duration": 3,
+        "duration": 6,
         "aliases": ["fetch_water", "draw", "get_water"],
-        "description": "Draw up to 2 measures of water from the well. You need a bucket in your hand.",
+        "description": "Draw a measure of water from the well - a long haul up. You need a bucket in your hand.",
         "requires": {
           "all": [
             {
@@ -508,7 +508,7 @@
               },
               "amount": {
                 "min": [
-                  2,
+                  1,
                   {
                     "floor": {
                       "stock": "well",

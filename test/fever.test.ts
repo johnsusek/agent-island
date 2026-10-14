@@ -75,7 +75,7 @@ test("one patient zero in a small camp, two once eight are here, and nobody is t
   );
   assert.equal(patients.length, 1);
   assert.equal(stock(small.engine, patients[0], "infected"), 1);
-  assert.doesNotMatch(prose(small.engine, patients[0]), /feverish/);
+  assert.doesNotMatch(prose(small.engine, patients[0]), /feverish|infected/);
 
   let big = boot(["Ara", "Bo", "Cy", "Di", "Ed", "Fen", "Gil", "Hal"]);
   for (let i = 0; i < 80; i += 1) big.engine.tick();
@@ -192,4 +192,22 @@ test("anyone alive at tick 500 has outlasted the fever", () => {
   }
   let win = engine.recentEvents(2000).filter((e: any) => e.type === "victory");
   assert.equal(win.length, 1);
+});
+
+test("once nobody carries it, the fever can take hold again after tick 120", () => {
+  let { engine, ids } = boot(["Ara", "Bo", "Cy", "Di", "Ed", "Fen"]);
+  let carriers = () => ids.filter((id) => stock(engine, id, "infected") >= 1);
+  for (let i = 0; i < 20; i += 1) engine.tick();
+  for (let id of carriers()) engine.setStock(id, "infected", 0);
+  // Before tick 120 a camp nobody carries it in stays clean.
+  while (engine.currentTick() < 119) {
+    for (let id of ids) engine.setStock(id, "satiation", 100);
+    engine.tick();
+    assert.equal(carriers().length, 0, `clean at tick ${engine.currentTick()}`);
+  }
+  for (let i = 0; i < 800 && carriers().length === 0; i += 1) {
+    for (let id of ids) engine.setStock(id, "satiation", 100);
+    engine.tick();
+  }
+  assert.ok(carriers().length >= 1, "the fever came back");
 });
