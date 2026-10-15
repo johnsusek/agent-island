@@ -61,9 +61,10 @@ Everything meets over MCP; the server never launches an LLM.
   size into `config/scenarios/<name>.map.json`; when present, the engine
   slices the world's starting view from that file and reveals more of it as
   `growWorld` rules fire, instead of generating terrain live.
-- **`web/`** - the observatory: a read-mostly spectator UI. Map center (PixiJS),
-  the Ledger right (laws added at runtime), the feed below. The clock
-  strip's population count opens a roster; click a character for their dossier,
+- **`web/`** - the observatory: a read-mostly spectator UI laid out as a game
+  HUD over a full-screen map (PixiJS). The world's stocks and a Laws panel
+  (laws added at runtime) top left, the clock top right, a roster of portrait
+  tiles over the log bottom left; click a tile for that character's dossier,
   or click a map token to pin its card.
 
 ## Running

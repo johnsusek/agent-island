@@ -4,11 +4,13 @@ import { statIconVisual } from "../icons";
 import type { AdminPayload } from "../types";
 
 // The world's shared stocks, top left, the way a strategy game shows its
-// resources: an icon, a number, and a thin gauge when the stock is bounded.
+// resources: an icon, a name, an amber number, and a thin gauge when the
+// stock is bounded.
 const props = defineProps<{ payload: AdminPayload | null }>();
 
 let stocks = computed(() => {
   let visuals = props.payload?.state.scenario?.kindVisuals ?? {};
+  let display = props.payload?.state.scenario?.display ?? {};
   return Object.entries(props.payload?.state.world.stocks ?? {}).map(
     ([name, stock]) => {
       let visual = statIconVisual(name, visuals);
@@ -18,7 +20,7 @@ let stocks = computed(() => {
       let position = bounded ? (stock.value - stock.min) / span : 0;
       return {
         name,
-        label: visuals[name]?.label ?? name,
+        label: visuals[name]?.label ?? display[name]?.label ?? name,
         value: Math.round(stock.value),
         max: Math.round(stock.max),
         bounded,
@@ -49,7 +51,7 @@ let stocks = computed(() => {
         class="resource__icon"
         :style="{ maskImage: `url(${stock.iconUrl})` }"
       ></span>
-      <span v-else class="resource__name">{{ stock.label }}</span>
+      <span class="resource__name">{{ stock.label }}</span>
       <span class="resource__readout">
         <b class="resource__value">{{ stock.value }}</b>
         <span v-if="stock.bounded" class="resource__track" aria-hidden="true">

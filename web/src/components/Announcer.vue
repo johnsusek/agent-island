@@ -18,7 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "select", id: string): void;
-  (e: "ledger"): void;
+  (e: "laws"): void;
 }>();
 
 interface Toast {
@@ -64,7 +64,7 @@ function dismiss(key: string) {
 
 function open(toast: Toast) {
   if (toast.agentId) emit("select", toast.agentId);
-  else if (toast.law) emit("ledger");
+  else if (toast.law) emit("laws");
   dismiss(toast.key);
 }
 

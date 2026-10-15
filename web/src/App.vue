@@ -3,9 +3,9 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import Announcer from "./components/Announcer.vue";
 import DossierDrawer from "./components/DossierDrawer.vue";
 import FeedStrip from "./components/FeedStrip.vue";
-import LedgerRail from "./components/LedgerRail.vue";
-import PartyFrames from "./components/PartyFrames.vue";
+import LawsPanel from "./components/LawsPanel.vue";
 import ResourceBar from "./components/ResourceBar.vue";
+import RosterTiles from "./components/RosterTiles.vue";
 import TimeWidget from "./components/TimeWidget.vue";
 import WorldMap from "./components/WorldMap.vue";
 import { useWorldState } from "./useWorldState";
@@ -13,15 +13,16 @@ import { useWorldState } from "./useWorldState";
 let world = useWorldState();
 
 // The island fills the window and the interface is a game HUD over it:
-// resources top left, the clock and speed top right, the party down the left
-// edge, the selected character's sheet down the right, the log bottom left
-// and the dock bottom right. The Ledger opens as a book over the map.
+// the world's stocks and the Laws chip top left (the laws open beneath them),
+// the clock and speed top right, the selected character's sheet down the
+// right, the roster of portrait tiles over the log bottom left, and the dock
+// bottom right.
 //
 // One selection for the whole observatory: a character. Selecting narrows the
 // map's fog to their personal knowledge and opens their sheet; clicking empty
 // ground (or the sheet's close, or Esc) restores the wide view.
 let selectedAgentId = ref<string | null>(null);
-let ledgerOpen = ref(false);
+let lawsOpen = ref(false);
 let logCollapsed = ref(false);
 let keysOpen = ref(false);
 let feedHeight = ref(
@@ -45,9 +46,9 @@ watch(
   { immediate: true },
 );
 
-// Party order for cycling: living characters first, by name, matching the
-// party frames.
-let partyOrder = computed(() =>
+// Roster order for cycling: living characters first, by name, matching the
+// roster tiles.
+let rosterOrder = computed(() =>
   Object.values(world.agents.value)
     .sort(
       (a, b) =>
@@ -57,11 +58,9 @@ let partyOrder = computed(() =>
 );
 
 function cycleSelection(step: number) {
-  let order = partyOrder.value;
+  let order = rosterOrder.value;
   if (!order.length) return;
-  let index = selectedAgentId.value
-    ? order.indexOf(selectedAgentId.value)
-    : -1;
+  let index = selectedAgentId.value ? order.indexOf(selectedAgentId.value) : -1;
   let next =
     index === -1
       ? step > 0
@@ -100,7 +99,7 @@ const KEYS = [
   { key: "Space", action: "Pause / resume" },
   { key: "1-4", action: "Turn-based, slow, normal, fast" },
   { key: "[ ]", action: "Previous / next character" },
-  { key: "L", action: "Open the Ledger" },
+  { key: "L", action: "Show the laws" },
   { key: "C", action: "Collapse the log" },
   { key: "Esc", action: "Close / deselect" },
   { key: "?", action: "Show these keys" },
@@ -113,7 +112,7 @@ function onKey(event: KeyboardEvent) {
   let key = event.key;
   if (key === "Escape") {
     if (keysOpen.value) keysOpen.value = false;
-    else if (ledgerOpen.value) ledgerOpen.value = false;
+    else if (lawsOpen.value) lawsOpen.value = false;
     else selectedAgentId.value = null;
   } else if (key === " ") {
     // Space on a focused button should press the button, not pause.
@@ -126,7 +125,7 @@ function onKey(event: KeyboardEvent) {
   } else if (key === "[") {
     cycleSelection(-1);
   } else if (key === "l" || key === "L") {
-    ledgerOpen.value = !ledgerOpen.value;
+    lawsOpen.value = !lawsOpen.value;
   } else if (key === "c" || key === "C") {
     logCollapsed.value = !logCollapsed.value;
   } else if (key === "?") {
@@ -167,6 +166,17 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
     <div class="hud" :class="{ 'hud--selected': selectedAgent }">
       <div class="hud__top">
         <ResourceBar :payload="world.payload.value" />
+        <button
+          class="hud__laws-btn chip"
+          :class="{ 'chip--on': lawsOpen }"
+          :aria-expanded="lawsOpen"
+          title="Laws (L)"
+          @click="lawsOpen = !lawsOpen"
+        >
+          <span class="dock__icon dock__icon--book" aria-hidden="true"></span>
+          Laws
+          <span class="hud__laws-count">{{ world.laws.value.length }}</span>
+        </button>
         <TimeWidget
           :tick="tick"
           :liveness="world.liveness.value"
@@ -185,11 +195,18 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
         :laws="world.laws.value"
         :liveness="world.liveness.value"
         @select="(id) => (selectedAgentId = id)"
-        @ledger="ledgerOpen = true"
+        @laws="lawsOpen = true"
       />
 
-      <PartyFrames
-        class="hud__party"
+      <LawsPanel
+        v-if="lawsOpen"
+        class="hud__laws"
+        :laws="world.laws.value"
+        @close="lawsOpen = false"
+      />
+
+      <RosterTiles
+        class="hud__roster"
         :agents="world.agents.value"
         :display="world.display.value"
         :kind-visuals="world.kindVisuals.value"
@@ -223,19 +240,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
       <nav class="hud__dock dock" aria-label="Menus">
         <button
           class="dock__btn"
-          :class="{ 'dock__btn--on': ledgerOpen }"
-          title="The Ledger (L)"
-          @click="ledgerOpen = !ledgerOpen"
-        >
-          <span class="dock__icon dock__icon--book" aria-hidden="true"></span>
-          <span class="dock__label">Ledger</span>
-          <span class="dock__key">L</span>
-          <span v-if="world.laws.value.length" class="dock__badge">{{
-            world.laws.value.length
-          }}</span>
-        </button>
-        <button
-          class="dock__btn"
           :class="{ 'dock__btn--on': keysOpen }"
           title="Keys (?)"
           @click="keysOpen = !keysOpen"
@@ -251,11 +255,5 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
         </div>
       </nav>
     </div>
-
-    <LedgerRail
-      v-if="ledgerOpen"
-      :laws="world.laws.value"
-      @close="ledgerOpen = false"
-    />
   </div>
 </template>
