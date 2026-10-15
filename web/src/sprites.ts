@@ -37,9 +37,23 @@ let missingTexture: Texture | null = null;
 // signatures change and the layers that used it redraw on the next poll.
 let sheets = new Map<string, HTMLImageElement | "loading" | "failed">();
 let sheetLoads = 0;
+let sheetListeners = new Set<() => void>();
 
 export function sheetsVersion(): number {
   return sheetLoads;
+}
+
+// For callers off the map that won't see another poll soon (a paused world
+// sends the same payload): run `listener` whenever a sheet lands or fails.
+// Returns the unsubscribe.
+export function onSheetsLoaded(listener: () => void): () => void {
+  sheetListeners.add(listener);
+  return () => sheetListeners.delete(listener);
+}
+
+function sheetSettled() {
+  sheetLoads += 1;
+  for (let listener of sheetListeners) listener();
 }
 
 function sheetImage(path: string): HTMLImageElement | "loading" | "failed" {
@@ -49,11 +63,11 @@ function sheetImage(path: string): HTMLImageElement | "loading" | "failed" {
   let image = new Image();
   image.onload = () => {
     sheets.set(path, image);
-    sheetLoads += 1;
+    sheetSettled();
   };
   image.onerror = () => {
     sheets.set(path, "failed");
-    sheetLoads += 1;
+    sheetSettled();
     warnOnce(path, `Tileset ${path} failed to load.`);
   };
   image.src = `/${path}`;

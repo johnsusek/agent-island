@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { nameTint } from "../glyphs";
-import { spriteDataUrl } from "../sprites";
+import { onSheetsLoaded, sheetsVersion, spriteDataUrl } from "../sprites";
 import type { AgentView, StockDisplay, VisualSpec } from "../types";
 
 // The roster: a row of portrait tiles above the log, one per character. A
@@ -20,7 +20,14 @@ const emit = defineEmits<{ (e: "select", id: string | null): void }>();
 
 // Every character shares the scenario's one character sprite, so the portrait
 // is that sprite's head and the frame's tint is what tells them apart.
-let portrait = computed(() => spriteDataUrl(props.kindVisuals.agent?.sprite));
+// A sprite cut from a tileset has no data URL until its sheet loads, so
+// recompute when one lands.
+let sheetsSeen = ref(sheetsVersion());
+onBeforeUnmount(onSheetsLoaded(() => (sheetsSeen.value = sheetsVersion())));
+let portrait = computed(() => {
+  void sheetsSeen.value;
+  return spriteDataUrl(props.kindVisuals.agent?.sprite);
+});
 
 // Sprites sit on a tall canvas with empty rows above the head, so find the
 // first painted row and crop the 3x portrait from there.
