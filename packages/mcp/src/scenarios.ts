@@ -176,6 +176,17 @@ export function validateOwnOverlay(overlay: RuleOverlay, label: string): void {
     if (typeof value !== "number" || !Number.isInteger(value) || value < 1)
       throw new Error(`${label}: ${key} must be a positive integer.`);
   }
+  if (overlay.mapSize !== undefined) {
+    let { width, height } = overlay.mapSize ?? {};
+    if (
+      ![width, height].every(
+        (n) => typeof n === "number" && Number.isInteger(n) && n >= 1,
+      )
+    )
+      throw new Error(
+        `${label}: mapSize needs a positive integer width and height.`,
+      );
+  }
   // Terrain placement gets the same load-time gate as rules: a malformed layer
   // stack or connect flag fails here with the file named, not as a blank map
   // after the world reset that activating the scenario triggers.

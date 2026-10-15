@@ -1,0 +1,738 @@
+{
+  "name": "dials-village",
+  "description": "The shared fishing village behind the dials scenarios: an island in a bay, a regrowing school of fish, three world policy dials (quota, tax, ration), a granary fed by the tax and drawn down by rations, hunger and death. The scenarios differ only in how the dials get turned.",
+  "overlay": {
+    "mapSize": {
+      "width": 20,
+      "height": 20
+    },
+    "defaultTerrain": "water",
+    "terrainLayers": [
+      {
+        "terrain": "shore",
+        "gen": {
+          "island": {
+            "size": 0.7,
+            "roughness": 0.3
+          }
+        }
+      }
+    ],
+    "connect": {
+      "carve": "shore"
+    },
+    "terrainSpecs": {
+      "water": {
+        "passable": false,
+        "moveCost": 1,
+        "visual": {
+          "color": "#2f6f9f",
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "palette": {
+              "a": "#2f6f9f",
+              "b": "#5b9cc8"
+            },
+            "grid": [
+              "aaaaaaaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aabbbaaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aaaaaaaaaabbbaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aaabbbaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aaaaaaaabbbbaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "abbbaaaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa",
+              "aaaaaaaaaaaaaaaa"
+            ]
+          }
+        }
+      },
+      "shore": {
+        "moveCost": 1,
+        "visual": {
+          "color": "#42583a",
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          }
+        }
+      }
+    },
+    "worldStocks": {
+      "bay": {
+        "value": 90,
+        "min": 0,
+        "max": 120,
+        "icon": "big-wave",
+        "color": "#3d7fb0",
+        "role": "pack",
+        "label": "fish in the bay"
+      },
+      "quota": {
+        "value": 30,
+        "min": 0,
+        "max": 110,
+        "icon": "fishing-net",
+        "color": "#6b8fa3",
+        "role": "pack",
+        "label": "quota: fish that must stay in the bay"
+      },
+      "tax": {
+        "value": 10,
+        "min": 0,
+        "max": 50,
+        "icon": "scales",
+        "color": "#b9985f",
+        "role": "pack",
+        "label": "tax: percent of every catch owed to the granary"
+      },
+      "ration": {
+        "value": 1,
+        "min": 0,
+        "max": 6,
+        "icon": "bowl-of-rice",
+        "color": "#c9a66b",
+        "role": "pack",
+        "label": "ration: fish the granary hands each villager every 50 ticks"
+      },
+      "granary": {
+        "value": 10,
+        "min": 0,
+        "max": 400,
+        "icon": "barn",
+        "color": "#8b5a2b",
+        "role": "pack",
+        "label": "fish in the granary"
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - eat a fish soon.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "fish": {
+        "value": 4,
+        "min": 0,
+        "max": 12,
+        "icon": "fish-bucket",
+        "color": "#5b9cc8",
+        "role": "pack",
+        "label": "fish"
+      },
+      "landed": {
+        "value": 0,
+        "min": -20,
+        "max": 10,
+        "icon": "fishing-hook",
+        "color": "#6b8fa3",
+        "role": "stat",
+        "label": "catch on the line"
+      }
+    },
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "stone": {
+        "icon": "stone-tablet",
+        "color": "#8a8f98",
+        "label": "assembly stone",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "palette": {
+            "a": "#3b3f46",
+            "b": "#8a8f98",
+            "c": "#b8bcc4",
+            "d": "#5c6068"
+          },
+          "grid": [
+            "................",
+            "................",
+            "......aaaa......",
+            ".....abbbba.....",
+            ".....abcbba.....",
+            ".....abbbba.....",
+            "....abbbbbba....",
+            "....abbcbbba....",
+            "....abbbbbba....",
+            "....abbbbcba....",
+            "....abbbbbba....",
+            "...abbbbbbbba...",
+            "...abbbbbbbba...",
+            "..addddddddda...",
+            "..aaaaaaaaaaaa..",
+            "................"
+          ]
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      }
+    },
+    "describeEvent": {
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving.",
+      "ration_drawn": "{{ ctx.name }} draws a ration of {{ ctx.world.ration.value }} fish from the granary.",
+      "fishing_closed": "The bay is down to its quota. No one can fish until it grows back above it.",
+      "granary_short": "The granary is too low to pay a full ration.",
+      "collapse": "The last fish is gone. The bay is empty for good."
+    },
+    "dynamicRules": [
+      {
+        "id": "bay-regrows",
+        "description": "The fish breed from what is left: fastest at half the bay's capacity, never from an empty bay.",
+        "phase": "flow",
+        "each": {
+          "tag": "world"
+        },
+        "target": "bay",
+        "rate": {
+          "mul": [
+            0.012,
+            {
+              "stock": "bay"
+            },
+            {
+              "sub": [
+                1,
+                {
+                  "div": [
+                    {
+                      "stock": "bay"
+                    },
+                    120
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "fish",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["cast", "cast_line", "catch_fish"],
+        "description": "Cast a net from the shore and land up to 10 fish. The tax share of the catch goes straight to the granary; you keep the rest. You can never take the bay below the quota.",
+        "requires": {
+          "all": [
+            {
+              "nearTerrain": {
+                "type": "water",
+                "range": 1
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "bay",
+                "of": "world"
+              },
+              "right": {
+                "add": [
+                  {
+                    "stock": "quota",
+                    "of": "world"
+                  },
+                  1
+                ]
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": "fish"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "you must stand at the water's edge with room in your basket, and the bay must hold more fish than the quota (fishing is closed at or below the quota)",
+        "fizzleWhen": {
+          "not": {
+            "cmp": "gte",
+            "left": {
+              "stock": "bay",
+              "of": "world"
+            },
+            "right": {
+              "add": [
+                {
+                  "stock": "quota",
+                  "of": "world"
+                },
+                1
+              ]
+            }
+          }
+        },
+        "fizzleReason": "the bay fell to the quota before your net came in",
+        "do": [
+          {
+            "set": {
+              "target": "landed",
+              "to": {
+                "min": [
+                  10,
+                  {
+                    "floor": {
+                      "sub": [
+                        {
+                          "stock": "bay",
+                          "of": "world"
+                        },
+                        {
+                          "stock": "quota",
+                          "of": "world"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "headroom": "fish"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "transfer": {
+              "from": {
+                "stock": "bay",
+                "of": "world"
+              },
+              "to": {
+                "stock": "fish",
+                "of": "self"
+              },
+              "amount": {
+                "stock": "landed"
+              }
+            }
+          },
+          {
+            "transfer": {
+              "from": {
+                "stock": "fish",
+                "of": "self"
+              },
+              "to": {
+                "stock": "granary",
+                "of": "world"
+              },
+              "amount": {
+                "floor": {
+                  "div": [
+                    {
+                      "mul": [
+                        {
+                          "stock": "landed"
+                        },
+                        {
+                          "stock": "tax",
+                          "of": "world"
+                        }
+                      ]
+                    },
+                    100
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "set": {
+              "target": "landed",
+              "to": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one fish (+10 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "fish"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no fish",
+        "do": [
+          {
+            "adjust": {
+              "target": "fish",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "ration",
+        "description": "Every 50 ticks, each living villager draws the ration from the granary - while the granary holds a full ration for them and their basket has room.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "cooldown": 50,
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "ration",
+                "of": "world"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "granary",
+                "of": "world"
+              },
+              "right": {
+                "stock": "ration",
+                "of": "world"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "headroom": "fish"
+              },
+              "right": {
+                "stock": "ration",
+                "of": "world"
+              }
+            }
+          ]
+        },
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "granary",
+                "of": "world"
+              },
+              "to": {
+                "stock": "fish",
+                "of": "self"
+              },
+              "amount": {
+                "stock": "ration",
+                "of": "world"
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "ration_drawn"
+        }
+      },
+      {
+        "id": "granary-short",
+        "description": "While the granary cannot cover a ration, everyone hears so (at most once every 50 ticks).",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "cooldown": 50,
+        "do": [],
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "ration"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "granary"
+              },
+              "right": {
+                "stock": "ration"
+              }
+            }
+          ]
+        },
+        "emit": {
+          "type": "granary_short",
+          "text": "The granary is too low to pay a full ration.",
+          "global": true
+        }
+      },
+      {
+        "id": "fishing-closed",
+        "description": "Everyone hears when the bay falls to the quota and fishing closes.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "lt",
+          "left": {
+            "stock": "bay"
+          },
+          "right": {
+            "add": [
+              {
+                "stock": "quota"
+              },
+              1
+            ]
+          }
+        },
+        "emit": {
+          "type": "fishing_closed",
+          "text": "The bay is down to its quota. Fishing is closed until it grows back.",
+          "global": true
+        }
+      },
+      {
+        "id": "collapse-is-final",
+        "description": "Below one fish there is nothing left to breed: the bay is empty for good.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "bay"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "stock": "bay"
+              },
+              "right": 0
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "bay",
+              "to": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "collapse",
+        "description": "An empty bay never recovers.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "cmp": "lt",
+          "left": {
+            "stock": "bay"
+          },
+          "right": 1
+        },
+        "emit": {
+          "type": "collapse",
+          "text": "The last fish is gone. The bay is empty for good.",
+          "global": true
+        }
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - eat a fish now"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "season-ends",
+        "description": "Anyone still alive at tick 400 has carried the village through the season.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 400
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "The season is over. The village made it through.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

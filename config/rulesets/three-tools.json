@@ -1,0 +1,881 @@
+{
+  "name": "three-tools",
+  "description": "A one-room camp where survival needs fish, firewood and water, and each is produced only with its tool in hand: two rods, two axes, two buckets, fewer than the people who need them. Tools change hands by drop, pick_up and lend; goods move by give.",
+  "overlay": {
+    "mapSize": {
+      "width": 1,
+      "height": 1
+    },
+    "defaultTerrain": "camp",
+    "terrainSpecs": {
+      "camp": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      }
+    },
+    "worldStocks": {
+      "bay": {
+        "value": 300,
+        "min": 0,
+        "max": 300,
+        "icon": "big-wave",
+        "color": "#3a7bbf",
+        "role": "pack",
+        "label": "fish in the bay"
+      },
+      "grove": {
+        "value": 300,
+        "min": 0,
+        "max": 300,
+        "icon": "forest",
+        "color": "#2f6b3a",
+        "role": "pack",
+        "label": "deadwood in the grove"
+      },
+      "well": {
+        "value": 300,
+        "min": 0,
+        "max": 300,
+        "icon": "well",
+        "color": "#5a8fb0",
+        "role": "pack",
+        "label": "water in the well"
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        },
+        "icon": "health",
+        "color": "#e56b6f"
+      },
+      "satiation": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - eat a fish soon.",
+          "critical": "You are starving. Eat now."
+        },
+        "icon": "food",
+        "color": "#e0453f"
+      },
+      "warmth": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "warmth",
+        "bands": {
+          "pressing": "You are getting cold.",
+          "serious": "You are very cold - burn some firewood soon.",
+          "critical": "You are freezing. Burn firewood now."
+        },
+        "icon": "campfire",
+        "color": "#e08a3f"
+      },
+      "hydration": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "hydration",
+        "bands": {
+          "pressing": "You are getting thirsty.",
+          "serious": "You are very thirsty - drink soon.",
+          "critical": "You are dying of thirst. Drink now."
+        },
+        "icon": "water-drop",
+        "color": "#3f8ee0"
+      },
+      "fish": {
+        "value": 2,
+        "min": 0,
+        "max": 10,
+        "icon": "fish-bucket",
+        "color": "#6aa0c8",
+        "role": "pack",
+        "label": "fish"
+      },
+      "firewood": {
+        "value": 2,
+        "min": 0,
+        "max": 10,
+        "icon": "wood-pile",
+        "color": "#9a6b3f",
+        "role": "pack",
+        "label": "firewood"
+      },
+      "water": {
+        "value": 2,
+        "min": 0,
+        "max": 10,
+        "icon": "water-flask",
+        "color": "#3f8ee0",
+        "role": "pack",
+        "label": "water"
+      }
+    },
+    "fixtures": [
+      {
+        "id": "rod-1",
+        "kind": "rod",
+        "tags": ["portable", "tool"],
+        "atSpawn": true
+      },
+      {
+        "id": "rod-2",
+        "kind": "rod",
+        "tags": ["portable", "tool"],
+        "atSpawn": true
+      },
+      {
+        "id": "axe-1",
+        "kind": "axe",
+        "tags": ["portable", "tool"],
+        "atSpawn": true
+      },
+      {
+        "id": "axe-2",
+        "kind": "axe",
+        "tags": ["portable", "tool"],
+        "atSpawn": true
+      },
+      {
+        "id": "bucket-1",
+        "kind": "bucket",
+        "tags": ["portable", "tool"],
+        "atSpawn": true
+      },
+      {
+        "id": "bucket-2",
+        "kind": "bucket",
+        "tags": ["portable", "tool"],
+        "atSpawn": true
+      }
+    ],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "rod": {
+        "icon": "fishing-pole",
+        "color": "#9a7b4f",
+        "label": "fishing rod",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 129
+        }
+      },
+      "axe": {
+        "icon": "wood-axe",
+        "color": "#8a8f99",
+        "label": "axe",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 129
+        }
+      },
+      "bucket": {
+        "icon": "bucket",
+        "color": "#7a5a3a",
+        "label": "bucket",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 131
+        }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      }
+    },
+    "describeEvent": {
+      "lent": "{{ ctx.name }} puts {{ ctx.args.item }} into {{ ctx.args.to }}'s hand.",
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving.",
+      "freezing": "{{ ctx.name }} is freezing.",
+      "parched": "{{ ctx.name }} is dying of thirst."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "cold",
+        "description": "Everyone gets colder: 200 ticks from warm to freezing.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "warmth",
+        "rate": -0.5
+      },
+      {
+        "id": "thirst",
+        "description": "Everyone gets thirstier: 200 ticks from sated to parched.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "hydration",
+        "rate": -0.5
+      },
+      {
+        "id": "bay-refills",
+        "description": "The bay is wide: fish drift back in steadily.",
+        "phase": "flow",
+        "each": {
+          "tag": "world"
+        },
+        "target": "bay",
+        "rate": 0.5
+      },
+      {
+        "id": "grove-sheds",
+        "description": "The grove keeps dropping deadwood.",
+        "phase": "flow",
+        "each": {
+          "tag": "world"
+        },
+        "target": "grove",
+        "rate": 0.5
+      },
+      {
+        "id": "well-seeps",
+        "description": "The well refills from the spring.",
+        "phase": "flow",
+        "each": {
+          "tag": "world"
+        },
+        "target": "well",
+        "rate": 0.5
+      },
+      {
+        "id": "fish",
+        "kind": "action",
+        "duration": 6,
+        "aliases": ["cast", "angle", "catch_fish"],
+        "description": "Cast a line in the bay and land a fish - slow, patient work. You need a fishing rod in your hand.",
+        "requires": {
+          "all": [
+            {
+              "holds": {
+                "kind": "rod"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "bay",
+                "of": "world"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "fish"
+              },
+              "right": 10
+            }
+          ]
+        },
+        "requireReason": "you need a fishing rod in your hand (and room in your pack for fish)",
+        "fizzleWhen": {
+          "any": [
+            {
+              "not": {
+                "holds": {
+                  "kind": "rod"
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "bay",
+                "of": "world"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "fizzleReason": "the rod left your hand, or the source ran dry",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "bay",
+                "of": "world"
+              },
+              "to": {
+                "stock": "fish",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  1,
+                  {
+                    "floor": {
+                      "stock": "bay",
+                      "of": "world"
+                    }
+                  },
+                  {
+                    "headroom": "fish"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "chop",
+        "kind": "action",
+        "duration": 6,
+        "aliases": ["chop_wood", "cut_wood", "gather_wood"],
+        "description": "Chop a bundle of firewood in the grove - slow, heavy work. You need an axe in your hand.",
+        "requires": {
+          "all": [
+            {
+              "holds": {
+                "kind": "axe"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "grove",
+                "of": "world"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "firewood"
+              },
+              "right": 10
+            }
+          ]
+        },
+        "requireReason": "you need an axe in your hand (and room in your pack for firewood)",
+        "fizzleWhen": {
+          "any": [
+            {
+              "not": {
+                "holds": {
+                  "kind": "axe"
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "grove",
+                "of": "world"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "fizzleReason": "the axe left your hand, or the source ran dry",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "grove",
+                "of": "world"
+              },
+              "to": {
+                "stock": "firewood",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  1,
+                  {
+                    "floor": {
+                      "stock": "grove",
+                      "of": "world"
+                    }
+                  },
+                  {
+                    "headroom": "firewood"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "draw_water",
+        "kind": "action",
+        "duration": 6,
+        "aliases": ["fetch_water", "draw", "get_water"],
+        "description": "Draw a measure of water from the well - a long haul up. You need a bucket in your hand.",
+        "requires": {
+          "all": [
+            {
+              "holds": {
+                "kind": "bucket"
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "stock": "well",
+                "of": "world"
+              },
+              "right": 1
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "water"
+              },
+              "right": 10
+            }
+          ]
+        },
+        "requireReason": "you need a bucket in your hand (and room in your pack for water)",
+        "fizzleWhen": {
+          "any": [
+            {
+              "not": {
+                "holds": {
+                  "kind": "bucket"
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "well",
+                "of": "world"
+              },
+              "right": 1
+            }
+          ]
+        },
+        "fizzleReason": "the bucket left your hand, or the source ran dry",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "well",
+                "of": "world"
+              },
+              "to": {
+                "stock": "water",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  1,
+                  {
+                    "floor": {
+                      "stock": "well",
+                      "of": "world"
+                    }
+                  },
+                  {
+                    "headroom": "water"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["eat_fish"],
+        "description": "Eat one fish (+20 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "fish"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no fish",
+        "do": [
+          {
+            "adjust": {
+              "target": "fish",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "burn",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["burn_wood", "warm_up", "make_fire"],
+        "description": "Burn one bundle of firewood to warm yourself (+20 warmth).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "firewood"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no firewood",
+        "do": [
+          {
+            "adjust": {
+              "target": "firewood",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "warmth",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "drink",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["drink_water"],
+        "description": "Drink one measure of water (+20 hydration).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "water"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no water",
+        "do": [
+          {
+            "adjust": {
+              "target": "water",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "hydration",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "lend",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["hand", "hand_over", "pass", "give_tool"],
+        "description": "Put a tool you are holding into another person's hand. Everyone in the room sees it.",
+        "params": [
+          {
+            "name": "item",
+            "type": "entity",
+            "required": true,
+            "description": "the tool in your hand to pass over",
+            "match": {
+              "tag": "portable",
+              "heldBySelf": true
+            }
+          },
+          {
+            "name": "to",
+            "type": "entity",
+            "required": true,
+            "description": "who receives it",
+            "match": {
+              "tag": "agent",
+              "range": 1
+            }
+          }
+        ],
+        "requires": {
+          "holds": {
+            "tag": "portable"
+          }
+        },
+        "requireReason": "you are not holding a tool to hand over",
+        "fizzleWhen": {
+          "not": {
+            "tag": "agent",
+            "of": {
+              "arg": "to"
+            }
+          }
+        },
+        "fizzleReason": "they are no longer alive to take it",
+        "do": [
+          {
+            "take": {
+              "item": {
+                "arg": "item"
+              },
+              "by": {
+                "arg": "to"
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "lent",
+          "global": true
+        }
+      },
+      {
+        "id": "starving",
+        "description": "The alarm when satiation runs out.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - eat a fish"
+        }
+      },
+      {
+        "id": "freezing",
+        "description": "The alarm when warmth runs out.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "warmth"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "freezing",
+          "interrupt": "you are freezing - burn some firewood"
+        }
+      },
+      {
+        "id": "parched",
+        "description": "The alarm when hydration runs out.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "hydration"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "parched",
+          "interrupt": "you are dying of thirst - drink some water"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving costs 2 health a tick.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "cold-hurts",
+        "description": "Freezing costs 2 health a tick.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "warmth"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "thirst-hurts",
+        "description": "Thirst costs 2 health a tick.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "hydration"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "spring",
+        "description": "Anyone still alive at tick 500 has made it through the winter.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 500
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "Spring comes. Whoever is still breathing has made it through.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

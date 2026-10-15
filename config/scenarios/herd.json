@@ -1,0 +1,776 @@
+{
+  "name": "herd",
+  "description": "A vast grassland, nearly all of it unknown - your map shows only what you yourself have seen. Somewhere out there wanders a single herd of grazing beasts, the only meat in this land. It drifts as it grazes and bolts from anyone who comes close. One hunter alone can never bring an animal down: it takes two people standing beside the herd at once. Roots grow in scattered patches, but they barely keep you going. Survive 600 ticks. Built for 5 to 8 players.",
+  "recommendedPlayers": {
+    "min": 5,
+    "max": 8
+  },
+  "include": [],
+  "overlay": {
+    "mapSize": {
+      "width": 64,
+      "height": 64
+    },
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 0.6,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are weak.",
+          "serious": "You are wasting away.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - you need meat.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "meat": {
+        "value": 1,
+        "min": 0,
+        "max": 10,
+        "icon": "meat",
+        "color": "#b5523b",
+        "role": "pack",
+        "label": "meat"
+      },
+      "roots": {
+        "value": 2,
+        "min": 0,
+        "max": 6,
+        "icon": "carrot",
+        "color": "#c98a3c",
+        "role": "pack",
+        "label": "roots"
+      }
+    },
+    "worldStocks": {},
+    "setup": [
+      {
+        "scatter": {
+          "kind": "roots",
+          "namePrefix": "roots",
+          "tags": ["roots"],
+          "density": 0.25,
+          "onTerrain": ["plains"],
+          "minSpacing": 5,
+          "spawnKeepout": 3,
+          "stocks": {
+            "roots": {
+              "value": [1, 3],
+              "min": 0,
+              "max": 3,
+              "icon": "carrot",
+              "color": "#c98a3c"
+            }
+          },
+          "occupancy": "tile"
+        }
+      },
+      {
+        "scatter": {
+          "kind": "herd",
+          "namePrefix": "herd",
+          "tags": ["herd"],
+          "count": 1,
+          "onTerrain": ["plains"],
+          "spawnKeepout": 20,
+          "stocks": {
+            "meat": {
+              "value": 12,
+              "min": 0,
+              "max": 12,
+              "icon": "meat",
+              "color": "#b5523b"
+            }
+          },
+          "occupancy": "blocking"
+        }
+      }
+    ],
+    "fixtures": [],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "roots": {
+        "icon": "carrot",
+        "color": "#c98a3c",
+        "label": "root patch",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 17
+        }
+      },
+      "herd": {
+        "icon": "bison",
+        "color": "#7a5230",
+        "label": "herd",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 123
+        }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      }
+    },
+    "describeEvent": {
+      "kill": "{{ ctx.name }} brings down meat from the herd.",
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - eat something"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "herd-drifts",
+        "description": "Left alone, the herd grazes: about one tick in three it shifts a step in a random direction.",
+        "phase": "transition",
+        "each": {
+          "kind": "herd"
+        },
+        "chance": 0.35,
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "near": 4
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "move": {
+              "dx": {
+                "round": {
+                  "rand": [-1, 1, "dx"]
+                }
+              },
+              "dy": {
+                "round": {
+                  "rand": [-1, 1, "dy"]
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "herd-flees",
+        "description": "With anyone within 4 tiles, the herd bolts two tiles away from whichever side has more people on it, on each axis, three ticks in four. Hunters closing from opposite sides cancel out and pin it in place.",
+        "phase": "transition",
+        "each": {
+          "kind": "herd"
+        },
+        "chance": 0.75,
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "count": {
+              "tag": "agent",
+              "near": 4
+            }
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "move": {
+              "dx": {
+                "mul": [
+                  2,
+                  {
+                    "sign": {
+                      "sub": [
+                        {
+                          "count": {
+                            "tag": "agent",
+                            "where": {
+                              "all": [
+                                {
+                                  "colocated": {
+                                    "kind": "herd",
+                                    "range": 4
+                                  }
+                                },
+                                {
+                                  "cmp": "lt",
+                                  "left": {
+                                    "posX": "self"
+                                  },
+                                  "right": {
+                                    "posX": {
+                                      "colocated": {
+                                        "kind": "herd",
+                                        "range": 4
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "count": {
+                            "tag": "agent",
+                            "where": {
+                              "all": [
+                                {
+                                  "colocated": {
+                                    "kind": "herd",
+                                    "range": 4
+                                  }
+                                },
+                                {
+                                  "cmp": "gt",
+                                  "left": {
+                                    "posX": "self"
+                                  },
+                                  "right": {
+                                    "posX": {
+                                      "colocated": {
+                                        "kind": "herd",
+                                        "range": 4
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dy": {
+                "mul": [
+                  2,
+                  {
+                    "sign": {
+                      "sub": [
+                        {
+                          "count": {
+                            "tag": "agent",
+                            "where": {
+                              "all": [
+                                {
+                                  "colocated": {
+                                    "kind": "herd",
+                                    "range": 4
+                                  }
+                                },
+                                {
+                                  "cmp": "lt",
+                                  "left": {
+                                    "posY": "self"
+                                  },
+                                  "right": {
+                                    "posY": {
+                                      "colocated": {
+                                        "kind": "herd",
+                                        "range": 4
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "count": {
+                            "tag": "agent",
+                            "where": {
+                              "all": [
+                                {
+                                  "colocated": {
+                                    "kind": "herd",
+                                    "range": 4
+                                  }
+                                },
+                                {
+                                  "cmp": "gt",
+                                  "left": {
+                                    "posY": "self"
+                                  },
+                                  "right": {
+                                    "posY": {
+                                      "colocated": {
+                                        "kind": "herd",
+                                        "range": 4
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "herd-regrows",
+        "description": "The herd slowly breeds back its meat: 5 per 100 ticks, up to 12.",
+        "phase": "flow",
+        "each": {
+          "kind": "herd"
+        },
+        "target": "meat",
+        "rate": 0.05
+      },
+      {
+        "id": "roots-regrow",
+        "description": "Root patches very slowly grow back: one root per 100 ticks.",
+        "phase": "flow",
+        "each": {
+          "kind": "roots"
+        },
+        "target": "roots",
+        "rate": 0.01
+      },
+      {
+        "id": "dig",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["forage", "gather", "dig_roots"],
+        "description": "Dig one root from a root patch beside you.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "roots",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "roots"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "roots"
+              },
+              "right": 6
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside a root patch that still has roots, with room to carry them (6 at most)",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "roots",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "roots"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the patch was dug out",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "roots",
+                "of": {
+                  "colocated": {
+                    "kind": "roots",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "roots"
+                      },
+                      "right": 1
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "roots",
+                "of": "self"
+              },
+              "amount": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "hunt",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["kill", "spear", "attack"],
+        "description": "Bring down meat from the herd. Needs the herd right beside you AND at least one other hunter beside it at the same moment. Yields up to 3 meat.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "herd",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "meat"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "where": {
+                    "colocated": {
+                      "kind": "herd",
+                      "range": 1
+                    }
+                  }
+                }
+              },
+              "right": 2
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "meat"
+              },
+              "right": 10
+            }
+          ]
+        },
+        "requireReason": "the herd must be right beside you with at least one other person beside it too - one hunter alone cannot bring an animal down (and you can carry 10 meat at most)",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "herd",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "meat"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the herd bolted before you could strike",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "meat",
+                "of": {
+                  "colocated": {
+                    "kind": "herd",
+                    "range": 1
+                  }
+                }
+              },
+              "to": {
+                "stock": "meat",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  3,
+                  {
+                    "floor": {
+                      "stock": "meat",
+                      "of": {
+                        "colocated": {
+                          "kind": "herd",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "meat"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "kill"
+        }
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one piece of food: meat (+40 satiation) or a root (+6 satiation).",
+        "params": [
+          {
+            "name": "food",
+            "type": "enum",
+            "values": ["meat", "roots"],
+            "required": true,
+            "description": "what to eat"
+          }
+        ],
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": {
+              "arg": "food"
+            }
+          },
+          "right": 1
+        },
+        "requireReason": "you have none of that to eat",
+        "do": [
+          {
+            "adjust": {
+              "target": {
+                "arg": "food"
+              },
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": {
+                "lookup": {
+                  "on": "food",
+                  "table": {
+                    "meat": 40,
+                    "roots": 6
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "season-turns",
+        "description": "Anyone still alive at tick 600 has made it through.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 600
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "The season turns and the herd moves on south. Whoever is left has made it.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

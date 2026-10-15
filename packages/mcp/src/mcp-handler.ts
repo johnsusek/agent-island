@@ -67,13 +67,30 @@ const spriteSpecSchema = schema
       ),
     palette: schema
       .record(schema.string(), schema.string())
+      .optional()
       .describe(
         'Single-character glyph -> "#rrggbb" or "none"; "." is transparent by default',
       ),
     grid: schema
       .array(schema.string())
       .min(1)
+      .optional()
       .describe("Rows of glyphs, top first, one character per pixel"),
+    sheet: schema
+      .string()
+      .optional()
+      .describe(
+        'Instead of palette + grid: a tileset PNG the viewport serves, e.g. "tiles/kenney-tiny-town.png"',
+      ),
+    tile: schema
+      .union([
+        schema.number().int().min(0),
+        schema.array(schema.number().int().min(0)).min(1).max(4),
+      ])
+      .optional()
+      .describe(
+        "With sheet: which tile, counting left to right then top to bottom in cells of size; a list is drawn bottom to top (grass, then a tree)",
+      ),
     mirror: schema
       .enum(["horizontal", "vertical", "none"])
       .optional()
@@ -91,7 +108,7 @@ const spriteSpecSchema = schema
       ),
   })
   .describe(
-    "An inline sprite: palette + character grid, baked to pixels by the viewport",
+    "A sprite: palette + character grid baked to pixels by the viewport, or sheet + tile cut from a served tileset",
   );
 
 interface McpSession {
@@ -804,10 +821,10 @@ function registerGmTools(
             "Optional CSS hex tint for the resource's icon, e.g. '#e6b84a'; omit for a neutral auto tint",
           ),
         role: schema
-          .enum(["vital", "stat", "pack"])
+          .enum(["vital", "stat", "pack", "hidden"])
           .optional()
           .describe(
-            'What this stock IS to a character: "vital" (a pressure that can hurt or kill - band-alarmed prose, never a figure, never givable), "stat" (a personal dimension worth a mention only when notable - never givable), or "pack" (a fungible carried quantity - "Carrying:" figures, the only role give/stockpile touch). Omit to default to "pack".',
+            'What this stock IS to a character: "vital" (a pressure that can hurt or kill - band-alarmed prose, never a figure, never givable), "stat" (a personal dimension worth a mention only when notable - never givable), "pack" (a fungible carried quantity - "Carrying:" figures, the only role give/stockpile touch), or "hidden" (bookkeeping the character never perceives - no prose, never givable). Omit to default to "pack".',
           ),
         stockpilable: schema
           .boolean()
@@ -995,6 +1012,43 @@ function registerGmTools(
         text,
         allowImpassable,
       }),
+  );
+
+  registerTool(
+    server,
+    "edit_entity",
+    {
+      description: describe("edit_entity"),
+      inputSchema: {
+        id: schema
+          .string()
+          .trim()
+          .min(1)
+          .describe("The entity to edit: a sign, a stake, an agent's name"),
+        text: schema
+          .string()
+          .trim()
+          .min(1)
+          .max(MAX_INSCRIPTION)
+          .optional()
+          .describe("Replace the entity's inscription with these words"),
+        addTags: schema
+          .array(schema.string().trim().min(1))
+          .optional()
+          .describe("Tags to add, e.g. a new owner's id on a stake"),
+        removeTags: schema
+          .array(schema.string().trim().min(1))
+          .optional()
+          .describe("Tags to remove"),
+      },
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ id, text, addTags, removeTags }) =>
+      coordinator.gmEditEntity(sessionId, id, { text, addTags, removeTags }),
   );
 
   registerTool(

@@ -12,7 +12,21 @@ import type { Scenario } from "@agent-island/engine/scenario";
 import { declareProgress } from "./helpers.js";
 
 test("shipped victory scenarios expose agent-facing descriptions", () => {
-  let expected = ["survival"];
+  let expected = [
+    "augury",
+    "dials-motions",
+    "dials",
+    "enclosure",
+    "exodus",
+    "fever",
+    "generations",
+    "herd",
+    "quiet-world",
+    "three-tools-market",
+    "three-tools",
+    "unseen",
+    "survival",
+  ];
   let actual: string[] = [];
 
   // The shipped scenarios live in config/scenarios; the survival fixture lives

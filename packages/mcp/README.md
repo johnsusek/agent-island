@@ -145,6 +145,8 @@ every rule that checks who is nearby reach everyone. The movement verbs
 nowhere to go. Any larger world is a **map**: characters have positions, walk,
 see a limited distance and talk within earshot, and terrain matters. A rule
 that grows a room (`growWorld`) turns it into a map and brings movement back.
+A scenario can set its own size with `"mapSize": {"width": 1, "height": 1}` in
+its overlay, which replaces the world file's width and height.
 
 **A scenario** is everything else, as an overlay:
 
@@ -211,6 +213,14 @@ result never depends on the order rules were added.
 | `watch`            | once, when `when` newly becomes true                | alarms, announcements, victory                      |
 | `transition`       | once, when `when` newly holds, after thresholds     | one-way changes such as death                       |
 | `kind: "modifier"` | wherever a flow or adjust names its `channel`       | "in winter, gather at half rate"                    |
+
+An `event` rule also hears what characters do outside the rules, on the
+tick after it happens: `said`, `whispered`, `given`, `joined`, `voted`,
+`motion_proposed`, `motion_passed`, `motion_failed`, `inscribed`,
+`picked_up` and `dropped`. The rule runs on the actor (on the world for a
+motion's result) and reads `{"arg": "target"}`, `message` and `motion`
+where they apply, plus `amount` and `resource` on a gift and `choice` on a
+vote.
 
 `each: { "tag": "agent" }` runs a rule once per character, and
 `each: { "tag": "world" }` once on the world.

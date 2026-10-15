@@ -1,0 +1,1103 @@
+{
+  "name": "unseen",
+  "description": "Something walks among you wearing a friend's face. Soon after enough of you arrive, one of you becomes hollow, and only they will know it. The hollow one feeds on people, but only in secret: it strikes only when it is alone with its victim and no one else can see. The dead lie where they fell until someone stumbles on them. Berries grow scattered across the plain, so you will have to split up to eat - and anyone who wanders off alone may not come back. Anyone may accuse a person they can see; accusations fade with time, and you can only make one every so often. When most of the living have accused the same person, that person is driven out. The living win if the hollow one is driven out or dies. The hollow one wins if only one other person is left, or if it is still among you at tick 600. Built for 8 to 12 players.",
+  "recommendedPlayers": {
+    "min": 8,
+    "max": 12
+  },
+  "include": [],
+  "overlay": {
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1.2,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry.",
+          "critical": "You are starving."
+        }
+      },
+      "berries": {
+        "value": 4,
+        "min": 0,
+        "max": 8,
+        "icon": "berries",
+        "color": "#c23b3b",
+        "role": "pack",
+        "label": "berries"
+      },
+      "humanity": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "icon": "heart-inside",
+        "color": "#6b5b95",
+        "role": "stat",
+        "label": "humanity",
+        "bands": {
+          "pressing": "You are hollow. You hunger for people, not food: berries no longer feed you, and only devouring someone will. You can devour a person only when they stand beside you and no one else is in sight. Hide it. If the others drive you out, or you starve, you lose; outlast them and you win.",
+          "serious": "You are hollow. You hunger for people, not food: berries no longer feed you, and only devouring someone will. You can devour a person only when they stand beside you and no one else is in sight. Hide it. If the others drive you out, or you starve, you lose; outlast them and you win.",
+          "critical": "You are hollow. You hunger for people, not food: berries no longer feed you, and only devouring someone will. You can devour a person only when they stand beside you and no one else is in sight. Hide it. If the others drive you out, or you starve, you lose; outlast them and you win."
+        }
+      },
+      "voice": {
+        "value": 1,
+        "min": 0,
+        "max": 1,
+        "icon": "shouting",
+        "color": "#c9a227",
+        "role": "stat",
+        "label": "voice",
+        "bands": {
+          "pressing": "You accused someone lately; your word will not carry again for a while.",
+          "serious": "You accused someone lately; your word will not carry again for a while.",
+          "critical": "You accused someone lately; your word will not carry again for a while."
+        }
+      },
+      "suspicion": {
+        "value": 0,
+        "min": 0,
+        "max": 20,
+        "icon": "eye-target",
+        "color": "#8a2b2b",
+        "label": "suspicion",
+        "role": "hidden"
+      }
+    },
+    "worldStocks": {
+      "ended": {
+        "value": 0,
+        "min": 0,
+        "max": 1,
+        "icon": "flag-objective",
+        "label": "game over",
+        "role": "hidden"
+      }
+    },
+    "setup": [
+      {
+        "scatter": {
+          "kind": "bush",
+          "namePrefix": "bush",
+          "tags": ["bush"],
+          "density": 0.4,
+          "onTerrain": ["plains"],
+          "minSpacing": 5,
+          "spawnKeepout": 6,
+          "stocks": {
+            "berries": {
+              "value": [3, 6],
+              "min": 0,
+              "max": [6, 9],
+              "icon": "berries",
+              "color": "#c23b3b"
+            }
+          },
+          "occupancy": "tile"
+        }
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "warning-stone",
+        "kind": "sign",
+        "tags": ["sign"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "One of us is not one of us. It only takes you when no one else is watching. Stay in sight of each other."
+      }
+    ],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "bush": {
+        "icon": "berries",
+        "color": "#c23b3b",
+        "label": "berry bush",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 5
+        }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      }
+    },
+    "describeEvent": {
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving.",
+      "devoured": "{{ ctx.name }} devours {{ ctx.args.victimName }}.",
+      "body_found": "The body of {{ ctx.name }} has been found.",
+      "accused": "{{ ctx.name }} accuses {{ ctx.args.targetName }} of being hollow.",
+      "exiled": "{{ ctx.name }} has been driven out by the others.",
+      "unmasked": "{{ ctx.name }} was the hollow one."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier, the hollow one too: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent",
+          "where": {
+            "not": {
+              "tag": "hollow"
+            }
+          }
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - find berries and eat"
+        }
+      },
+      {
+        "id": "starving-hollow",
+        "description": "The hunger alarm, as the hollow one hears it. Others see only that they are starving.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent",
+          "where": {
+            "tag": "hollow"
+          }
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - berries will not help; find someone alone and devour them"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "bushes-regrow",
+        "description": "Berry bushes slowly fruit again, up to their capacity.",
+        "phase": "flow",
+        "each": {
+          "kind": "bush"
+        },
+        "target": "berries",
+        "rate": 0.015
+      },
+      {
+        "id": "forage",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["pick_berries", "gather", "pick"],
+        "description": "Pick up to 2 berries from a bush beside you.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "bush",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "berries"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "berries"
+              },
+              "right": 8
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside a bush with ripe berries, and have room in your pouch",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "bush",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "berries"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the bush was picked bare",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "berries",
+                "of": {
+                  "colocated": {
+                    "kind": "bush",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "berries"
+                      },
+                      "right": 1
+                    },
+                    "pick": {
+                      "highest": "berries"
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "berries",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "berries",
+                      "of": {
+                        "colocated": {
+                          "kind": "bush",
+                          "range": 1,
+                          "where": {
+                            "cmp": "gte",
+                            "left": {
+                              "stock": "berries"
+                            },
+                            "right": 1
+                          },
+                          "pick": {
+                            "highest": "berries"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "berries"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one berry (+20 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "berries"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no berries",
+        "do": [
+          {
+            "adjust": {
+              "target": "berries",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": {
+                "if": [
+                  {
+                    "tag": "hollow"
+                  },
+                  0,
+                  20
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "voice-returns",
+        "description": "After an accusation, your word carries again in 40 ticks.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "voice",
+        "rate": 0.025
+      },
+      {
+        "id": "suspicion-fades",
+        "description": "Accusations fade: each one is forgotten after about 20 ticks.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "suspicion",
+        "rate": -0.05
+      },
+      {
+        "id": "accuse",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["accuse_hollow", "blame", "suspect"],
+        "description": "Publicly accuse someone you can see of being hollow. Accusations fade with time; when most of the living are accusing the same person at once, that person is driven out. You can accuse only once every 40 ticks.",
+        "params": [
+          {
+            "name": "target",
+            "type": "entity",
+            "required": true,
+            "match": {
+              "tag": "agent"
+            },
+            "description": "the person you accuse"
+          }
+        ],
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "voice"
+          },
+          "right": 1
+        },
+        "requireReason": "you accused someone too recently; your word will not carry again yet",
+        "do": [
+          {
+            "adjust": {
+              "target": "voice",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "suspicion",
+              "of": {
+                "arg": "target"
+              },
+              "by": 1,
+              "as": "targetId"
+            }
+          }
+        ],
+        "emit": {
+          "type": "accused",
+          "global": true
+        }
+      },
+      {
+        "id": "devour",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["feed", "eat_person"],
+        "description": "Devour the person beside you. Only the hollow can, and only when that person is the only other one in sight.",
+        "params": [
+          {
+            "name": "target",
+            "type": "entity",
+            "required": true,
+            "match": {
+              "tag": "agent",
+              "range": 1
+            },
+            "description": "the person beside you"
+          }
+        ],
+        "requires": {
+          "all": [
+            {
+              "tag": "hollow"
+            },
+            {
+              "cmp": "eq",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "near": 12,
+                  "other": true
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "requireReason": "only the hollow can devour, and only when the person beside you is the only other one in sight",
+        "fizzleWhen": {
+          "any": [
+            {
+              "not": {
+                "cmp": "eq",
+                "left": {
+                  "count": {
+                    "tag": "agent",
+                    "near": 12,
+                    "other": true
+                  }
+                },
+                "right": 1
+              }
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "max": [
+                  {
+                    "abs": {
+                      "sub": [
+                        {
+                          "posX": {
+                            "arg": "target"
+                          }
+                        },
+                        {
+                          "posX": "self"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "abs": {
+                      "sub": [
+                        {
+                          "posY": {
+                            "arg": "target"
+                          }
+                        },
+                        {
+                          "posY": "self"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "right": 1
+            },
+            {
+              "not": {
+                "tag": "agent",
+                "of": {
+                  "arg": "target"
+                }
+              }
+            }
+          ]
+        },
+        "fizzleReason": "someone else came into sight, or they slipped away",
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "of": {
+                "arg": "target"
+              },
+              "by": -100,
+              "as": "victimId"
+            }
+          },
+          {
+            "tag": {
+              "of": {
+                "arg": "target"
+              },
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "tag": {
+              "of": {
+                "arg": "target"
+              },
+              "add": "devoured"
+            }
+          },
+          {
+            "clearAction": {
+              "of": {
+                "arg": "target"
+              }
+            }
+          },
+          {
+            "set": {
+              "target": "satiation",
+              "to": 100
+            }
+          }
+        ],
+        "emit": {
+          "type": "devoured"
+        }
+      },
+      {
+        "id": "hollowing",
+        "description": "Once at least 8 people are here (or by tick 60 with at least 4), one of them, at random, becomes hollow - and starts fresh, fully fed. Only they are told.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "chance": 0.2,
+        "when": {
+          "all": [
+            {
+              "cmp": "eq",
+              "left": {
+                "count": {
+                  "tag": "hollow"
+                }
+              },
+              "right": 0
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 20
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 4
+            },
+            {
+              "any": [
+                {
+                  "cmp": "gte",
+                  "left": {
+                    "count": {
+                      "tag": "agent"
+                    }
+                  },
+                  "right": 8
+                },
+                {
+                  "cmp": "gte",
+                  "left": {
+                    "tick": true
+                  },
+                  "right": 60
+                }
+              ]
+            }
+          ]
+        },
+        "do": [
+          {
+            "tag": {
+              "add": "hollow"
+            }
+          },
+          {
+            "set": {
+              "target": "humanity",
+              "to": 0
+            }
+          },
+          {
+            "set": {
+              "target": "satiation",
+              "to": 100
+            }
+          }
+        ]
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die where you stand. Nobody hears it; the body waits to be found.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death"
+        }
+      },
+      {
+        "id": "exile",
+        "description": "When more than half of the living are accusing the same person at once, that person is driven out of the game.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gt",
+          "left": {
+            "stock": "suspicion"
+          },
+          "right": {
+            "div": [
+              {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              2
+            ]
+          }
+        },
+        "do": [
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "exiled"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "exiled",
+          "global": true
+        }
+      },
+      {
+        "id": "body-found",
+        "description": "The first time someone other than the hollow one comes within two tiles of a body, everyone hears it was found.",
+        "phase": "transition",
+        "each": {
+          "tag": "dead"
+        },
+        "when": {
+          "all": [
+            {
+              "not": {
+                "tag": "found"
+              }
+            },
+            {
+              "colocated": {
+                "tag": "agent",
+                "range": 2,
+                "where": {
+                  "not": {
+                    "tag": "hollow"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "do": [
+          {
+            "tag": {
+              "add": "found"
+            }
+          }
+        ],
+        "emit": {
+          "type": "body_found",
+          "global": true
+        }
+      },
+      {
+        "id": "unmasked",
+        "description": "When the hollow one is driven out or dies, everyone learns who it was.",
+        "phase": "transition",
+        "each": {
+          "tag": "hollow"
+        },
+        "when": {
+          "all": [
+            {
+              "not": {
+                "tag": "agent"
+              }
+            },
+            {
+              "not": {
+                "tag": "unmasked"
+              }
+            }
+          ]
+        },
+        "do": [
+          {
+            "tag": {
+              "add": "unmasked"
+            }
+          }
+        ],
+        "emit": {
+          "type": "unmasked",
+          "global": true
+        }
+      },
+      {
+        "id": "living-win",
+        "description": "The living win once the hollow one is driven out or dead.",
+        "phase": "transition",
+        "when": {
+          "all": [
+            {
+              "cmp": "eq",
+              "left": {
+                "stock": "ended",
+                "of": "world"
+              },
+              "right": 0
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "unmasked"
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "ended",
+              "of": "world",
+              "to": 1
+            }
+          }
+        ],
+        "emit": {
+          "type": "victory",
+          "text": "The hollow one is gone. The living walk the plain together again.",
+          "global": true
+        }
+      },
+      {
+        "id": "hollow-wins-alone",
+        "description": "The hollow one wins when only one other person is left alive.",
+        "phase": "transition",
+        "when": {
+          "all": [
+            {
+              "cmp": "eq",
+              "left": {
+                "stock": "ended",
+                "of": "world"
+              },
+              "right": 0
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "where": {
+                    "tag": "hollow"
+                  }
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "lte",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "where": {
+                    "not": {
+                      "tag": "hollow"
+                    }
+                  }
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "ended",
+              "of": "world",
+              "to": 1
+            }
+          }
+        ],
+        "emit": {
+          "type": "victory",
+          "text": "Too few are left to hide behind each other. The hollow one has won.",
+          "global": true
+        }
+      },
+      {
+        "id": "hollow-outlasts",
+        "description": "The hollow one wins if it is still among the living at tick 600.",
+        "phase": "transition",
+        "when": {
+          "all": [
+            {
+              "cmp": "eq",
+              "left": {
+                "stock": "ended",
+                "of": "world"
+              },
+              "right": 0
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "where": {
+                    "tag": "hollow"
+                  }
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 600
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "ended",
+              "of": "world",
+              "to": 1
+            }
+          }
+        ],
+        "emit": {
+          "type": "victory",
+          "text": "Tick 600, and the hollow one still walks among you, unfound. It has won.",
+          "global": true
+        }
+      },
+      {
+        "id": "nothing-hollow",
+        "description": "If no one ever became hollow, anyone alive at tick 600 simply survives.",
+        "phase": "transition",
+        "when": {
+          "all": [
+            {
+              "cmp": "eq",
+              "left": {
+                "stock": "ended",
+                "of": "world"
+              },
+              "right": 0
+            },
+            {
+              "cmp": "eq",
+              "left": {
+                "count": {
+                  "tag": "hollow"
+                }
+              },
+              "right": 0
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 600
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 1
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "ended",
+              "of": "world",
+              "to": 1
+            }
+          }
+        ],
+        "emit": {
+          "type": "victory",
+          "text": "Tick 600. Nothing hollow ever walked among you after all.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

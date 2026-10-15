@@ -1,0 +1,857 @@
+{
+  "name": "fever",
+  "description": "A fever is going around the camp. It passes between people who stand close together, and those who catch it feel nothing at first - by the time they feel feverish, the fever is already half done with them, and it kills if it runs its course. No one can tell by looking who carries it, not even the one who does. A bitter herb that cures it grows only on the rocky highlands, far from camp; it grows back slowly, and it can be carried and handed to someone else. When the fever seems gone, it is not always gone. Berries grow scattered across the plain. Anyone still alive at tick 500 has outlasted the fever. Built for 6 to 10 players.",
+  "recommendedPlayers": {
+    "min": 6,
+    "max": 10
+  },
+  "include": [],
+  "overlay": {
+    "mapSize": {
+      "width": 56,
+      "height": 56
+    },
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "highland",
+        "gen": {
+          "noise": {
+            "scale": 7,
+            "above": 0.66
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      },
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1.2,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      },
+      "highland": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 43
+          },
+          "color": "#7d7a6a"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find berries soon.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "berries": {
+        "value": 4,
+        "min": 0,
+        "max": 8,
+        "icon": "berries",
+        "color": "#c23b3b",
+        "role": "pack",
+        "label": "berries"
+      },
+      "vigor": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "icon": "heart-beats",
+        "color": "#d98e04",
+        "role": "vital",
+        "label": "vigor",
+        "bands": {
+          "pressing": "You feel feverish: hot, heavy-limbed and short of breath.",
+          "serious": "The fever is burning through you. You are weak and shaking.",
+          "critical": "The fever is killing you. You have very little time."
+        }
+      },
+      "infected": {
+        "value": 0,
+        "min": 0,
+        "max": 1,
+        "icon": "virus",
+        "color": "#7a9a3a",
+        "label": "infected",
+        "role": "hidden"
+      },
+      "herb": {
+        "value": 0,
+        "min": 0,
+        "max": 2,
+        "icon": "herbs-bundle",
+        "color": "#6ab04c",
+        "role": "pack",
+        "label": "fever herb"
+      }
+    },
+    "worldStocks": {},
+    "setup": [
+      {
+        "scatter": {
+          "kind": "bush",
+          "namePrefix": "bush",
+          "tags": ["bush"],
+          "density": 0.6,
+          "onTerrain": ["plains"],
+          "minSpacing": 4,
+          "spawnKeepout": 5,
+          "stocks": {
+            "berries": {
+              "value": [5, 9],
+              "min": 0,
+              "max": [10, 14],
+              "icon": "berries",
+              "color": "#c23b3b"
+            }
+          },
+          "occupancy": "tile"
+        }
+      },
+      {
+        "scatter": {
+          "kind": "herbplant",
+          "namePrefix": "herb",
+          "tags": ["herbplant"],
+          "count": 5,
+          "onTerrain": ["highland"],
+          "minSpacing": 4,
+          "spawnKeepout": 16,
+          "stocks": {
+            "herb": {
+              "value": [1, 2],
+              "min": 0,
+              "max": 2,
+              "icon": "herbs-bundle",
+              "color": "#6ab04c"
+            }
+          },
+          "occupancy": "tile"
+        }
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "healer-stone",
+        "kind": "sign",
+        "tags": ["sign"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "The fever hides until it is half done with you. Bitterleaf cures it; it grows only up on the rocky highlands. Do not crowd together."
+      }
+    ],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "bush": {
+        "icon": "berries",
+        "color": "#c23b3b",
+        "label": "berry bush",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 5
+        }
+      },
+      "herbplant": {
+        "icon": "herbs-bundle",
+        "color": "#6ab04c",
+        "label": "bitterleaf",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 17
+        }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      }
+    },
+    "describeEvent": {
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving.",
+      "herb_taken": "{{ ctx.name }} chews a bitter herb."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - find berries and eat"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "bushes-regrow",
+        "description": "Berry bushes slowly fruit again, up to their capacity.",
+        "phase": "flow",
+        "each": {
+          "kind": "bush"
+        },
+        "target": "berries",
+        "rate": 0.02
+      },
+      {
+        "id": "forage",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["pick_berries", "gather", "pick"],
+        "description": "Pick up to 2 berries from a bush beside you.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "bush",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "berries"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "berries"
+              },
+              "right": 8
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside a bush with ripe berries, and have room in your pouch",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "bush",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "berries"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the bush was picked bare",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "berries",
+                "of": {
+                  "colocated": {
+                    "kind": "bush",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "berries"
+                      },
+                      "right": 1
+                    },
+                    "pick": {
+                      "highest": "berries"
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "berries",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "berries",
+                      "of": {
+                        "colocated": {
+                          "kind": "bush",
+                          "range": 1,
+                          "where": {
+                            "cmp": "gte",
+                            "left": {
+                              "stock": "berries"
+                            },
+                            "right": 1
+                          },
+                          "pick": {
+                            "highest": "berries"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "berries"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one berry (+20 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "berries"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no berries",
+        "do": [
+          {
+            "adjust": {
+              "target": "berries",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "patient-zero",
+        "description": "Shortly after the start, one person (two once eight or more are here) quietly carries the fever. Nobody is told.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "chance": 0.2,
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 10
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 2
+            },
+            {
+              "not": {
+                "tag": "patient"
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "count": {
+                  "tag": "patient"
+                }
+              },
+              "right": {
+                "if": [
+                  {
+                    "cmp": "gte",
+                    "left": {
+                      "count": {
+                        "tag": "agent"
+                      }
+                    },
+                    "right": 8
+                  },
+                  2,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        "do": [
+          {
+            "tag": {
+              "add": "patient"
+            }
+          },
+          {
+            "set": {
+              "target": "infected",
+              "to": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "fever-returns",
+        "description": "The fever lingers in the land: once nobody carries it, after tick 120 it can take hold of someone again - about once every 80 ticks among six people. Nobody is told.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "chance": 0.002,
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 120
+            },
+            {
+              "cmp": "eq",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "where": {
+                    "cmp": "gte",
+                    "left": {
+                      "stock": "infected"
+                    },
+                    "right": 1
+                  }
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "infected",
+              "to": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "contagion",
+        "description": "Each tick you stand beside (within one tile of) someone carrying the fever, there is a 4% chance you catch it. You do not notice.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "chance": 0.04,
+        "when": {
+          "all": [
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "infected"
+              },
+              "right": 1
+            },
+            {
+              "colocated": {
+                "tag": "agent",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "infected"
+                  },
+                  "right": 1
+                }
+              }
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "infected",
+              "to": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "fever-drains",
+        "description": "The fever eats 0.4 vigor a tick: silent for 125 ticks, then felt, then deadly 125 ticks later.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "vigor",
+        "rate": -0.4,
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "infected"
+          },
+          "right": 1
+        }
+      },
+      {
+        "id": "vigor-returns",
+        "description": "Without the fever, vigor slowly comes back (0.15 a tick).",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "vigor",
+        "rate": 0.15,
+        "when": {
+          "cmp": "lt",
+          "left": {
+            "stock": "infected"
+          },
+          "right": 1
+        }
+      },
+      {
+        "id": "herbs-regrow",
+        "description": "Bitterleaf grows back very slowly - about a sprig every 250 ticks - up to two sprigs a plant.",
+        "phase": "flow",
+        "each": {
+          "kind": "herbplant"
+        },
+        "target": "herb",
+        "rate": 0.004
+      },
+      {
+        "id": "gather_herb",
+        "kind": "action",
+        "duration": 3,
+        "aliases": ["pick_herb", "gather_herbs", "harvest_herb"],
+        "description": "Pick a sprig of bitterleaf from a plant beside you, up on the highland.",
+        "requires": {
+          "all": [
+            {
+              "nearTerrain": {
+                "type": "highland",
+                "range": 1
+              }
+            },
+            {
+              "colocated": {
+                "kind": "herbplant",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "herb"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "herb"
+              },
+              "right": 3
+            }
+          ]
+        },
+        "requireReason": "you need to be up on the highland beside a bitterleaf plant with a sprig left, and have room for it",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "herbplant",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "herb"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the plant was picked bare",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "herb",
+                "of": {
+                  "colocated": {
+                    "kind": "herbplant",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "herb"
+                      },
+                      "right": 1
+                    },
+                    "pick": {
+                      "highest": "herb"
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "herb",
+                "of": "self"
+              },
+              "amount": 1
+            }
+          }
+        ]
+      },
+      {
+        "id": "take_herb",
+        "kind": "action",
+        "duration": 1,
+        "aliases": ["chew_herb", "eat_herb", "use_herb"],
+        "description": "Chew a sprig of bitterleaf. If you carry the fever, it is gone.",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "herb"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no bitterleaf",
+        "do": [
+          {
+            "adjust": {
+              "target": "herb",
+              "by": -1
+            }
+          },
+          {
+            "set": {
+              "target": "infected",
+              "to": 0
+            }
+          }
+        ],
+        "emit": {
+          "type": "herb_taken"
+        }
+      },
+      {
+        "id": "death",
+        "description": "At zero health or zero vigor you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "any": [
+            {
+              "cmp": "lte",
+              "left": {
+                "stock": "health"
+              },
+              "right": 0
+            },
+            {
+              "cmp": "lte",
+              "left": {
+                "stock": "vigor"
+              },
+              "right": 0
+            }
+          ]
+        },
+        "do": [
+          {
+            "set": {
+              "target": "infected",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "fever-breaks",
+        "description": "Anyone still alive at tick 500 has outlasted the fever.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 500
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "The fever has burned itself out. Whoever is still standing made it.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

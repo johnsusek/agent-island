@@ -1,4 +1,5 @@
-// The sprite DSL: a palette plus a character grid. A sprite is stored INLINE
+// The sprite DSL: a palette plus a character grid, or one tile cut from a
+// sheet image the viewport serves (a tileset such as Kenney's Tiny Town). A sprite is stored INLINE
 // in the Visual that owns it - a terrain spec's visual or a kindVisuals entry
 // - so art is authored data that travels with its scenario, not a file in an
 // asset pack. The web viewport bakes the grid into a texture; there is no PNG
@@ -16,11 +17,18 @@ export interface SpriteSpec {
   // corners clear; "terrain" fills the cell edge to edge.
   kind?: "token" | "terrain";
   // Glyph -> "#rrggbb", or "none"/"transparent" for clear. "." is transparent
-  // unless redefined.
-  palette: Record<string, string>;
+  // unless redefined. Required unless the sprite is a sheet tile.
+  palette?: Record<string, string>;
   // Rows of glyphs, top first, one character per pixel. With a mirror set,
   // this is the authored half; the expanded grid must match `size` exactly.
-  grid: string[];
+  grid?: string[];
+  // The sheet form, instead of palette + grid: a PNG path the viewport serves
+  // (relative, e.g. "tiles/kenney-tiny-town.png") and which tile of it to cut,
+  // counting left to right then top to bottom in cells of `size`, no spacing.
+  // A list of tiles is drawn bottom to top: [grass, tree] puts a tree with a
+  // transparent background on grass.
+  sheet?: string;
+  tile?: number | number[];
   mirror?: "horizontal" | "vertical" | "none";
   // Standing-token anchor as fractions; renderers default to bottom-center.
   anchor?: { x: number; y: number };
@@ -78,8 +86,20 @@ export function assertValidSpriteSpec(
   let spec = value as Partial<SpriteSpec> & Record<string, unknown>;
 
   for (let key of Object.keys(spec))
-    if (!["size", "kind", "palette", "grid", "mirror", "anchor"].includes(key))
+    if (
+      ![
+        "size",
+        "kind",
+        "palette",
+        "grid",
+        "mirror",
+        "anchor",
+        "sheet",
+        "tile",
+      ].includes(key)
+    )
       fail(`has unknown key "${key}".`);
+  let fromSheet = spec.sheet !== undefined || spec.tile !== undefined;
 
   let size = spec.size;
   if (
@@ -111,6 +131,33 @@ export function assertValidSpriteSpec(
     !["horizontal", "vertical", "none"].includes(spec.mirror)
   )
     fail(`"mirror" must be "horizontal", "vertical", or "none".`);
+
+  if (fromSheet) {
+    if (
+      typeof spec.sheet !== "string" ||
+      !/^[a-z0-9][a-z0-9_./-]*\.png$/i.test(spec.sheet) ||
+      spec.sheet.includes("..")
+    )
+      fail(
+        `"sheet" must be a relative .png path the viewport serves, like "tiles/kenney-tiny-town.png".`,
+      );
+    let tiles = Array.isArray(spec.tile) ? spec.tile : [spec.tile];
+    if (
+      tiles.length < 1 ||
+      tiles.length > 4 ||
+      !tiles.every((t) => Number.isInteger(t) && (t as number) >= 0)
+    )
+      fail(
+        `"tile" must be a tile index (0 or more), or a list of 1 to 4 drawn bottom to top.`,
+      );
+    for (let key of ["palette", "grid", "mirror"] as const)
+      if (spec[key] !== undefined)
+        fail(
+          `a sheet tile takes no "${key}"; use either sheet + tile or palette + grid.`,
+        );
+    assertValidAnchor(spec.anchor, fail);
+    return;
+  }
 
   let palette = spec.palette;
   if (!palette || typeof palette !== "object" || Array.isArray(palette))
@@ -180,7 +227,10 @@ export function assertValidSpriteSpec(
           `token corner (${x},${y}) is not transparent - a standing token sits over a clear field.`,
         );
 
-  let anchor = spec.anchor;
+  assertValidAnchor(spec.anchor, fail);
+}
+
+function assertValidAnchor(anchor: unknown, fail: (message: string) => never) {
   if (anchor !== undefined) {
     if (
       !anchor ||

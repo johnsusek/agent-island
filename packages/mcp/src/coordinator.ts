@@ -2106,6 +2106,7 @@ export function createColony(options: ColonyOptions) {
     gmSetStock: gmCommands.gmSetStock,
     gmSetStockDefault: gmCommands.gmSetStockDefault,
     gmSpawnEntity: gmCommands.gmSpawnEntity,
+    gmEditEntity: gmCommands.gmEditEntity,
     gmRegisterTerrain: gmCommands.gmRegisterTerrain,
     gmRegisterKindVisual: gmCommands.gmRegisterKindVisual,
     gmSetTerrain: gmCommands.gmSetTerrain,

@@ -65,11 +65,22 @@ function carriedLine(you: Dict | undefined, display?: Dict): string {
 // Shared quantities the whole world holds - a bay's fish, a common granary -
 // as figures, like the pack line: a world stock whose role is "pack" is a
 // count everyone can see and argue over. World vitals and stats stay out of
-// prose; a scenario reaches characters about those through events.
+// prose; a scenario reaches characters about those through events. Unlike a
+// pack, a zero stays on the line: an empty granary or a dial turned all the way
+// down is news, not an absence.
 function worldLine(world: Dict | undefined, display?: Dict): string {
-  let shared = carriedStocks(world?.stocks, display).filter(
-    (c) => display?.[c.name]?.scope === "world",
-  );
+  let shared = Object.entries((world?.stocks ?? {}) as Dict)
+    .filter(
+      ([name, stock]) =>
+        display?.[name]?.role === "pack" &&
+        display?.[name]?.scope === "world" &&
+        typeof stock.value === "number",
+    )
+    .map(([name, stock]) => ({
+      name,
+      value: Math.round(stock.value * 10) / 10,
+      max: typeof stock.max === "number" ? stock.max : undefined,
+    }));
   if (!shared.length) return "";
   let parts = shared.map((c) => {
     let label = display?.[c.name]?.label ?? c.name;

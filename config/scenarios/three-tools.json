@@ -1,0 +1,13 @@
+{
+  "name": "three-tools",
+  "description": "Winter in a one-room camp beside a bay, a grove and a well. Staying alive takes three things - fish to eat, firewood to burn, water to drink - and each runs down every tick. Fish, wood and water are plentiful, but you can only fish with a rod in your hand, chop with an axe, and draw water with a bucket, and there are just two of each for the whole camp. Tools are picked up, dropped, or lent hand to hand; goods are given. Everything said and handed over in the room is seen by all. Survive 500 ticks. Built for 6 to 9 players.",
+  "recommendedPlayers": {
+    "min": 6,
+    "max": 9
+  },
+  "include": ["three-tools"],
+  "overlay": {
+    "dynamicRules": [],
+    "removedBaseIds": []
+  }
+}

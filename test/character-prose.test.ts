@@ -369,3 +369,51 @@ test("a stat is excluded from the Carrying line even when it isn't banded", () =
   assert.match(text, /Carrying: wood 4\/10\./);
   assert.doesNotMatch(text, /courage/i);
 });
+
+test("a hidden stock never reaches prose, even when it holds a figure", () => {
+  let text = renderCharacterResult({
+    sense: "situation",
+    tick: 3,
+    you: {
+      name: "Bex",
+      alive: true,
+      stocks: {
+        infected: { value: 1, min: 0, max: 1 },
+        wood: { value: 4, min: 0, max: 10 },
+      },
+    },
+    display: {
+      infected: { role: "hidden" },
+      wood: { role: "pack" },
+    },
+  });
+
+  assert.match(text, /Carrying: wood 4\/10\./);
+  assert.doesNotMatch(text, /infected/i);
+});
+
+test("a world figure at zero stays on the world line; an empty pack line does not", () => {
+  let text = renderCharacterResult({
+    sense: "situation",
+    tick: 3,
+    you: {
+      name: "Bex",
+      alive: true,
+      stocks: { fish: { value: 0, min: 0, max: 12 } },
+    },
+    world: {
+      stocks: {
+        tax: { value: 0, min: 0, max: 50 },
+        granary: { value: 7, min: 0, max: 400 },
+      },
+    },
+    display: {
+      fish: { role: "pack", scope: "agent" },
+      tax: { role: "pack", scope: "world", label: "tax" },
+      granary: { role: "pack", scope: "world", label: "granary" },
+    },
+  });
+
+  assert.match(text, /The world holds: tax 0\/50, granary 7\/400\./);
+  assert.doesNotMatch(text, /Carrying/);
+});

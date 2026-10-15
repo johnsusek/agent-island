@@ -105,6 +105,7 @@ export function buildInspection(
       description: ruleView.description,
     })),
     events: engine.recentEvents(30),
+    motions: engine.getMotions(),
   };
 
   let focus: Record<string, unknown> = {};

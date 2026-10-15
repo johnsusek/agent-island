@@ -1,0 +1,596 @@
+{
+  "name": "generations",
+  "description": "A village that outlives everyone in it. Each person lives a few hundred ticks - some longer, some shorter - and then dies of old age; death is permanent. You will feel your years as the end nears. New people arrive now and then, knowing nothing: what they learn comes from the living and from what is written on signs. The village can make its own laws by motion and vote, and laws that pass are kept. A monument stands where everyone arrives. The village wins if anyone of it is still alive at tick 1500. Built for 6 to 10 people alive at once.",
+  "recommendedPlayers": {
+    "min": 6,
+    "max": 10
+  },
+  "include": [],
+  "overlay": {
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1.2,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      }
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find berries soon.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "berries": {
+        "value": 4,
+        "min": 0,
+        "max": 8,
+        "icon": "berries",
+        "color": "#c23b3b",
+        "role": "pack",
+        "label": "berries"
+      },
+      "lifespan": {
+        "value": 450,
+        "min": 0,
+        "max": 450,
+        "icon": "hourglass",
+        "color": "#9b8a6a",
+        "role": "stat",
+        "label": "lifespan"
+      },
+      "age": {
+        "value": 0,
+        "min": -1000,
+        "max": 1000,
+        "icon": "sands-of-time",
+        "color": "#9b8a6a",
+        "role": "stat",
+        "label": "age"
+      },
+      "years_left": {
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "icon": "heart-beats",
+        "color": "#c9a26b",
+        "role": "stat",
+        "label": "remaining years",
+        "bands": {
+          "pressing": "You are no longer young; your years are past their middle.",
+          "serious": "You are old now. Your strength is going - pass on what you know.",
+          "critical": "You are very old. Your time is close."
+        }
+      }
+    },
+    "worldStocks": {},
+    "setup": [
+      {
+        "scatter": {
+          "kind": "bush",
+          "namePrefix": "bush",
+          "tags": ["bush"],
+          "density": 0.6,
+          "onTerrain": ["plains"],
+          "minSpacing": 4,
+          "spawnKeepout": 5,
+          "stocks": {
+            "berries": {
+              "value": [5, 9],
+              "min": 0,
+              "max": [10, 14],
+              "icon": "berries",
+              "color": "#c23b3b"
+            }
+          },
+          "occupancy": "tile"
+        }
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "monument",
+        "kind": "monument",
+        "tags": ["monument"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "Here the first of us settled. We will die; the village need not. Feed the young, teach the new, write down what matters. Whoever reads this: you are one of us now."
+      }
+    ],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "bush": {
+        "icon": "berries",
+        "color": "#c23b3b",
+        "label": "berry bush",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 5
+        }
+      },
+      "monument": {
+        "icon": "stone-tablet",
+        "color": "#8d8d99",
+        "label": "monument",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      }
+    },
+    "describeEvent": {
+      "death": "{{ ctx.name }} has died.",
+      "old-age": "{{ ctx.name }} has died of old age.",
+      "starving": "{{ ctx.name }} is starving."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - find berries and eat"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "bushes-regrow",
+        "description": "Berry bushes slowly fruit again, up to their capacity.",
+        "phase": "flow",
+        "each": {
+          "kind": "bush"
+        },
+        "target": "berries",
+        "rate": 0.02
+      },
+      {
+        "id": "forage",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["pick_berries", "gather", "pick"],
+        "description": "Pick up to 2 berries from a bush beside you.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "bush",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "berries"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "berries"
+              },
+              "right": 8
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside a bush with ripe berries, and have room in your pouch",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "bush",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "berries"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the bush was picked bare",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "berries",
+                "of": {
+                  "colocated": {
+                    "kind": "bush",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "berries"
+                      },
+                      "right": 1
+                    },
+                    "pick": {
+                      "highest": "berries"
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "berries",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "berries",
+                      "of": {
+                        "colocated": {
+                          "kind": "bush",
+                          "range": 1,
+                          "where": {
+                            "cmp": "gte",
+                            "left": {
+                              "stock": "berries"
+                            },
+                            "right": 1
+                          },
+                          "pick": {
+                            "highest": "berries"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "berries"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one berry (+20 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "berries"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no berries",
+        "do": [
+          {
+            "adjust": {
+              "target": "berries",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "a-life-is-measured",
+        "description": "On arrival each person is given a lifespan between 250 and 450 ticks, and their age starts at zero.",
+        "phase": "event",
+        "on": "joined",
+        "do": [
+          {
+            "set": {
+              "target": "lifespan",
+              "to": {
+                "round": {
+                  "rand": [250, 450, "life"]
+                }
+              }
+            }
+          },
+          {
+            "set": {
+              "target": "age",
+              "to": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "aging",
+        "description": "Everyone ages one year a tick.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "age",
+        "rate": 1
+      },
+      {
+        "id": "years-left",
+        "description": "The share of a person's life still ahead of them, as a percentage; they feel it once past the middle.",
+        "phase": "derived",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "years_left",
+        "value": {
+          "clamp": [
+            {
+              "mul": [
+                100,
+                {
+                  "div": [
+                    {
+                      "sub": [
+                        {
+                          "stock": "lifespan"
+                        },
+                        {
+                          "stock": "age"
+                        }
+                      ]
+                    },
+                    {
+                      "max": [
+                        1,
+                        {
+                          "stock": "lifespan"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            0,
+            100
+          ]
+        }
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "old-age",
+        "description": "When age reaches lifespan, the person dies of old age.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "gte",
+          "left": {
+            "stock": "age"
+          },
+          "right": {
+            "stock": "lifespan"
+          }
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "old-age",
+          "global": true
+        }
+      },
+      {
+        "id": "victory",
+        "description": "Anyone still alive at tick 1500 has made it.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 1500
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "Tick 1500. The founders are long gone, but the village lives.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

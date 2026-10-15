@@ -6,10 +6,12 @@
 // can hurt or kill (`vital`, band-alarmed prose, never a figure), a personal
 // dimension worth a mention only when it's notable (`stat`, adjectival prose,
 // silent otherwise), or a fungible quantity that gets carried and handed over
-// (`pack`, the "Carrying:" figures, the only role give/stockpile ever touch).
+// (`pack`, the "Carrying:" figures, the only role give/stockpile ever touch),
+// or the rules' own bookkeeping that the character must not perceive at all
+// (`hidden`: never in prose, never givable - a fever nobody can feel yet).
 // An unclassified stock is `pack`: the plain reading of a bare number nobody
 // has said anything else about.
-export type StockRole = "vital" | "stat" | "pack";
+export type StockRole = "vital" | "stat" | "pack" | "hidden";
 
 // The reader-facing view of one stock: what it is and how to say it. Built
 // fresh on every read (see engine.ts stockDisplay) from the registry that

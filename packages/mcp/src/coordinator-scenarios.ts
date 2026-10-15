@@ -58,15 +58,18 @@ function composeWorldgen(
   let blobs = overlay?.blobs;
   let terrainLayers = overlay?.terrainLayers;
   let connect = overlay?.connect;
+  let mapSize = overlay?.mapSize;
   if (
     defaultTerrain === undefined &&
     blobs === undefined &&
     terrainLayers === undefined &&
-    connect === undefined
+    connect === undefined &&
+    mapSize === undefined
   )
     return base;
   let merged: WorldGen = {
     ...(base ?? { width: 21, height: 21 }),
+    ...(mapSize ? { width: mapSize.width, height: mapSize.height } : {}),
     ...(defaultTerrain !== undefined ? { defaultTerrain } : {}),
     ...(blobs !== undefined ? { blobs } : {}),
     ...(terrainLayers !== undefined ? { terrainLayers } : {}),

@@ -465,6 +465,18 @@
           "mirror": "none"
         }
       },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [
+            16,
+            16
+          ],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      },
       "agent": {
         "sprite": {
           "size": [

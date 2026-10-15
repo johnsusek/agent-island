@@ -18,7 +18,7 @@ export interface Stock {
 }
 
 // What a stock IS to a character (mirrors the engine's scenario.StockRole).
-export type StockRole = "vital" | "stat" | "pack";
+export type StockRole = "vital" | "stat" | "pack" | "hidden";
 
 // How a per-character stock starts out (mirrors the engine's scenario.StockSpec).
 // `icon` is the game-icons slug it draws with. The overview payload strips the
@@ -59,8 +59,11 @@ export interface HeldItem {
 export interface SpriteSpec {
   size: [number, number];
   kind?: "token" | "terrain";
-  palette: Record<string, string>;
-  grid: string[];
+  palette?: Record<string, string>;
+  grid?: string[];
+  // Or one tile cut from a served tileset PNG (see the server's sprite.ts).
+  sheet?: string;
+  tile?: number | number[];
   mirror?: "horizontal" | "vertical" | "none";
   anchor?: { x: number; y: number };
 }
@@ -265,6 +268,7 @@ export interface GmEventView {
     | "stock_set"
     | "stock_default_set"
     | "entity_spawned"
+    | "entity_edited"
     | "terrain_registered"
     | "terrain_painted"
     | "world_regenerated"

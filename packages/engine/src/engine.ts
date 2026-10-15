@@ -19,6 +19,7 @@ import {
   roundStock,
   runRulesForTick,
   stock,
+  RETIRED_OCCUPANCY_TAGS,
   validateRule,
   validInscription,
   type Args,
@@ -187,6 +188,7 @@ export interface GmEvent {
     | "stock_set"
     | "stock_default_set"
     | "entity_spawned"
+    | "entity_edited"
     | "terrain_registered"
     | "terrain_painted"
     | "world_regenerated"
@@ -395,6 +397,11 @@ export interface RuleOverlay {
   // Present only alongside a scenario that ships a pregenerated map.
   worldWidth?: number;
   worldHeight?: number;
+  // The live map this scenario plays on, replacing the world file's canvas
+  // width/height: {width:1, height:1} makes the scenario a room, a large one a
+  // wide fogged map. Unlike worldWidth/worldHeight (a pregenerated bake's
+  // extent) this sizes the grid the world actually starts with.
+  mapSize?: { width: number; height: number };
   // Kind-tag icons/colors the GM added at runtime (set_stock_default's icon/color,
   // a terrain coupling's icon) - the divergence from the scenario's kindVisuals.
   kindVisuals?: Record<string, Visual>;
@@ -536,6 +543,15 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   let terrainRevision: number;
   let tokenRevision: number;
   let orders: Map<string, OrderState>;
+  // Events the host raised outside the rules (speech, gifts, joins, votes,
+  // pickups, ...), queued for the next tick's event rules so a scenario can
+  // react to them with `phase: "event", on: "said"` like any rule-emitted
+  // event. Events the rules produced themselves are not queued again: they
+  // already ran past the event rules in the tick that made them. Transient on
+  // purpose - a snapshot taken between ticks drops at most one tick's worth.
+  let hostEvents: KernelEvent[] = [];
+  let enriching = false;
+
   // Every motion this run, open and closed, oldest first (see Motion).
   let motions: Motion[];
   let nextMotionId: number;
@@ -650,6 +666,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     meta = new Map();
     log = [];
     nextSeq = 0;
+    hostEvents = [];
     gmLog = [];
     nextGmSeq = 0;
     rules = [...scenario.rules];
@@ -973,16 +990,43 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   function push(
     event: Omit<GameEvent, "seq" | "tick" | "wake"> & {
       wake?: GameEvent["wake"];
+      // Extra flat data for rules only (a gift's amount, a vote's choice),
+      // kept off the logged event.
+      ruleArgs?: Args;
     },
   ) {
+    let { ruleArgs, ...logged } = event;
     log.push({
       seq: nextSeq,
       tick: world.tick,
-      wake: event.wake ?? "decision",
-      ...event,
+      wake: logged.wake ?? "decision",
+      ...logged,
     });
     nextSeq += 1;
     if (log.length > 50_000) log.shift();
+    if (!enriching) hostEvents.push(toKernelEvent(logged, ruleArgs));
+  }
+
+  // The rule-facing shape of a host event: bound to the actor (or the world
+  // when there is none), with its flat fields as args - `target` (an agent
+  // id, usable as an entity selector via {arg:"target"}), `message`, `motion`.
+  function toKernelEvent(
+    event: Omit<GameEvent, "seq" | "tick">,
+    ruleArgs: Args | undefined,
+  ): KernelEvent {
+    let args: Args = {};
+    if (event.target !== undefined) args.target = event.target;
+    if (event.message !== undefined) args.message = event.message;
+    if (event.motion !== undefined) args.motion = event.motion;
+    Object.assign(args, ruleArgs);
+    return {
+      tick: world.tick,
+      type: event.type,
+      ...(event.agentId ? { entity: event.agentId } : {}),
+      ...(event.text !== undefined ? { text: event.text } : {}),
+      ...(event.global ? { global: true } : {}),
+      ...(Object.keys(args).length ? { args } : {}),
+    };
   }
 
   function recentEvents(limit = 200) {
@@ -1253,13 +1297,18 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   function tick() {
     let from = nextSeq;
     let before = beginTick(world);
-    let raw = advanceSpace(space, world, []);
+    // Host events since the last tick go first, so event rules see them in
+    // the tick's opening pass; only what the rules and the grid raise after
+    // them is rendered into the log below (the host events are logged already).
+    let forwarded = hostEvents;
+    hostEvents = [];
+    let all = [...forwarded, ...advanceSpace(space, world, [])];
     let live = rules;
     runRulesForTick(
       world,
       live,
       before,
-      raw,
+      all,
       terrainAt,
       writeTerrain,
       revealFog,
@@ -1274,7 +1323,13 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       tokenRevision += 1;
       replanRoutesForSolids(space, world);
     }
-    for (let event of raw) enrich(event);
+    let raw = all.slice(forwarded.length);
+    enriching = true;
+    try {
+      for (let event of raw) enrich(event);
+    } finally {
+      enriching = false;
+    }
     // Alarms loud enough to stop hands (a watch emit marked `interrupt`) land
     // after the prose so the feed reads cause then effect, and before orders
     // advance so an interrupted order commits nothing further this tick.
@@ -2096,6 +2151,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       global: true,
       wake: "routine",
       motion: motion.id,
+      ruleArgs: { choice: said },
       text: `${displayName(id)} ${before && before !== said ? "changes their vote to" : "votes"} ${said} on motion ${motion.id}.`,
     });
     let outcome = settleMotion(motion);
@@ -2151,6 +2207,18 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       closesInTicks: Math.max(0, motion.closesAt - world.tick),
       ...(viewer ? { yourVote: motion.votes[viewer] ?? null } : {}),
     };
+  }
+
+  // Every motion this run, open and closed, for the director: a motion that
+  // passed while no GM was parked is still here to carry out.
+  function getMotions() {
+    return structuredClone(
+      motions.map((m) => ({
+        ...motionView(m),
+        openedAt: m.openedAt,
+        ...(m.closedAt !== undefined ? { closedAt: m.closedAt } : {}),
+      })),
+    );
   }
 
   function openMotions(viewer?: string) {
@@ -2226,6 +2294,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       target,
       audience: witnessAudience(id),
       text: `${displayName(id)} gives ${displayName(target)} ${transferred} ${resource}.`,
+      ruleArgs: { amount: transferred, resource },
     });
     return transferred;
   }
@@ -3124,8 +3193,9 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   // design: living characters keep their tags and stocks and land on the new
   // spawn; the world entity keeps its stocks (else the counter that drove the
   // reroll would die in the reroll it caused); every other entity - old tokens,
-  // corpses, GM fixtures, dropped items - is cleared and rebuilt by worldgen and
-  // the scenario's own spawn rules over the ticks that follow.
+  // corpses, GM fixtures, dropped items - is cleared and rebuilt by worldgen,
+  // the scenario's setup scatter, and its own spawn rules over the ticks that
+  // follow.
   function regenerate(seed: number) {
     activeSeed = seed;
     let effectiveWorldgen = scenario.worldgen
@@ -3191,6 +3261,10 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     let liveTerrainSpecs = terrainSpecs;
     terrainSpecs = {};
     reapplyTerrainSpecs(liveTerrainSpecs);
+    // The scenario's setup scatter is part of the land, not of the run: a new
+    // floor gets its own bushes, gate, or herd, rolled from the new seed. GM
+    // fixtures and everything characters made or dropped stay behind.
+    applySetup(appliedSetup);
 
     // Each survivor wakes on the new floor: drop any order that was steering it
     // across the old map, and seed fresh fog so it perceives only what sight
@@ -3569,7 +3643,19 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
       // presentation (see stockDisplay), so a captured overlay that dropped
       // them would restore a world whose season pill had lost its name.
       worldStocks: structuredClone(worldStockSpecs),
+      // The overlay's event prose: without it a snapshot restores a world whose
+      // own events read as bare "<name> <type>".
+      describeEvent: runtimeDescribeEvent(),
     };
+  }
+
+  // Event templates the applied overlay added or changed, beyond the scenario's.
+  function runtimeDescribeEvent(): Record<string, string> {
+    let base = scenario.describeEvent ?? {};
+    let out: Record<string, string> = {};
+    for (let [type, template] of Object.entries(describeTemplates))
+      if (base[type] !== template) out[type] = template;
+    return out;
   }
 
   // The kind-tag icons/colors the GM added at runtime: the divergence from the
@@ -3907,7 +3993,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
   // and a single missing stock fails the whole tick for everyone. The default
   // never overwrites a stock a character already has - re-running it, or setting a
   // default for a stock some already carry, only fills the gaps.
-  const STOCK_ROLES: StockRole[] = ["vital", "stat", "pack"];
+  const STOCK_ROLES: StockRole[] = ["vital", "stat", "pack", "hidden"];
   const VITAL_BAND_NAMES = ["pressing", "serious", "critical"] as const;
 
   function assertValidBands(
@@ -4033,6 +4119,48 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     };
     if (syncTokens(space, world)) tokenRevision += 1;
     return pos ? tokenNameAt(space.grid, pos) === spec.id : false;
+  }
+
+  // Rewrite what an existing entity says and how rules see it: replace its
+  // inscription (a chronicler restating the monument), and add or remove tags
+  // (a judge handing a disputed stake to its new owner). Kind, stocks, and
+  // position have their own tools; this is the rest of an entity's identity.
+  function editEntity(
+    id: string,
+    edit: { text?: string; addTags?: string[]; removeTags?: string[] },
+  ): Entity {
+    let e = world.entities[id];
+    if (!e) throw new Error(`No entity "${id}".`);
+    if (id === "world")
+      throw new Error("The world entity carries no tags or text to edit.");
+    let add = edit.addTags ?? [];
+    let remove = edit.removeTags ?? [];
+    if (edit.text === undefined && !add.length && !remove.length)
+      throw new Error("Nothing to edit: pass text, addTags, or removeTags.");
+    for (let tag of [...add, ...remove]) {
+      if (typeof tag !== "string" || !tag.trim())
+        throw new Error("A tag must be a non-empty string.");
+      if (RETIRED_OCCUPANCY_TAGS.has(tag))
+        throw new Error(
+          `"${tag}" is no longer a tag; how an entity sits on its tile is its occupancy.`,
+        );
+    }
+    let text =
+      edit.text === undefined ? undefined : validInscription(edit.text);
+    if (text !== undefined) e.text = text;
+    e.tags = e.tags.filter((t) => !remove.includes(t));
+    for (let tag of add) if (!e.tags.includes(tag)) e.tags.push(tag);
+    if (text !== undefined) tokenRevision += 1;
+    let parts = [
+      ...(text !== undefined ? ["rewrote its text"] : []),
+      ...(add.length ? [`+${add.join(", +")}`] : []),
+      ...(remove.length ? [`-${remove.join(", -")}`] : []),
+    ];
+    recordGm("entity_edited", `edited ${id}: ${parts.join("; ")}`, {
+      target: id,
+      detail: { entity: structuredClone(e) },
+    });
+    return structuredClone(e);
   }
 
   function spawnEntity(spec: {
@@ -4198,6 +4326,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     meta = new Map(clone.meta);
     log = clone.log;
     nextSeq = clone.nextSeq;
+    hostEvents = [];
     gmLog = clone.gmLog ?? [];
     nextGmSeq = clone.nextGmSeq ?? 0;
     orders = new Map(clone.orders ?? []);
@@ -4231,6 +4360,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     inscribe,
     propose,
     vote,
+    getMotions,
     announce,
     visibleTo,
     visibleEventsSince,
@@ -4268,6 +4398,7 @@ export function createWorld(scenario: Scenario, options: EngineOptions = {}) {
     registerKindVisual,
     setTerrainTiles,
     spawnEntity,
+    editEntity,
     recentEvents,
     recordGm,
     recentGmEvents,

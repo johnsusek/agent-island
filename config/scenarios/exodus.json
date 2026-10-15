@@ -1,0 +1,596 @@
+{
+  "name": "exodus",
+  "description": "Each floor of this world has one gate, somewhere away from where you arrive. It opens only when at least half of everyone living stands at it, and when it opens, everyone living falls through together - even those who were far away, or who did not want to go. The next floor is fresh land with full bushes, but only what you carry comes with you: signs and anything left on the ground stay behind. The deeper you go, the slower the bushes grow back. Descending is optional - anyone still alive at tick 600 has made it. Built for 5 to 8 players.",
+  "recommendedPlayers": {
+    "min": 5,
+    "max": 8
+  },
+  "include": [],
+  "overlay": {
+    "defaultTerrain": "plains",
+    "terrainLayers": [
+      {
+        "terrain": "forest",
+        "gen": {
+          "blobs": {
+            "density": 1.2,
+            "maxRadius": 3
+          }
+        },
+        "where": {
+          "on": ["plains"]
+        }
+      }
+    ],
+    "connect": true,
+    "terrainSpecs": {
+      "plains": {
+        "moveCost": 1,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": 0
+          },
+          "color": "#42583a"
+        }
+      },
+      "forest": {
+        "moveCost": 2,
+        "visual": {
+          "sprite": {
+            "size": [16, 16],
+            "kind": "terrain",
+            "sheet": "tiles/kenney-tiny-town.png",
+            "tile": [0, 19]
+          },
+          "color": "#2f4a35"
+        }
+      }
+    },
+    "mapSize": {
+      "width": 32,
+      "height": 32
+    },
+    "stockDefaults": {
+      "health": {
+        "value": 100,
+        "icon": "health",
+        "color": "#e56b6f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "health",
+        "bands": {
+          "pressing": "You are hurt.",
+          "serious": "You are badly hurt.",
+          "critical": "You are dying."
+        }
+      },
+      "satiation": {
+        "value": 100,
+        "icon": "food",
+        "color": "#e0453f",
+        "min": 0,
+        "max": 100,
+        "role": "vital",
+        "label": "satiation",
+        "bands": {
+          "pressing": "You are getting hungry.",
+          "serious": "You are very hungry - find berries soon.",
+          "critical": "You are starving. Eat now."
+        }
+      },
+      "berries": {
+        "value": 4,
+        "min": 0,
+        "max": 8,
+        "icon": "berries",
+        "color": "#c23b3b",
+        "role": "pack",
+        "label": "berries"
+      }
+    },
+    "worldStocks": {
+      "floor": {
+        "value": 0,
+        "min": 0,
+        "max": 99,
+        "icon": "stairs",
+        "color": "#8a7a9b",
+        "role": "pack",
+        "label": "floors descended"
+      }
+    },
+    "setup": [
+      {
+        "scatter": {
+          "kind": "bush",
+          "namePrefix": "bush",
+          "tags": ["bush"],
+          "density": 0.6,
+          "onTerrain": ["plains"],
+          "minSpacing": 4,
+          "spawnKeepout": 5,
+          "stocks": {
+            "berries": {
+              "value": [5, 9],
+              "min": 0,
+              "max": [10, 14],
+              "icon": "berries",
+              "color": "#c23b3b"
+            }
+          },
+          "occupancy": "tile"
+        }
+      },
+      {
+        "scatter": {
+          "kind": "gate",
+          "namePrefix": "gate",
+          "tags": ["gate"],
+          "count": 1,
+          "onTerrain": ["plains"],
+          "spawnKeepout": 9,
+          "occupancy": "tile"
+        }
+      }
+    ],
+    "fixtures": [],
+    "kindVisuals": {
+      "agent": {
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 85
+        }
+      },
+      "sign": {
+        "icon": "marker",
+        "color": "#b9985f",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 83
+        }
+      },
+      "bush": {
+        "icon": "berries",
+        "color": "#c23b3b",
+        "label": "berry bush",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-town.png",
+          "tile": 5
+        }
+      },
+      "gate": {
+        "icon": "stairs",
+        "color": "#4b4f6b",
+        "label": "gate",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 9
+        }
+      },
+      "dead": {
+        "label": "body",
+        "sprite": {
+          "size": [16, 16],
+          "kind": "token",
+          "sheet": "tiles/kenney-tiny-dungeon.png",
+          "tile": 65
+        }
+      }
+    },
+    "describeEvent": {
+      "death": "{{ ctx.name }} has died.",
+      "starving": "{{ ctx.name }} is starving.",
+      "descent": "The gate opens. The ground gives way, and everyone falls to a new floor.",
+      "gate-stirs": "The gate stirs under {{ ctx.name }}. It will open when half of the living stand at it."
+    },
+    "dynamicRules": [
+      {
+        "id": "hunger",
+        "description": "Everyone gets hungrier: 200 ticks from full to starving.",
+        "phase": "flow",
+        "each": {
+          "tag": "agent"
+        },
+        "target": "satiation",
+        "rate": -0.5
+      },
+      {
+        "id": "starving",
+        "description": "The hunger alarm.",
+        "phase": "watch",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "emit": {
+          "type": "starving",
+          "interrupt": "you are starving - find berries and eat"
+        }
+      },
+      {
+        "id": "starvation-hurts",
+        "description": "Starving kills within 50 ticks.",
+        "phase": "threshold",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "satiation"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "health",
+              "by": -2
+            }
+          }
+        ]
+      },
+      {
+        "id": "bushes-regrow",
+        "description": "Berry bushes slowly fruit again, up to their capacity.",
+        "phase": "flow",
+        "each": {
+          "kind": "bush"
+        },
+        "target": "berries",
+        "rate": 0.01,
+        "channel": "regrowth"
+      },
+      {
+        "id": "forage",
+        "kind": "action",
+        "duration": 2,
+        "aliases": ["pick_berries", "gather", "pick"],
+        "description": "Pick up to 2 berries from a bush beside you.",
+        "requires": {
+          "all": [
+            {
+              "colocated": {
+                "kind": "bush",
+                "range": 1,
+                "where": {
+                  "cmp": "gte",
+                  "left": {
+                    "stock": "berries"
+                  },
+                  "right": 1
+                }
+              }
+            },
+            {
+              "cmp": "lt",
+              "left": {
+                "stock": "berries"
+              },
+              "right": 8
+            }
+          ]
+        },
+        "requireReason": "you need to stand beside a bush with ripe berries, and have room in your pouch",
+        "fizzleWhen": {
+          "not": {
+            "colocated": {
+              "kind": "bush",
+              "range": 1,
+              "where": {
+                "cmp": "gte",
+                "left": {
+                  "stock": "berries"
+                },
+                "right": 1
+              }
+            }
+          }
+        },
+        "fizzleReason": "the bush was picked bare",
+        "do": [
+          {
+            "transfer": {
+              "from": {
+                "stock": "berries",
+                "of": {
+                  "colocated": {
+                    "kind": "bush",
+                    "range": 1,
+                    "where": {
+                      "cmp": "gte",
+                      "left": {
+                        "stock": "berries"
+                      },
+                      "right": 1
+                    },
+                    "pick": {
+                      "highest": "berries"
+                    }
+                  }
+                }
+              },
+              "to": {
+                "stock": "berries",
+                "of": "self"
+              },
+              "amount": {
+                "min": [
+                  2,
+                  {
+                    "floor": {
+                      "stock": "berries",
+                      "of": {
+                        "colocated": {
+                          "kind": "bush",
+                          "range": 1,
+                          "where": {
+                            "cmp": "gte",
+                            "left": {
+                              "stock": "berries"
+                            },
+                            "right": 1
+                          },
+                          "pick": {
+                            "highest": "berries"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "headroom": "berries"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "eat",
+        "kind": "action",
+        "duration": 1,
+        "description": "Eat one berry (+20 satiation).",
+        "requires": {
+          "cmp": "gte",
+          "left": {
+            "stock": "berries"
+          },
+          "right": 1
+        },
+        "requireReason": "you have no berries",
+        "do": [
+          {
+            "adjust": {
+              "target": "berries",
+              "by": -1
+            }
+          },
+          {
+            "adjust": {
+              "target": "satiation",
+              "by": 20
+            }
+          }
+        ]
+      },
+      {
+        "id": "deeper-is-leaner",
+        "description": "Each floor down, bushes regrow more slowly: the rate is divided by 1 + half the floors descended.",
+        "kind": "modifier",
+        "channel": "regrowth",
+        "op": "scale",
+        "value": {
+          "div": [
+            1,
+            {
+              "add": [
+                1,
+                {
+                  "mul": [
+                    0.5,
+                    {
+                      "stock": "floor",
+                      "of": "world"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "gate-stirs",
+        "description": "Standing at the gate, you feel it waiting for more of you (at most once every 20 ticks).",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "cooldown": 20,
+        "when": {
+          "colocated": {
+            "kind": "gate",
+            "range": 1
+          }
+        },
+        "do": [],
+        "emit": {
+          "type": "gate-stirs",
+          "text": "The gate stirs. It will open when half of the living stand here."
+        }
+      },
+      {
+        "id": "gate-opens",
+        "description": "When at least half of the living stand at the gate, it opens: the floor count rises and everyone living falls to a fresh floor. It cannot open again for 30 ticks.",
+        "phase": "transition",
+        "each": {
+          "tag": "world"
+        },
+        "cooldown": 30,
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "count": {
+                  "tag": "agent",
+                  "where": {
+                    "colocated": {
+                      "kind": "gate",
+                      "range": 1
+                    }
+                  }
+                }
+              },
+              "right": 1
+            },
+            {
+              "cmp": "gte",
+              "left": {
+                "mul": [
+                  {
+                    "count": {
+                      "tag": "agent",
+                      "where": {
+                        "colocated": {
+                          "kind": "gate",
+                          "range": 1
+                        }
+                      }
+                    }
+                  },
+                  2
+                ]
+              },
+              "right": {
+                "count": {
+                  "tag": "agent"
+                }
+              }
+            }
+          ]
+        },
+        "do": [
+          {
+            "adjust": {
+              "target": "floor",
+              "by": 1
+            }
+          },
+          {
+            "regenerate": {
+              "seed": {
+                "add": [
+                  {
+                    "mul": [
+                      {
+                        "stock": "floor"
+                      },
+                      7919
+                    ]
+                  },
+                  101
+                ]
+              }
+            }
+          }
+        ],
+        "emit": {
+          "type": "descent",
+          "text": "The gate opens. Everyone living falls to a new floor.",
+          "global": true
+        }
+      },
+      {
+        "id": "death",
+        "description": "At zero health you die.",
+        "phase": "transition",
+        "each": {
+          "tag": "agent"
+        },
+        "when": {
+          "cmp": "lte",
+          "left": {
+            "stock": "health"
+          },
+          "right": 0
+        },
+        "do": [
+          {
+            "set": {
+              "target": "health",
+              "to": 0
+            }
+          },
+          {
+            "tag": {
+              "remove": "agent",
+              "add": "dead"
+            }
+          },
+          {
+            "clearAction": {}
+          }
+        ],
+        "emit": {
+          "type": "death",
+          "global": true
+        }
+      },
+      {
+        "id": "victory",
+        "description": "Anyone still alive at tick 600 has made it.",
+        "phase": "watch",
+        "each": {
+          "tag": "world"
+        },
+        "when": {
+          "all": [
+            {
+              "cmp": "gte",
+              "left": {
+                "tick": true
+              },
+              "right": 600
+            },
+            {
+              "cmp": "gt",
+              "left": {
+                "count": {
+                  "tag": "agent"
+                }
+              },
+              "right": 0
+            }
+          ]
+        },
+        "emit": {
+          "type": "victory",
+          "text": "Tick 600. Whoever is still breathing, on whatever floor, has made it.",
+          "global": true
+        }
+      }
+    ],
+    "removedBaseIds": []
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "dials-motions",
+  "description": "A small fishing village on an island in a bay. You land fish by casting a net from the shore, and you eat them. The bay regrows from what is left - fastest at half full, never from empty. Three dials, posted for everyone to read, govern the catch: the quota (fish that must stay in the bay; nobody can fish while the bay is at or below it), the tax (0 to 50 percent of every catch goes into the village granary), and the ration (fish the granary hands each villager every 50 ticks, while it has enough). The assembly stone stands at the village center. No one can turn a dial by hand. The village changes a dial only by formal motion: propose the change in plain words (for example, set the tax to 30) and vote; a motion carried by a majority of the living is carried out. Survive 400 ticks. Built for 5 to 8 players.",
+  "recommendedPlayers": {
+    "min": 5,
+    "max": 8
+  },
+  "include": ["dials-village"],
+  "overlay": {
+    "fixtures": [
+      {
+        "id": "assembly-stone",
+        "kind": "stone",
+        "tags": ["stone"],
+        "atSpawn": true,
+        "occupancy": "tile",
+        "text": "The assembly stone. The quota, the tax and the ration change only by formal motion, carried by a majority of the living."
+      }
+    ],
+    "dynamicRules": [],
+    "removedBaseIds": []
+  }
+}
